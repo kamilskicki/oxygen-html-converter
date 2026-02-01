@@ -1,0 +1,63 @@
+<?php
+/**
+ * Plugin Name: Oxygen HTML Converter
+ * Description: Convert HTML to native Oxygen Builder elements. Paste entire HTML pages and edit them natively in Oxygen 6.
+ * Version: 1.0.0
+ * Author: Kamil Skicki
+ * Author URI: https://kamilskicki.com
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: oxygen-html-converter
+ * Requires at least: 5.0
+ * Requires PHP: 7.4
+ */
+
+// Exit if accessed directly
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+define('OXY_HTML_CONVERTER_VERSION', '1.0.0');
+define('OXY_HTML_CONVERTER_PATH', plugin_dir_path(__FILE__));
+define('OXY_HTML_CONVERTER_URL', plugin_dir_url(__FILE__));
+
+// Load PHP 7.4 polyfills for PHP 8.0+ functions
+require_once OXY_HTML_CONVERTER_PATH . 'src/polyfills.php';
+
+// Autoload classes
+spl_autoload_register(function ($class) {
+    $prefix = 'OxyHtmlConverter\\';
+    $base_dir = OXY_HTML_CONVERTER_PATH . 'src/';
+
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    $relative_class = substr($class, $len);
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+
+    if (file_exists($file)) {
+        require $file;
+    }
+});
+
+// Initialize plugin
+add_action('plugins_loaded', function () {
+    // Check if Oxygen Builder 6 is active
+    // Oxygen 6 is built on Breakdance and sets BREAKDANCE_MODE to 'oxygen'
+    // Also check for legacy Oxygen detection methods for forward compatibility
+    $oxygenActive = (defined('BREAKDANCE_MODE') && BREAKDANCE_MODE === 'oxygen') ||
+                    defined('CT_VERSION') ||
+                    class_exists('\\OxygenElements\\Element');
+    
+    if (!$oxygenActive) {
+        add_action('admin_notices', function () {
+            echo '<div class="error"><p>Oxygen HTML Converter requires Oxygen Builder 6 to be active.</p></div>';
+        });
+        return;
+    }
+
+    // Initialize main plugin class
+    \OxyHtmlConverter\Plugin::getInstance();
+});

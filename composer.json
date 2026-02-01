@@ -1,0 +1,35 @@
+{
+  "name": "skicu/oxygen-html-converter",
+  "description": "Convert HTML content to Oxygen Builder JSON format.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "Skicu"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "OxyHtmlConverter\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "OxyHtmlConverter\\Tests\\": "tests/"
+    }
+  },
+  "require": {
+    "php": ">=7.4"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.5",
+    "mockery/mockery": "^1.4"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true,
+    "allow-plugins": {
+      "composer/installers": true
+    }
+  }
+}

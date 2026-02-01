@@ -1,0 +1,235 @@
+.oxy-html-converter-wrap {
+    max-width: 1400px;
+}
+
+.oxy-converter-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 20px 0;
+}
+
+@media (max-width: 1200px) {
+    .oxy-converter-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.oxy-converter-input,
+.oxy-converter-output {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.oxy-converter-input h2,
+.oxy-converter-output h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+#oxy-html-input {
+    width: 100%;
+    height: 400px;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+#oxy-html-input:focus {
+    border-color: #007cba;
+    box-shadow: 0 0 0 1px #007cba;
+    outline: none;
+}
+
+.oxy-converter-options {
+    margin: 15px 0;
+}
+
+.oxy-converter-options label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.oxy-converter-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.oxy-converter-actions .button {
+    padding: 6px 16px;
+    height: auto;
+}
+
+/* Preview Box */
+.oxy-preview-box {
+    background: #f8f9fa;
+    border: 1px solid #e2e4e7;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.oxy-preview-box h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+#oxy-preview-content {
+    font-size: 13px;
+}
+
+#oxy-preview-content .preview-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+}
+
+#oxy-preview-content .preview-stat:last-child {
+    border-bottom: none;
+}
+
+#oxy-preview-content .preview-stat strong {
+    color: #1e1e1e;
+}
+
+#oxy-preview-content .preview-types {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #ddd;
+}
+
+#oxy-preview-content .preview-type {
+    display: inline-block;
+    background: #e7f3ff;
+    color: #0073aa;
+    padding: 3px 8px;
+    border-radius: 3px;
+    margin: 3px;
+    font-size: 12px;
+}
+
+/* JSON Output */
+.oxy-json-box {
+    background: #1e1e1e;
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.oxy-json-box h3 {
+    margin-top: 0;
+    color: #fff;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.oxy-json-status {
+    font-size: 12px;
+    font-weight: normal;
+    color: #7ec699;
+}
+
+#oxy-json-output {
+    width: 100%;
+    height: 350px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    background: #2d2d2d;
+    color: #f8f8f2;
+    border: none;
+    border-radius: 4px;
+    padding: 12px;
+    resize: vertical;
+}
+
+/* Error Box */
+.oxy-error-box {
+    background: #fef7f7;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.oxy-error-box h3 {
+    margin-top: 0;
+    color: #721c24;
+}
+
+#oxy-error-content {
+    color: #721c24;
+    font-size: 13px;
+}
+
+/* Instructions */
+.oxy-converter-instructions {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.oxy-converter-instructions h2 {
+    margin-top: 0;
+}
+
+.oxy-converter-instructions ol {
+    line-height: 1.8;
+}
+
+.oxy-converter-instructions kbd {
+    background: #f7f7f7;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.oxy-converter-instructions table {
+    margin-top: 15px;
+}
+
+.oxy-converter-instructions table code {
+    background: #f0f0f1;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+/* Loading state */
+.oxy-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.oxy-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: oxy-spin 0.8s linear infinite;
+}
+
+@keyframes oxy-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

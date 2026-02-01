@@ -1,0 +1,28 @@
+# Dependencies
+/vendor/
+
+# Testing
+/.phpunit.cache/
+/.phpunit.result.cache
+/tests/_output/
+/tests/_support/_generated/
+
+# Environments
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary / Sample files
+Wedding.html
+oxygen-html-converter*.zip
+*.zip
