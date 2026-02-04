@@ -1,5 +1,17 @@
 # Oxygen HTML Converter - Development Roadmap
 
+## Critical Fixes for v1.0 (COMPLETE)
+
+The following critical bugs have been fixed:
+
+- [x] **C1 - PHP 7.4 Compatibility**: Fixed union type `int|false` in `JavaScriptTransformer.php:178` and added global namespace prefix for `str_starts_with()` calls in `FrameworkDetector.php` and `InteractionDetector.php`
+- [x] **C2 - Oxygen 6 Detection**: Updated `oxygen-html-converter.php:45-50` to detect Oxygen 6 RC1 properly using `OXYGEN_ELEMENTS_API` constant
+- [x] **C3 - WindPress Detection**: Fixed `EnvironmentService.php:21-38` with proper `get_option()` fallback for non-WordPress environments
+- [x] **C4 - Debug Logging**: Commented out `error_log()` calls in `Ajax.php`
+- [x] **C5 - AJAX Security**: Added input validation in `Ajax.php` for HTML size limits (10MB max) and batch size limits (100 items max)
+
+---
+
 ## Vision
 
 Transform the Oxygen HTML Converter into a robust, widely-adopted tool that reliably converts HTML templates to native Oxygen Builder 6 elements, handling the majority of real-world use cases while gracefully degrading for edge cases.
