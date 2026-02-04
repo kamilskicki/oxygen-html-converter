@@ -45,11 +45,10 @@ spl_autoload_register(function ($class) {
 // Initialize plugin
 add_action('plugins_loaded', function () {
     // Check if Oxygen Builder 6 is active
-    // Oxygen 6 is built on Breakdance and sets BREAKDANCE_MODE to 'oxygen'
-    // Also check for legacy Oxygen detection methods for forward compatibility
-    $oxygenActive = (defined('BREAKDANCE_MODE') && BREAKDANCE_MODE === 'oxygen') ||
-                    defined('CT_VERSION') ||
-                    class_exists('\\OxygenElements\\Element');
+    // Oxygen 6 uses OXYGEN_ELEMENTS_API constant or OxygenElements namespace
+    $oxygenActive = defined('OXYGEN_ELEMENTS_API') ||
+                    class_exists('\\OxygenElements\\Element') ||
+                    (defined('BREAKDANCE_MODE') && BREAKDANCE_MODE === 'oxygen');
     
     if (!$oxygenActive) {
         add_action('admin_notices', function () {

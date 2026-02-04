@@ -58,10 +58,10 @@ class JavaScriptTransformer
                 $bracePos = $matchStart + strlen($matchText) - 1;
                 $endPos = $this->findMatchingBrace($otherCode, $bracePos);
 
-                if ($endPos !== false) {
+                if ($endPos !== null) {
                     $functionBody = substr($otherCode, $bracePos + 1, $endPos - $bracePos - 1);
                     $functions[] = $this->createOxygenCompatibleFunction($funcName, $originalParams, $functionBody);
-                    
+
                     // We don't remove class methods from the original code as the class might still be used
                     // but we need to move the offset to avoid infinite loop
                     $offset = $endPos + 1;
@@ -86,7 +86,7 @@ class JavaScriptTransformer
             // Find matching closing brace
             $endPos = $this->findMatchingBrace($otherCode, $bracePos);
 
-            if ($endPos !== false) {
+            if ($endPos !== null) {
                 $functionBody = substr($otherCode, $bracePos + 1, $endPos - $bracePos - 1);
 
                 // Transform to Oxygen-compatible window function
@@ -115,7 +115,7 @@ class JavaScriptTransformer
                 $bracePos = $matchStart + strlen($fullMatch) - 1;
                 $endPos = $this->findMatchingBrace($otherCode, $bracePos);
 
-                if ($endPos !== false) {
+                if ($endPos !== null) {
                     $functionBody = substr($otherCode, $bracePos + 1, $endPos - $bracePos - 1);
                     $functions[] = "window.{$funcName} = " . ($isAsync ? "async " : "") . ($isFunctionExpr ? "function({$originalParams})" : "{$originalParams} =>") . " {{$functionBody}}";
                     $otherCode = substr($otherCode, 0, $matchStart) . substr($otherCode, $endPos + 1);
@@ -175,7 +175,7 @@ class JavaScriptTransformer
      * @param int $openBracePos Position of the opening brace
      * @return int|false Position of closing brace or false if not found
      */
-    private function findMatchingBrace(string $code, int $openBracePos)
+    private function findMatchingBrace(string $code, int $openBracePos): ?int
     {
         $length = strlen($code);
         $depth = 1;
@@ -232,7 +232,7 @@ class JavaScriptTransformer
             $pos++;
         }
 
-        return $depth === 0 ? $pos - 1 : false;
+        return $depth === 0 ? $pos - 1 : null;
     }
 
     /**

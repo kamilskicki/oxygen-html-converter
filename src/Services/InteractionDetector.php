@@ -99,7 +99,7 @@ class InteractionDetector
             if ($this->frameworkDetector && $this->frameworkDetector->isFrameworkAttribute($name)) {
                 // Handle pre-processed @ symbols
                 $originalName = $name;
-                if (str_starts_with($name, 'data-oxy-at-')) {
+                if (\str_starts_with($name, 'data-oxy-at-')) {
                     $originalName = '@' . substr($name, 12);
                 }
 

@@ -38,6 +38,13 @@ class Ajax
             return;
         }
 
+        // Validate HTML input size (max 10MB to prevent abuse)
+        $maxHtmlSize = 10 * 1024 * 1024; // 10MB
+        if (strlen($html) > $maxHtmlSize) {
+            wp_send_json_error(['message' => 'HTML input exceeds maximum size of 10MB'], 400);
+            return;
+        }
+
         // Get options
         $options = [
             'startingNodeId' => isset($_POST['startingNodeId']) ? intval($_POST['startingNodeId']) : 1,
@@ -112,9 +119,10 @@ class Ajax
                 ], 400);
             }
         } catch (\Throwable $e) {
-            if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                error_log('Oxygen HTML Converter Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-            }
+            // Debug logging disabled for production
+            // if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            //     error_log('Oxygen HTML Converter Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            // }
             wp_send_json_error([
                 'message' => 'Conversion error: ' . $e->getMessage(),
             ], 500);
@@ -140,7 +148,21 @@ class Ajax
 
         // Get HTML inputs (expecting an array of HTML strings)
         $rawBatch = isset($_POST['batch']) ? $_POST['batch'] : [];
-        if (empty($rawBatch) || !is_array($rawBatch)) {
+
+        // Validate input is an array
+        if (!is_array($rawBatch)) {
+            wp_send_json_error(['message' => 'Invalid input: expected array'], 400);
+            return;
+        }
+
+        // Limit batch size to prevent abuse
+        $maxBatchSize = 100;
+        if (count($rawBatch) > $maxBatchSize) {
+            wp_send_json_error(['message' => 'Batch size exceeds maximum of ' . $maxBatchSize], 400);
+            return;
+        }
+
+        if (empty($rawBatch)) {
             wp_send_json_error(['message' => 'No HTML batch provided'], 400);
             return;
         }
@@ -212,6 +234,13 @@ class Ajax
             return;
         }
 
+        // Validate HTML input size (max 10MB to prevent abuse)
+        $maxHtmlSize = 10 * 1024 * 1024; // 10MB
+        if (strlen($html) > $maxHtmlSize) {
+            wp_send_json_error(['message' => 'HTML input exceeds maximum size of 10MB'], 400);
+            return;
+        }
+
         try {
             $builder = new TreeBuilder();
             $result = $builder->convert($html);
@@ -235,9 +264,10 @@ class Ajax
                 ], 400);
             }
         } catch (\Throwable $e) {
-            if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                error_log('Oxygen HTML Converter Preview Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-            }
+            // Debug logging disabled for production
+            // if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            //     error_log('Oxygen HTML Converter Preview Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            // }
             wp_send_json_error([
                 'message' => 'Preview error: ' . $e->getMessage(),
             ], 500);
