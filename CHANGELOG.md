@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] — 2025-02-11
+## [0.8.0-beta] — 2025-02-11
 
 ### Added
 - Animation detection service (`AnimationDetector`)
@@ -17,18 +17,19 @@ All notable changes to this project will be documented in this file.
 - Class strategy service for Tailwind/utility-first handling (`ClassStrategyService`)
 - Conversion report system (`ConversionReport`)
 - PHP 7.4 polyfills for broad hosting compatibility
+- Contributing guidelines in README
 
 ### Changed
 - Restructured source into `Services/`, `Report/`, and `Validation/` directories
 - Updated Oxygen 6 detection to support RC1 and Breakdance-based builds
-- Cleaned repository for public release (removed internal docs and planning files)
+- Marked as beta — seeking community feedback before v1.0
 
 ### Fixed
 - PHP 7.4 compatibility (union types, `str_starts_with` polyfill)
 - AJAX input validation (10 MB HTML limit, 100-item batch limit)
 - Removed debug `error_log()` calls
 
-## [1.0.0] — 2024-12-01
+## [0.1.0] — 2024-12-01
 
 ### Added
 - Initial release

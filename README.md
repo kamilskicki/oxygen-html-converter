@@ -1,6 +1,12 @@
 # Oxygen HTML Converter
 
-Convert HTML to native **Oxygen Builder 6** elements. Paste entire HTML pages and edit them natively in Oxygen — no iframes, no shortcodes, no code blocks.
+> **v0.8.0-beta** — Convert HTML to native Oxygen Builder 6 elements.
+
+Paste entire HTML pages and edit them natively in Oxygen — no iframes, no shortcodes, no code blocks.
+
+**Built by [Kamil Skicki](https://kamilskicki.com)** — growth engineer & WordPress specialist.
+
+⚠️ **Beta release** — this plugin is functional and tested, but edge cases exist. Feedback welcome via [GitHub Issues](https://github.com/kamilskicki/oxygen-html-converter/issues).
 
 ## Features
 
@@ -56,6 +62,8 @@ Convert HTML to native **Oxygen Builder 6** elements. Paste entire HTML pages an
 ```bash
 cd wp-content/plugins/
 git clone https://github.com/kamilskicki/oxygen-html-converter.git
+cd oxygen-html-converter
+composer install --no-dev
 ```
 
 ## Usage
@@ -82,13 +90,24 @@ git clone https://github.com/kamilskicki/oxygen-html-converter.git
 - PHP 7.4+
 - Oxygen Builder 6.x
 
-## Limitations
+## Known Limitations (Beta)
 
 - **JavaScript frameworks** (React, Vue, Alpine.js) are detected but not fully converted to Oxygen equivalents — framework attributes are preserved for manual handling
 - **External stylesheets** are not fetched or parsed — only inline styles are converted
 - **Complex JavaScript** with closures, async patterns, or module imports may need manual adjustment after conversion
 - **Web Components** (`<template>`, `<slot>`) are preserved as HTML Code blocks
 - **SVG sprites** and complex SVG structures are inserted as raw SVG
+- **Class-based styles** — classes are imported by name, but styles from external CSS files are not extracted (use Tailwind/utility-first for best results)
+
+## Roadmap to v1.0
+
+- [ ] External CSS stylesheet fetching & parsing
+- [ ] Batch import (multiple pages)
+- [ ] Template library integration
+- [ ] WP Media Library image import
+- [ ] Full test suite
+
+See [ROADMAP.md](ROADMAP.md) for the full development plan.
 
 ## Compatibility
 
@@ -99,10 +118,22 @@ git clone https://github.com/kamilskicki/oxygen-html-converter.git
 - **Bootstrap** — classes preserved
 - **Alpine.js, HTMX** — attributes detected and preserved
 
+## Contributing
+
+This is a beta release. Bug reports, feature requests, and pull requests are welcome.
+
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes
+4. Push and open a Pull Request
+
 ## License
 
 GPL v2 or later — see [LICENSE](https://www.gnu.org/licenses/gpl-2.0.html)
 
 ## Author
 
-**Kamil Skicki** — [kamilskicki.com](https://kamilskicki.com)
+**[Kamil Skicki](https://kamilskicki.com)** — Growth engineer specializing in WordPress, AI-powered marketing, and conversion optimization.
+
+- 🌐 [kamilskicki.com](https://kamilskicki.com)
+- 🐙 [github.com/kamilskicki](https://github.com/kamilskicki)

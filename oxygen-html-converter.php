@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Oxygen HTML Converter
  * Description: Convert HTML to native Oxygen Builder elements. Paste entire HTML pages and edit them natively in Oxygen 6.
- * Version: 1.1.0
+ * Version: 0.8.0-beta
  * Author: Kamil Skicki
  * Author URI: https://kamilskicki.com
  * License: GPL v2 or later
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('OXY_HTML_CONVERTER_VERSION', '1.1.0');
+define('OXY_HTML_CONVERTER_VERSION', '0.8.0-beta');
 define('OXY_HTML_CONVERTER_PATH', plugin_dir_path(__FILE__));
 define('OXY_HTML_CONVERTER_URL', plugin_dir_url(__FILE__));
 
