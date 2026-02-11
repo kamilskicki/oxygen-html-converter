@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Oxygen HTML Converter
  * Description: Convert HTML to native Oxygen Builder elements. Paste entire HTML pages and edit them natively in Oxygen 6.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Kamil Skicki
  * Author URI: https://kamilskicki.com
  * License: GPL v2 or later
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('OXY_HTML_CONVERTER_VERSION', '1.0.0');
+define('OXY_HTML_CONVERTER_VERSION', '1.1.0');
 define('OXY_HTML_CONVERTER_PATH', plugin_dir_path(__FILE__));
 define('OXY_HTML_CONVERTER_URL', plugin_dir_url(__FILE__));
 
@@ -45,10 +45,11 @@ spl_autoload_register(function ($class) {
 // Initialize plugin
 add_action('plugins_loaded', function () {
     // Check if Oxygen Builder 6 is active
-    // Oxygen 6 uses OXYGEN_ELEMENTS_API constant or OxygenElements namespace
-    $oxygenActive = defined('OXYGEN_ELEMENTS_API') ||
-                    class_exists('\\OxygenElements\\Element') ||
-                    (defined('BREAKDANCE_MODE') && BREAKDANCE_MODE === 'oxygen');
+    // Oxygen 6 is built on Breakdance and sets BREAKDANCE_MODE to 'oxygen'
+    // Also check for legacy Oxygen detection methods for forward compatibility
+    $oxygenActive = (defined('BREAKDANCE_MODE') && BREAKDANCE_MODE === 'oxygen') ||
+                    defined('CT_VERSION') ||
+                    class_exists('\\OxygenElements\\Element');
     
     if (!$oxygenActive) {
         add_action('admin_notices', function () {

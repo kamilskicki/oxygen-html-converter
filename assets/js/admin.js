@@ -87,8 +87,12 @@
             data.elementCount +
             "</strong></div>";
           html +=
-            '<div class="preview-stat"><span>CSS Classes:</span><strong>' +
-            data.classCount +
+            '<div class="preview-stat"><span>Tailwind Classes:</span><strong>' +
+            (data.tailwindClassCount || 0) +
+            "</strong></div>";
+          html +=
+            '<div class="preview-stat"><span>Custom Classes:</span><strong>' +
+            (data.customClassCount || 0) +
             "</strong></div>";
 
           if (data.summary && data.summary.byType) {

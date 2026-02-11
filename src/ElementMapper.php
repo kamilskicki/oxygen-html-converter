@@ -6,6 +6,7 @@ use DOMElement;
 use DOMText;
 use DOMNode;
 use OxyHtmlConverter\Services\GridDetector;
+use OxyHtmlConverter\ElementTypes;
 
 /**
  * Maps HTML elements to Oxygen element types
@@ -18,70 +19,67 @@ class ElementMapper
     {
         $this->gridDetector = new GridDetector();
     }
+
     /**
      * HTML tag to Oxygen element type mapping
+     * Uses ElementTypes constants for single source of truth
      */
     private const TAG_MAP = [
         // Container elements
-        'div'     => 'OxygenElements\\Container',
-        'section' => 'OxygenElements\\Container',
-        'article' => 'OxygenElements\\Container',
-        'aside'   => 'OxygenElements\\Container',
-        'header'  => 'OxygenElements\\Container',
-        'footer'  => 'OxygenElements\\Container',
-        'main'    => 'OxygenElements\\Container',
-        'nav'     => 'OxygenElements\\Container',
-        'figure'  => 'OxygenElements\\Container',
-        'figcaption' => 'OxygenElements\\Container',
-        'details' => 'OxygenElements\\Container',
-        'summary' => 'OxygenElements\\Container',
-        'ul'      => 'OxygenElements\\Container',
-        'li'      => 'OxygenElements\\Container',
-        'ol'      => 'OxygenElements\\Container',
+        'div'     => ElementTypes::CONTAINER,
+        'section' => ElementTypes::CONTAINER,
+        'article' => ElementTypes::CONTAINER,
+        'aside'   => ElementTypes::CONTAINER,
+        'header'  => ElementTypes::CONTAINER,
+        'footer'  => ElementTypes::CONTAINER,
+        'main'    => ElementTypes::CONTAINER,
+        'nav'     => ElementTypes::CONTAINER,
+        'figure'  => ElementTypes::CONTAINER,
+        'figcaption' => ElementTypes::CONTAINER,
+        'details' => ElementTypes::CONTAINER,
+        'summary' => ElementTypes::CONTAINER,
+        'ul'      => ElementTypes::CONTAINER,
+        'li'      => ElementTypes::CONTAINER,
+        'ol'      => ElementTypes::CONTAINER,
 
         // Text elements
-        'p'          => 'OxygenElements\\Text',
-        'span'       => 'OxygenElements\\Text',
-        'h1'         => 'OxygenElements\\Text',
-        'h2'         => 'OxygenElements\\Text',
-        'h3'         => 'OxygenElements\\Text',
-        'h4'         => 'OxygenElements\\Text',
-        'h5'         => 'OxygenElements\\Text',
-        'h6'         => 'OxygenElements\\Text',
-        'blockquote' => 'OxygenElements\\Text',
-        'label'      => 'OxygenElements\\Text',
+        'p'          => ElementTypes::TEXT,
+        'span'       => ElementTypes::TEXT,
+        'h1'         => ElementTypes::TEXT,
+        'h2'         => ElementTypes::TEXT,
+        'h3'         => ElementTypes::TEXT,
+        'h4'         => ElementTypes::TEXT,
+        'h5'         => ElementTypes::TEXT,
+        'h6'         => ElementTypes::TEXT,
+        'blockquote' => ElementTypes::TEXT,
+        'label'      => ElementTypes::TEXT,
 
-        // Rich text (keeps inner HTML)
-        // These are now handled as Rich_Text in native Oxygen 6
-        // 'ul' => 'OxygenElements\\Rich_Text',
-        // 'ol' => 'OxygenElements\\Rich_Text',
+        // Links - will be converted to ContainerLink for button-like links
+        'a' => ElementTypes::TEXT_LINK,
 
-        // Links - will be converted to Container_Link for button-like links
-        'a' => 'OxygenElements\\Text_Link',
-
-        // Button - converted to Container_Link (with href) or Container (without)
+        // Button - converted to ContainerLink (with href) or Container (without)
         // This is handled specially in getElementType() and buildProperties()
-        'button' => 'OxygenElements\\Container',
+        'button' => ElementTypes::CONTAINER,
 
         // Media
-        'img'    => 'OxygenElements\\Image',
-        'video'  => 'OxygenElements\\HTML5_Video',
-        'iframe' => 'OxygenElements\\HTML_Code',
-        'svg'    => 'OxygenElements\\HTML_Code',
-        'i'      => 'OxygenElements\\HTML_Code',
+        'img'    => ElementTypes::IMAGE,
+        'video'  => ElementTypes::HTML5_VIDEO,
+        'iframe' => ElementTypes::HTML_CODE,
+        'svg'    => ElementTypes::HTML_CODE,
+        'i'      => ElementTypes::HTML_CODE,
 
         // Form elements (as HTML code for now)
-        'form'     => 'OxygenElements\\HTML_Code',
-        'input'    => 'OxygenElements\\HTML_Code',
-        'textarea' => 'OxygenElements\\HTML_Code',
-        'select'   => 'OxygenElements\\HTML_Code',
+        'form'     => ElementTypes::HTML_CODE,
+        'input'    => ElementTypes::HTML_CODE,
+        'textarea' => ElementTypes::HTML_CODE,
+        'select'   => ElementTypes::HTML_CODE,
 
         // Tables (as rich text to preserve structure)
-        'table' => 'OxygenElements\\Rich_Text',
+        'table' => ElementTypes::RICH_TEXT,
 
         // Code elements
-        'pre'  => 'OxygenElements\\HTML_Code',
-        'code' => 'OxygenElements\\Text',
+        'pre'  => ElementTypes::HTML_CODE,
+        'code' => ElementTypes::TEXT,
     ];
 
     /**
@@ -103,7 +101,7 @@ class ElementMapper
      * Tags where children should be kept as inner HTML
      */
     private const KEEP_INNER_HTML = [
-        'ul', 'ol', 'table', 'pre', 'code', 'svg', 'form',
+        'table', 'pre', 'code', 'svg', 'form',
         'select', 'textarea', 'iframe', 'video'
     ];
 
@@ -117,18 +115,18 @@ class ElementMapper
     {
         $tag = strtolower($tag);
 
-        // Special handling for links that should become Container_Link
+        // Special handling for links that should become ContainerLink
         if ($tag === 'a' && $node !== null) {
-            // If the link has complex children or looks like a button, use Container_Link
+            // If the link has complex children or looks like a button, use ContainerLink
             if ($this->isButtonLikeLink($node)) {
-                return 'OxygenElements\\Container_Link';
+                return ElementTypes::CONTAINER_LINK;
             }
         }
 
         // Removed Header mapping - using standard Container for navbar
         // It provides better compatibility in Oxygen 6 basic elements.
 
-        return self::TAG_MAP[$tag] ?? 'OxygenElements\\Container';
+        return self::TAG_MAP[$tag] ?? ElementTypes::CONTAINER;
     }
 
     /**
@@ -166,12 +164,8 @@ class ElementMapper
     {
         $tag = strtolower($node->tagName);
 
-        // Buttons and button-like links should have child Text for their content
+        // Only buttons get flat text children; links recurse their children naturally
         if ($tag === 'button') {
-            return true;
-        }
-
-        if ($tag === 'a' && $this->isButtonLikeLink($node)) {
             return true;
         }
 
@@ -192,7 +186,7 @@ class ElementMapper
         return [
             'id' => $nodeId,
             'data' => [
-                'type' => 'OxygenElements\\Text',
+                'type' => ElementTypes::TEXT,
                 'properties' => [
                     'content' => [
                         'content' => [
@@ -233,9 +227,9 @@ class ElementMapper
         $tag = strtolower($tag);
         $type = $this->getElementType($tag, $node);
 
-        return $type === 'OxygenElements\\Container' ||
-               $type === 'OxygenElements\\Container_Link' ||
-               $type === 'OxygenElements\\Text_Link'; // Links can wrap other elements
+        return $type === ElementTypes::CONTAINER ||
+               $type === ElementTypes::CONTAINER_LINK ||
+               $type === ElementTypes::TEXT_LINK; // Links can wrap other elements
     }
 
     /**
@@ -253,9 +247,9 @@ class ElementMapper
     {
         $type = $this->getElementType(strtolower($tag));
         return in_array($type, [
-            'OxygenElements\\Text',
-            'OxygenElements\\Rich_Text',
-            'OxygenElements\\Text_Link',
+            ElementTypes::TEXT,
+            ElementTypes::RICH_TEXT,
+            ElementTypes::TEXT_LINK,
         ]);
     }
 
@@ -267,11 +261,11 @@ class ElementMapper
         $tag = strtolower($tag);
         $type = $this->getElementType($tag);
 
-        if ($type === 'OxygenElements\\Container' && in_array($tag, self::CONTAINER_TAG_OPTIONS)) {
+        if ($type === ElementTypes::CONTAINER && in_array($tag, self::CONTAINER_TAG_OPTIONS)) {
             return $tag;
         }
 
-        if ($type === 'OxygenElements\\Text' && in_array($tag, self::TEXT_TAG_OPTIONS)) {
+        if ($type === ElementTypes::TEXT && in_array($tag, self::TEXT_TAG_OPTIONS)) {
             return $tag;
         }
 
@@ -288,35 +282,35 @@ class ElementMapper
         $properties = [];
 
         switch ($type) {
-            case 'OxygenElements\\Text':
+            case ElementTypes::TEXT:
                 $properties = $this->buildTextProperties($node);
                 break;
 
-            case 'OxygenElements\\Rich_Text':
+            case ElementTypes::RICH_TEXT:
                 $properties = $this->buildRichTextProperties($node);
                 break;
 
-            case 'OxygenElements\\Text_Link':
+            case ElementTypes::TEXT_LINK:
                 $properties = $this->buildLinkProperties($node);
                 break;
 
-            case 'OxygenElements\\Container_Link':
+            case ElementTypes::CONTAINER_LINK:
                 $properties = $this->buildContainerLinkProperties($node);
                 break;
 
-            case 'OxygenElements\\Image':
+            case ElementTypes::IMAGE:
                 $properties = $this->buildImageProperties($node);
                 break;
 
-            case 'OxygenElements\\HTML_Code':
+            case ElementTypes::HTML_CODE:
                 $properties = $this->buildHtmlCodeProperties($node);
                 break;
 
-            case 'OxygenElements\\HTML5_Video':
+            case ElementTypes::HTML5_VIDEO:
                 $properties = $this->buildVideoProperties($node);
                 break;
 
-            case 'OxygenElements\\Container':
+            case ElementTypes::CONTAINER:
             default:
                 $properties = $this->buildContainerProperties($node);
                 break;

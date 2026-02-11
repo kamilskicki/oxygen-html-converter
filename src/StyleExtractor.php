@@ -24,6 +24,9 @@ class StyleExtractor
         'text-decoration'  => ['typography', 'text-decoration'],
         'text-transform'   => ['typography', 'text-transform'],
         'color'            => ['typography', 'color'],
+        'white-space'      => ['typography', 'white-space'],
+        'word-break'       => ['typography', 'word-break'],
+        'text-overflow'    => ['typography', 'text-overflow'],
 
         // Spacing
         'margin'           => ['spacing', 'margin'],
@@ -44,6 +47,7 @@ class StyleExtractor
         'height'           => ['size', 'height'],
         'min-height'       => ['size', 'min-height'],
         'max-height'       => ['size', 'max-height'],
+        'aspect-ratio'     => ['size', 'aspect-ratio'],
 
         // Layout
         'display'          => ['layout', 'display'],
@@ -55,6 +59,12 @@ class StyleExtractor
         'gap'              => ['layout', 'gap'],
         'row-gap'          => ['layout', 'row-gap'],
         'column-gap'       => ['layout', 'column-gap'],
+        'flex-grow'        => ['layout', 'flex-grow'],
+        'flex-shrink'      => ['layout', 'flex-shrink'],
+        'flex-basis'       => ['layout', 'flex-basis'],
+        'order'            => ['layout', 'order'],
+        'grid-column'      => ['layout', 'grid-column'],
+        'grid-row'         => ['layout', 'grid-row'],
 
         // Position
         'position'         => ['position', 'position'],
@@ -82,6 +92,11 @@ class StyleExtractor
         'border-right'     => ['border', 'border-right'],
         'border-bottom'    => ['border', 'border-bottom'],
         'border-left'      => ['border', 'border-left'],
+        'border-top-left-radius'     => ['border', 'border-top-left-radius'],
+        'border-top-right-radius'    => ['border', 'border-top-right-radius'],
+        'border-bottom-left-radius'  => ['border', 'border-bottom-left-radius'],
+        'border-bottom-right-radius' => ['border', 'border-bottom-right-radius'],
+        'outline'          => ['border', 'outline'],
 
         // Effects
         'opacity'          => ['effects', 'opacity'],
@@ -89,6 +104,9 @@ class StyleExtractor
         'transform'        => ['effects', 'transform'],
         'transition'       => ['effects', 'transition'],
         'filter'           => ['effects', 'filter'],
+        'cursor'           => ['effects', 'cursor'],
+        'backdrop-filter'  => ['effects', 'backdrop-filter'],
+        'mix-blend-mode'   => ['effects', 'mix-blend-mode'],
 
         // Overflow
         'overflow'         => ['overflow', 'overflow'],
@@ -136,7 +154,7 @@ class StyleExtractor
                 $value = str_replace('!important', '', $value);
                 $value = trim($value);
 
-                if ($property && $value) {
+                if ($property !== '' && $value !== '') {
                     $styles[$property] = $value;
                 }
             }

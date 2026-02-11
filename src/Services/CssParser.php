@@ -20,23 +20,89 @@ class CssParser
         // Remove comments
         $css = preg_replace('!/\*.*?\*/!s', '', $css);
 
-        // Basic regex to find rules: selector { declarations }
-        preg_match_all('/([^{]+)\{([^}]+)\}/', $css, $matches, PREG_SET_ORDER);
+        // Brace-depth-aware parser to handle nested @keyframes, @media, @property blocks
+        $len = strlen($css);
+        $depth = 0;
+        $selector = '';
+        $block = '';
+        $inString = false;
+        $stringChar = '';
+        $isAtRule = false;
 
-        foreach ($matches as $match) {
-            $selectors = explode(',', $match[1]);
-            $declarationsRaw = $match[2];
+        for ($i = 0; $i < $len; $i++) {
+            $char = $css[$i];
 
-            $declarations = $this->parseDeclarations($declarationsRaw);
-
-            foreach ($selectors as $selector) {
-                $selector = trim($selector);
-                if ($selector) {
-                    $rules[] = [
-                        'selector' => $selector,
-                        'declarations' => $declarations
-                    ];
+            // Handle string literals (skip braces inside quotes)
+            if ($inString) {
+                if ($char === $stringChar && ($i === 0 || $css[$i - 1] !== '\\')) {
+                    $inString = false;
                 }
+                if ($depth === 1 && !$isAtRule) {
+                    $block .= $char;
+                }
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $inString = true;
+                $stringChar = $char;
+                if ($depth === 1 && !$isAtRule) {
+                    $block .= $char;
+                }
+                continue;
+            }
+
+            if ($char === '{') {
+                if ($depth === 0) {
+                    // Starting a new top-level block
+                    $isAtRule = (strpos(trim($selector), '@') === 0);
+                }
+                $depth++;
+                if ($depth === 1 && !$isAtRule) {
+                    // Opening brace for a normal rule — don't add to block
+                    continue;
+                }
+                if ($depth > 1 && !$isAtRule) {
+                    $block .= $char;
+                }
+                continue;
+            }
+
+            if ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    if (!$isAtRule) {
+                        // Emit the normal rule
+                        $selectors = explode(',', $selector);
+                        $declarations = $this->parseDeclarations($block);
+
+                        foreach ($selectors as $sel) {
+                            $sel = trim($sel);
+                            if ($sel) {
+                                $rules[] = [
+                                    'selector' => $sel,
+                                    'declarations' => $declarations,
+                                ];
+                            }
+                        }
+                    }
+                    // Reset for next rule (at-rules are skipped)
+                    $selector = '';
+                    $block = '';
+                    $isAtRule = false;
+                    continue;
+                }
+                if (!$isAtRule) {
+                    $block .= $char;
+                }
+                continue;
+            }
+
+            // Accumulate characters
+            if ($depth === 0) {
+                $selector .= $char;
+            } elseif ($depth >= 1 && !$isAtRule) {
+                $block .= $char;
             }
         }
 
@@ -65,7 +131,7 @@ class CssParser
                 // Remove !important if present
                 $val = trim(str_replace('!important', '', $val));
 
-                if ($prop && $val) {
+                if ($prop !== '' && $val !== '') {
                     $declarations[$prop] = $val;
                 }
             }

@@ -9,6 +9,15 @@ class InteractionDetector
 {
     private ?FrameworkDetector $frameworkDetector;
 
+    /** Pre-detected toggle interactions from JS analysis: elementId => interaction */
+    private array $detectedToggles = [];
+
+    /** Whether smooth scroll pattern was detected in JS */
+    private bool $smoothScrollDetected = false;
+
+    /** Script blocks that were consumed (converted to native interactions) */
+    private array $consumedScriptBlocks = [];
+
     public function __construct(?FrameworkDetector $frameworkDetector = null)
     {
         $this->frameworkDetector = $frameworkDetector;
@@ -99,7 +108,7 @@ class InteractionDetector
             if ($this->frameworkDetector && $this->frameworkDetector->isFrameworkAttribute($name)) {
                 // Handle pre-processed @ symbols
                 $originalName = $name;
-                if (\str_starts_with($name, 'data-oxy-at-')) {
+                if (str_starts_with($name, 'data-oxy-at-')) {
                     $originalName = '@' . substr($name, 12);
                 }
 
@@ -178,8 +187,23 @@ class InteractionDetector
             return null;
         }
 
-        // Split by semicolon but respect quotes and parentheses (basic implementation)
-        // For now, let's just split by ; and trim, which covers simple cases like func1(); func2()
+        // Check if handler contains string literals in function args or return statements.
+        // These can't be cleanly converted to Oxygen interactions — preserve as attribute instead.
+        if ($this->isComplexHandler($handlerCode)) {
+            $this->preserveHandlerAsAttribute($trigger, $handlerCode, $element);
+            return null;
+        }
+
+        // Strip "return false" / "return true" / "return;" parts
+        $handlerCode = preg_replace('/\breturn\s+(false|true|!0|!1)\s*;?/', '', $handlerCode);
+        $handlerCode = preg_replace('/\breturn\s*;/', '', $handlerCode);
+        $handlerCode = trim($handlerCode, "; \t\n\r");
+
+        if (empty($handlerCode)) {
+            return null;
+        }
+
+        // Split by semicolon for simple cases like func1(); func2()
         $parts = array_filter(array_map('trim', explode(';', $handlerCode)));
         $actions = [];
 
@@ -189,12 +213,10 @@ class InteractionDetector
                 $functionName = $matches[1];
                 $args = trim($matches[2]);
 
-                // Handle 'this' by replacing it with a special placeholder if needed
-                // Oxygen interactions are usually context-aware, but passing 'this' as an argument
-                // might need the actual element reference.
-                $hasThis = false;
-                if (preg_match('/\bthis\b/', $args)) {
-                    $hasThis = true;
+                // If args contain string literals, this is too complex for interaction conversion
+                if (preg_match('/[\'"]/', $args)) {
+                    $this->preserveHandlerAsAttribute($trigger, trim($handlerCode, "; \t\n\r"), $element);
+                    return null;
                 }
 
                 // If there are arguments, store them as a data attribute
@@ -228,5 +250,288 @@ class InteractionDetector
             'target' => 'this_element',
             'actions' => $actions,
         ];
+    }
+
+    /**
+     * Check if handler code is too complex for interaction conversion
+     */
+    private function isComplexHandler(string $code): bool
+    {
+        // Contains string literal arguments in function calls: alert('hello'), func("test")
+        if (preg_match('/[a-zA-Z_]\s*\([^)]*[\'"][^)]*\)/', $code)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Preserve an event handler as a custom attribute instead of converting to interaction
+     */
+    private function preserveHandlerAsAttribute(string $trigger, string $handlerCode, array &$element): void
+    {
+        // Map trigger back to HTML attribute name
+        $triggerToAttr = array_flip(self::EVENT_TO_TRIGGER_MAP);
+        $attrName = $triggerToAttr[$trigger] ?? ('on' . $trigger);
+
+        $element['data']['properties']['settings'] = $element['data']['properties']['settings'] ?? [];
+        $element['data']['properties']['settings']['advanced'] = $element['data']['properties']['settings']['advanced'] ?? [];
+        $element['data']['properties']['settings']['advanced']['attributes'] = $element['data']['properties']['settings']['advanced']['attributes'] ?? [];
+
+        $element['data']['properties']['settings']['advanced']['attributes'][] = [
+            'name' => $attrName,
+            'value' => $handlerCode,
+        ];
+    }
+
+    // ─── JavaScript pattern detection ────────────────────────────────
+
+    /**
+     * Scan JavaScript code for classList.add/remove/toggle patterns and build
+     * Oxygen interactions keyed by element ID.
+     *
+     * @param string $jsCode  Raw JavaScript code
+     * @return array  ['elementId' => ['interaction' => [...]], ...]
+     */
+    public function detectTogglePatterns(string $jsCode): array
+    {
+        $results = [];
+
+        // Pattern: getElementById('id').addEventListener('click', () => { ...classList.add/remove/toggle('className')... })
+        // Also handles: const varName = document.getElementById('id'); ... varName.addEventListener(...)
+        $varMap = [];
+
+        // Step 1: Map variable assignments to element IDs
+        // const navToggle = document.getElementById('navToggle');
+        if (preg_match_all(
+            '/(?:const|let|var)\s+(\w+)\s*=\s*document\.getElementById\s*\(\s*[\'"](\w+)[\'"]\s*\)/',
+            $jsCode,
+            $matches,
+            PREG_SET_ORDER
+        )) {
+            foreach ($matches as $m) {
+                $varMap[$m[1]] = $m[2]; // varName => elementId
+            }
+        }
+
+        // Step 2: Find addEventListener blocks that toggle/add/remove classes
+        // Match: varName.addEventListener('click', ... { ... classList.add/remove/toggle('className') ... })
+        // Handles: function() {, () => {, (e) => {, e => {
+        $pattern = '/(\w+)\.addEventListener\s*\(\s*[\'"](\w+)[\'"]\s*,\s*(?:function\s*\([^)]*\)|\([^)]*\)\s*=>|\w+\s*=>)\s*\{/';
+        if (preg_match_all($pattern, $jsCode, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($matches as $m) {
+                $varName = $m[1][0];
+                $event = $m[2][0];
+                $blockStart = $m[0][1] + strlen($m[0][0]) - 1; // position of opening {
+
+                // Resolve variable to element ID
+                $elementId = $varMap[$varName] ?? null;
+                if (!$elementId) {
+                    continue;
+                }
+
+                // Find the closing brace of this block
+                $blockEnd = $this->findMatchingBrace($jsCode, $blockStart);
+                if ($blockEnd === false) {
+                    continue;
+                }
+
+                $blockBody = substr($jsCode, $blockStart + 1, $blockEnd - $blockStart - 1);
+
+                // Look for classList operations in the block body
+                $actions = $this->extractClassListActions($blockBody, $varMap);
+                if (empty($actions)) {
+                    continue;
+                }
+
+                $results[$elementId] = [
+                    'interaction' => [
+                        'trigger' => $event,
+                        'target' => 'this_element',
+                        'actions' => $actions,
+                    ],
+                ];
+            }
+        }
+
+        // Step 3: Handle querySelectorAll forEach patterns (e.g., mobileLinks)
+        // document.querySelectorAll('.mobile-link').forEach(link => { link.addEventListener('click', () => { ... }) })
+        $forEachPattern = '/document\.querySelectorAll\s*\(\s*[\'"]([\w.#-]+)[\'"]\s*\)\.forEach\s*\(\s*\w+\s*=>\s*\{\s*\w+\.addEventListener\s*\(\s*[\'"](\w+)[\'"]\s*,\s*(?:function\s*\([^)]*\)|\([^)]*\)\s*=>|\w+\s*=>)\s*\{/';
+        if (preg_match_all($forEachPattern, $jsCode, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($matches as $m) {
+                $selector = $m[1][0];
+                $event = $m[2][0];
+                $outerStart = $m[0][1];
+
+                // Find the innermost { of the addEventListener callback
+                $innerBracePos = $outerStart + strlen($m[0][0]) - 1;
+                $innerEnd = $this->findMatchingBrace($jsCode, $innerBracePos);
+                if ($innerEnd === false) {
+                    continue;
+                }
+
+                $blockBody = substr($jsCode, $innerBracePos + 1, $innerEnd - $innerBracePos - 1);
+                $actions = $this->extractClassListActions($blockBody, $varMap);
+
+                if (!empty($actions)) {
+                    // Store under selector (e.g., '.mobile-link')
+                    $results['__selector__' . $selector] = [
+                        'selector' => $selector,
+                        'interaction' => [
+                            'trigger' => $event,
+                            'target' => 'this_element',
+                            'actions' => $actions,
+                        ],
+                    ];
+                }
+            }
+        }
+
+        $this->detectedToggles = $results;
+        return $results;
+    }
+
+    /**
+     * Detect if smooth scroll pattern exists in JavaScript.
+     *
+     * @param string $jsCode  Raw JavaScript
+     * @return bool  True if smooth scroll anchor link pattern detected
+     */
+    public function detectSmoothScrollPattern(string $jsCode): bool
+    {
+        // Pattern: a[href^="#"] + scrollIntoView or window.scrollTo
+        $hasAnchorSelector = (
+            strpos($jsCode, 'a[href^="#"]') !== false ||
+            strpos($jsCode, "a[href^='#']") !== false
+        );
+        $hasSmoothScroll = (
+            strpos($jsCode, 'scrollIntoView') !== false ||
+            strpos($jsCode, 'window.scrollTo') !== false
+        );
+
+        $this->smoothScrollDetected = $hasAnchorSelector && $hasSmoothScroll;
+        return $this->smoothScrollDetected;
+    }
+
+    /**
+     * Apply a pre-detected interaction to an element during tree building.
+     *
+     * @param string $elementId  HTML ID of the element
+     * @param array  $interaction  Interaction array
+     * @param array  &$element  Reference to the Oxygen element being built
+     */
+    public function applyDetectedInteraction(string $elementId, array $interaction, array &$element): void
+    {
+        $element['data']['properties']['settings'] = $element['data']['properties']['settings'] ?? [];
+        $element['data']['properties']['settings']['interactions'] = $element['data']['properties']['settings']['interactions'] ?? [];
+        $element['data']['properties']['settings']['interactions']['interactions'] = $element['data']['properties']['settings']['interactions']['interactions'] ?? [];
+
+        $element['data']['properties']['settings']['interactions']['interactions'][] = $interaction;
+    }
+
+    /**
+     * Get pre-detected toggle patterns.
+     */
+    public function getDetectedToggles(): array
+    {
+        return $this->detectedToggles;
+    }
+
+    /**
+     * Whether smooth scroll was detected.
+     */
+    public function isSmoothScrollDetected(): bool
+    {
+        return $this->smoothScrollDetected;
+    }
+
+    /**
+     * Get list of JS pattern descriptions that were consumed.
+     */
+    public function getConsumedScriptBlocks(): array
+    {
+        return $this->consumedScriptBlocks;
+    }
+
+    /**
+     * Mark a script block type as consumed.
+     */
+    public function addConsumedScriptBlock(string $blockType): void
+    {
+        $this->consumedScriptBlocks[] = $blockType;
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Extract classList.add/remove/toggle actions from a JS block body.
+     */
+    private function extractClassListActions(string $body, array $varMap): array
+    {
+        $actions = [];
+
+        // Match: varName.classList.add('className') / remove / toggle
+        $pattern = '/(\w+)\.classList\.(add|remove|toggle)\s*\(\s*[\'"](\w[\w-]*)[\'"]\s*\)/';
+        if (preg_match_all($pattern, $body, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $m) {
+                $targetVar = $m[1];
+                $method = $m[2];
+                $className = $m[3];
+
+                // Resolve target variable to element ID
+                $targetId = $varMap[$targetVar] ?? null;
+                if (!$targetId) {
+                    continue;
+                }
+
+                $actionName = $method === 'add' ? 'add_class'
+                    : ($method === 'remove' ? 'remove_class' : 'toggle_class');
+
+                $actions[] = [
+                    'name' => $actionName,
+                    'target' => '#' . $targetId,
+                    'class_name' => $className,
+                ];
+            }
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Find matching closing brace in JavaScript code.
+     */
+    private function findMatchingBrace(string $code, int $openBracePos): ?int
+    {
+        $length = strlen($code);
+        $depth = 1;
+        $pos = $openBracePos + 1;
+        $inString = false;
+        $stringChar = '';
+
+        while ($pos < $length && $depth > 0) {
+            $char = $code[$pos];
+            $prevChar = $pos > 0 ? $code[$pos - 1] : '';
+
+            if (!$inString && ($char === '"' || $char === "'" || $char === '`')) {
+                $inString = true;
+                $stringChar = $char;
+            } elseif ($inString && $char === $stringChar && $prevChar !== '\\') {
+                $inString = false;
+            } elseif (!$inString) {
+                if ($char === '{') {
+                    $depth++;
+                } elseif ($char === '}') {
+                    $depth--;
+                }
+            }
+
+            if ($depth === 0) {
+                return $pos;
+            }
+            $pos++;
+        }
+
+        return null;
     }
 }

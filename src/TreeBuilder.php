@@ -11,7 +11,11 @@ use OxyHtmlConverter\Services\InteractionDetector;
 use OxyHtmlConverter\Services\TailwindDetector;
 use OxyHtmlConverter\Services\FrameworkDetector;
 use OxyHtmlConverter\Services\CssParser;
+use OxyHtmlConverter\Services\AnimationDetector;
 use OxyHtmlConverter\Services\ComponentDetector;
+use OxyHtmlConverter\Services\HeuristicsService;
+use OxyHtmlConverter\Validation\OutputValidator;
+use OxyHtmlConverter\ElementTypes;
 use DOMElement;
 use DOMNode;
 use DOMText;
@@ -32,9 +36,13 @@ class TreeBuilder
     private TailwindDetector $tailwindDetector;
     private FrameworkDetector $frameworkDetector;
     private CssParser $cssParser;
+    private AnimationDetector $animationDetector;
     private ComponentDetector $componentDetector;
+    private HeuristicsService $heuristics;
+    private OutputValidator $validator;
     private ConversionReport $report;
 
+    private bool $validateOutput = false;
     private int $nodeIdCounter = 1;
     private string $extractedCss = '';
     private array $customClasses = [];
@@ -42,6 +50,8 @@ class TreeBuilder
     private array $cssRules = [];
     private bool $firstBodyElementProcessed = false;
     private bool $fixedHeaderDetected = false;
+    private array $jsPatterns = [];
+    private array $consumedCssSelectors = [];
 
     public function __construct()
     {
@@ -57,7 +67,10 @@ class TreeBuilder
         $this->frameworkDetector = new FrameworkDetector($this->report);
         $this->interactionDetector = new InteractionDetector($this->frameworkDetector);
         $this->cssParser = new CssParser();
+        $this->animationDetector = new AnimationDetector();
         $this->componentDetector = new ComponentDetector($this->report);
+        $this->heuristics = new HeuristicsService();
+        $this->validator = new OutputValidator();
     }
 
     /**
@@ -73,6 +86,8 @@ class TreeBuilder
         $this->cssRules = [];
         $this->firstBodyElementProcessed = false;
         $this->fixedHeaderDetected = false;
+        $this->jsPatterns = [];
+        $this->consumedCssSelectors = [];
         $this->report->reset();
 
         // Parse HTML
@@ -90,6 +105,12 @@ class TreeBuilder
 
         // Parse extracted CSS rules
         $this->cssRules = $this->cssParser->parse($this->extractedCss);
+
+        // Pre-analyze CSS rules for animation detection
+        $this->animationDetector->analyzeCssRules($this->cssRules, $this->extractedCss);
+
+        // Pre-analyze JavaScript for toggle/scroll patterns
+        $this->jsPatterns = $this->analyzeJavaScriptPatterns($this->parser->getDom());
 
         // Get body content
         $bodyNodes = $this->parser->extractBodyContent($root);
@@ -117,7 +138,7 @@ class TreeBuilder
             $rootElement = [
                 'id' => $this->generateNodeId(),
                 'data' => [
-                    'type' => 'OxygenElements\\Container',
+                    'type' => ElementTypes::CONTAINER,
                     'properties' => [],
                 ],
                 'children' => $children,
@@ -131,6 +152,12 @@ class TreeBuilder
             ];
         }
 
+        // Clean up CSS rules that were converted to native Oxygen features
+        $this->extractedCss = $this->animationDetector->cleanupConvertedCss($this->extractedCss);
+
+        // Clean up CSS rules that were applied as native design properties
+        $this->extractedCss = $this->cleanupConsumedCssRules($this->extractedCss);
+
         // Create CSS Code element if we have extracted CSS
         $cssElement = null;
         if (!empty(trim($this->extractedCss))) {
@@ -140,22 +167,40 @@ class TreeBuilder
         // Detect icon libraries in the HTML
         $this->detectedIconLibraries = $this->iconDetector->detectIconLibraries($this->parser->getDom());
 
+        // Extract <link> tags from <head> (Google Fonts, preconnect, etc.)
+        $headLinkElements = $this->extractHeadLinks($this->parser->getDom());
+
         // Create script elements for detected icon libraries
         $iconScriptElements = $this->iconDetector->createIconLibraryElements(
             $this->detectedIconLibraries,
             function() { return $this->generateNodeId(); }
         );
 
-        return [
+        $result = [
             'success' => true,
             'element' => $rootElement,
             'cssElement' => $cssElement,
+            'headLinkElements' => $headLinkElements,
             'iconScriptElements' => $iconScriptElements,
             'detectedIconLibraries' => $this->detectedIconLibraries,
             'extractedCss' => $this->extractedCss,
             'customClasses' => array_unique($this->customClasses),
             'stats' => $this->report->toArray(),
         ];
+
+        // Optionally validate output
+        if ($this->validateOutput) {
+            $this->validator->reset();
+            if (!$this->validator->validateConversionResult($result)) {
+                $result['validationErrors'] = $this->validator->getErrors();
+                $this->report->addWarning('Output validation failed: ' . implode('; ', $this->validator->getErrors()));
+            }
+            if (!empty($this->validator->getWarnings())) {
+                $result['validationWarnings'] = $this->validator->getWarnings();
+            }
+        }
+
+        return $result;
     }
 
 
@@ -171,18 +216,57 @@ class TreeBuilder
             $content = $styleTag->textContent;
             // Fix invalid CSS (fontFamily -> font-family)
             $content = str_replace('fontFamily', 'font-family', $content);
-            
+
             if (!empty(trim($content))) {
-                // Map .nav-scrolled to .oxy-header-sticky for Oxygen's native sticky behavior
-                // This is the "trick" to make the glass effect work natively with Oxygen's sticky header
-                $content = str_replace('.nav-scrolled', '.nav-scrolled, .oxy-header-sticky', $content);
-                
+                // Apply nav-scrolled CSS rewrite heuristic if enabled
+                $content = $this->heuristics->applyNavScrolledCssRewrite($content);
+
                 $css .= "/* Extracted from <style> tag */\n";
                 $css .= trim($content) . "\n\n";
             }
         }
 
         return $css;
+    }
+
+    /**
+     * Extract <link> tags from <head> (stylesheets, preconnect, etc.)
+     */
+    private function extractHeadLinks(\DOMDocument $doc): array
+    {
+        $elements = [];
+        $linkTags = $doc->getElementsByTagName('link');
+
+        foreach ($linkTags as $linkTag) {
+            $rel = strtolower($linkTag->getAttribute('rel'));
+
+            // Only extract stylesheet and preconnect links
+            if (!in_array($rel, ['stylesheet', 'preconnect'])) {
+                continue;
+            }
+
+            $html = $doc->saveHTML($linkTag);
+            if (empty(trim($html))) {
+                continue;
+            }
+
+            $elements[] = [
+                'id' => $this->generateNodeId(),
+                'data' => [
+                    'type' => ElementTypes::HTML_CODE,
+                    'properties' => [
+                        'content' => [
+                            'content' => [
+                                'html_code' => $html,
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ];
+        }
+
+        return $elements;
     }
 
     /**
@@ -193,7 +277,7 @@ class TreeBuilder
         return [
             'id' => $this->generateNodeId(),
             'data' => [
-                'type' => 'OxygenElements\\CSS_Code',
+                'type' => ElementTypes::CSS_CODE,
                 'properties' => [
                     'content' => [
                         'content' => [
@@ -223,7 +307,7 @@ class TreeBuilder
             return [
                 'id' => $this->generateNodeId(),
                 'data' => [
-                    'type' => 'OxygenElements\\Text',
+                    'type' => ElementTypes::TEXT,
                     'properties' => [
                         'content' => [
                             'content' => [
@@ -258,7 +342,7 @@ class TreeBuilder
                 $element = [
                     'id' => $this->generateNodeId(),
                     'data' => [
-                    'type' => 'OxygenElements\\HTML_Code',
+                        'type' => ElementTypes::HTML_CODE,
                         'properties' => [
                             'content' => [
                                 'content' => [
@@ -283,10 +367,38 @@ class TreeBuilder
                 // This is required for Oxygen's interaction system to call them
                 $transformedJs = $this->jsTransformer->transformJavaScriptForOxygen($scriptContent);
 
+                // Strip JS patterns that were converted to native Oxygen features
+                $hasObserver = strpos($scriptContent, 'IntersectionObserver') !== false
+                    && strpos($scriptContent, 'animate-on-scroll') !== false;
+                $hasSmoothScroll = $this->jsPatterns['smoothScroll']
+                    && strpos($scriptContent, 'scrollIntoView') !== false;
+                $toggleIds = [];
+                foreach ($this->jsPatterns['toggles'] as $key => $data) {
+                    if (strpos($key, '__selector__') === 0) {
+                        continue;
+                    }
+                    // Check if this script contains the getElementById for this ID
+                    if (strpos($scriptContent, "'" . $key . "'") !== false || strpos($scriptContent, '"' . $key . '"') !== false) {
+                        $toggleIds[] = $key;
+                    }
+                }
+
+                $transformedJs = $this->jsTransformer->stripConvertedPatterns(
+                    $transformedJs,
+                    $hasObserver,
+                    $hasSmoothScroll,
+                    $toggleIds
+                );
+
+                // If JS is empty after cleanup, skip creating the element
+                if (empty(trim($transformedJs))) {
+                    return null;
+                }
+
                 $element = [
                     'id' => $this->generateNodeId(),
                     'data' => [
-                    'type' => 'OxygenElements\\JavaScript_Code',
+                        'type' => ElementTypes::JAVASCRIPT_CODE,
                         'properties' => [
                             'content' => [
                                 'content' => [
@@ -305,31 +417,9 @@ class TreeBuilder
             return null;
         }
 
-        // Handle Style Tags
+        // Skip <style> tags — all styles are already captured by extractStyleTags()
+        // which creates a single combined CSS Code element to avoid duplication
         if ($tag === 'style') {
-            $styleContent = $node->textContent;
-
-            if (!empty(trim($styleContent))) {
-                $this->report->incrementElementCount();
-                $element = [
-                    'id' => $this->generateNodeId(),
-                    'data' => [
-                    'type' => 'OxygenElements\\CSS_Code',
-                        'properties' => [
-                            'content' => [
-                                'content' => [
-                                    'css_code' => $styleContent,
-                                ],
-                            ],
-                        ],
-                    ],
-                    'children' => [],
-                ];
-                $this->processClasses($node, $element);
-                $this->processId($node, $element);
-                $this->interactionDetector->processCustomAttributes($node, $element);
-                return $element;
-            }
             return null;
         }
 
@@ -338,7 +428,7 @@ class TreeBuilder
             $element = [
                 'id' => $this->generateNodeId(),
                 'data' => [
-                'type' => 'OxygenElements\\HTML_Code',
+                    'type' => ElementTypes::HTML_CODE,
                     'properties' => [
                         'content' => [
                             'content' => [
@@ -385,50 +475,11 @@ class TreeBuilder
             $element['data']['properties']['design']['tag'] = $tagOption;
         }
 
-        // Special handling for Oxygen Header (sticky settings for navbars)
-        if ($tag === 'nav' && $node->getAttribute('id') === 'navbar') {
-            $element['data']['properties']['design']['sticky'] = $element['data']['properties']['design']['sticky'] ?? [];
-            $sticky = &$element['data']['properties']['design']['sticky'];
-            $sticky['position'] = 'top';
-            $sticky['relative_to'] = 'viewport';
-            $sticky['offset'] = '0';
-            
-            // Do NOT hardcode nav-scrolled here if we want a scroll transition,
-            // instead we map it in the CSS to .oxy-header-sticky (handled in extractStyleTags)
-        }
-
-        // If it's a nav link or looks like one, default to white
-        if (($node->parentNode instanceof DOMElement && strtolower($node->parentNode->tagName) === 'nav') || strpos($node->getAttribute('class'), 'nav') !== false) {
-             $element['data']['properties']['design']['typography']['color'] = '#ffffff';
-        }
-
-        // Special handling for Play Icon container or any icon container that should be perfectly centered
-        if ($tag === 'span' && strpos($node->getAttribute('class'), 'rounded-full') !== false) {
-            $element['data']['properties']['design']['layout'] = $element['data']['properties']['design']['layout'] ?? [];
-            $layout = &$element['data']['properties']['design']['layout'];
-            $layout['display'] = 'flex';
-            $layout['justify-content'] = 'center';
-            $layout['align-items'] = 'center';
-
-            // Ensure no line-height issues for icons to prevent vertical misalignment
-            $element['data']['properties']['design']['typography'] = $element['data']['properties']['design']['typography'] ?? [];
-            $element['data']['properties']['design']['typography']['line-height'] = '0';
-        }
-
-        // Special handling for Buttons (Container): Force Flex Centering if not already set
-        if (($tag === 'button' || $this->mapper->getElementType($tag, $node) === 'OxygenElements\\Container_Link') && $elementType === 'OxygenElements\\Container') {
-            $element['data']['properties']['design']['layout'] = $element['data']['properties']['design']['layout'] ?? [];
-            $layout = &$element['data']['properties']['design']['layout'];
-            
-            // Default to flex, center, center
-            $layout['display'] = $layout['display'] ?? 'flex';
-            $layout['justify-content'] = $layout['justify-content'] ?? 'center';
-            $layout['align-items'] = $layout['align-items'] ?? 'center';
-            
-            // Add Typography Centering
-            $element['data']['properties']['design']['typography'] = $element['data']['properties']['design']['typography'] ?? [];
-            $element['data']['properties']['design']['typography']['text-align'] = $element['data']['properties']['design']['typography']['text-align'] ?? 'center';
-        }
+        // Apply heuristics (optional template-specific optimizations)
+        $this->heuristics->applyStickyNavbar($node, $element);
+        $this->heuristics->applyNavLinkWhite($node, $element);
+        $this->heuristics->applyRoundedFullCentering($node, $element);
+        $this->heuristics->applyButtonCentering($tag, $elementType, $element);
 
         // Sanitize URLs for Images and Links
         if ($tag === 'img' && isset($element['data']['properties']['content']['image']['url'])) {
@@ -438,28 +489,79 @@ class TreeBuilder
             $element['data']['properties']['content']['content']['url'] = $this->sanitizeUrl($element['data']['properties']['content']['content']['url']);
         }
 
-        // Fixed Header Spacing Logic
-        if (!$this->firstBodyElementProcessed && $node instanceof DOMElement) {
-            $classes = $node->getAttribute('class');
-            $id = $node->getAttribute('id');
-            if (strpos($classes, 'fixed') !== false || strpos($classes, 'sticky') !== false || $id === 'navbar') {
-                $this->fixedHeaderDetected = true;
-            }
-            $this->firstBodyElementProcessed = true;
-        } elseif ($this->fixedHeaderDetected && $this->firstBodyElementProcessed) {
-            // Add top padding to the next major section to account for fixed header
-            if ($tag === 'header' || $tag === 'section' || $tag === 'div') {
-                $element['data']['properties']['design']['spacing'] = $element['data']['properties']['design']['spacing'] ?? [];
-                $element['data']['properties']['design']['spacing']['padding-top'] = $element['data']['properties']['design']['spacing']['padding-top'] ?? '80px';
-                $this->fixedHeaderDetected = false; // Only once
-            }
-        }
+        // Apply fixed header spacing heuristic (optional)
+        $this->heuristics->applyFixedHeaderSpacing(
+            $node,
+            $element,
+            $this->fixedHeaderDetected,
+            $this->firstBodyElementProcessed
+        );
 
         // Process CSS classes (settings.advanced.classes)
         $this->processClasses($node, $element);
 
         // Process HTML ID attribute (settings.advanced.id)
         $this->processId($node, $element);
+
+        // Detect and apply native entrance animations
+        $classAttr = $node->getAttribute('class');
+        $classNames = $classAttr ? array_filter(array_map('trim', explode(' ', $classAttr))) : [];
+        $animationSettings = $this->animationDetector->detectAnimations($node, $classNames, $this->cssRules);
+        if ($animationSettings) {
+            $element['data']['properties']['settings'] = $element['data']['properties']['settings'] ?? [];
+            $element['data']['properties']['settings']['animations'] = $element['data']['properties']['settings']['animations'] ?? [];
+            $element['data']['properties']['settings']['animations']['entrance_animation'] = $animationSettings;
+
+            // Remove consumed animation classes from element
+            $consumedClasses = $this->animationDetector->getConsumedClasses();
+            if (!empty($consumedClasses) && isset($element['data']['properties']['settings']['advanced']['classes'])) {
+                $element['data']['properties']['settings']['advanced']['classes'] = array_values(
+                    array_diff($element['data']['properties']['settings']['advanced']['classes'], $consumedClasses)
+                );
+            }
+        }
+
+        // Apply pre-detected toggle interactions from JS analysis
+        $elementId = $node->getAttribute('id');
+        if ($elementId && isset($this->jsPatterns['toggles'][$elementId])) {
+            $this->interactionDetector->applyDetectedInteraction(
+                $elementId,
+                $this->jsPatterns['toggles'][$elementId]['interaction'],
+                $element
+            );
+        }
+
+        // Apply smooth scroll to anchor links
+        if ($this->jsPatterns['smoothScroll'] && $tag === 'a') {
+            $href = $node->getAttribute('href');
+            if ($href && strpos($href, '#') === 0 && strlen($href) > 1) {
+                $scrollInteraction = [
+                    'trigger' => 'click',
+                    'target' => 'this_element',
+                    'actions' => [[
+                        'name' => 'scroll_to',
+                        'target' => $href,
+                        'scroll_behavior' => 'smooth',
+                    ]],
+                ];
+                $this->interactionDetector->applyDetectedInteraction('', $scrollInteraction, $element);
+            }
+        }
+
+        // Apply class-based interactions from querySelectorAll patterns (e.g., .mobile-link)
+        foreach ($this->jsPatterns['toggles'] as $key => $data) {
+            if (strpos($key, '__selector__') !== 0) {
+                continue;
+            }
+            $selector = $data['selector'] ?? '';
+            // Check if selector is a class selector and element has that class
+            if (strpos($selector, '.') === 0) {
+                $selectorClass = substr($selector, 1);
+                if (in_array($selectorClass, $classNames, true)) {
+                    $this->interactionDetector->applyDetectedInteraction('', $data['interaction'], $element);
+                }
+            }
+        }
 
         // Process custom attributes (data-*, aria-*, onclick, etc.)
         $this->interactionDetector->processCustomAttributes($node, $element);
@@ -499,7 +601,7 @@ class TreeBuilder
             if (empty($children) && trim($node->textContent) !== '') {
                 // Check if it should be converted to text element
                 if ($this->mapper->shouldConvertToText($node)) {
-                    $element['data']['type'] = 'OxygenElements\\Text';
+                    $element['data']['type'] = ElementTypes::TEXT;
                     // IMPORTANT: Preserve existing properties (like settings.advanced.classes)
                     // by only setting the content, not replacing the entire properties array
                     if (!isset($element['data']['properties']['content'])) {
@@ -521,6 +623,38 @@ class TreeBuilder
     }
 
     /**
+     * Pre-analyze all JavaScript in the document for toggle/scroll patterns.
+     *
+     * @return array ['toggles' => [...], 'smoothScroll' => bool]
+     */
+    private function analyzeJavaScriptPatterns(\DOMDocument $doc): array
+    {
+        $allJs = '';
+        $scriptTags = $doc->getElementsByTagName('script');
+
+        foreach ($scriptTags as $script) {
+            if (!$script->getAttribute('src')) {
+                $allJs .= $script->textContent . "\n";
+            }
+        }
+
+        $toggles = $this->interactionDetector->detectTogglePatterns($allJs);
+        $smoothScroll = $this->interactionDetector->detectSmoothScrollPattern($allJs);
+
+        if (!empty($toggles)) {
+            $this->report->addInfo('Detected ' . count($toggles) . ' toggle interaction(s) from JavaScript — converted to native Oxygen interactions.');
+        }
+        if ($smoothScroll) {
+            $this->report->addInfo('Detected smooth scroll pattern — converted to native Oxygen scroll_to interactions on anchor links.');
+        }
+
+        return [
+            'toggles' => $toggles,
+            'smoothScroll' => $smoothScroll,
+        ];
+    }
+
+    /**
      * Apply CSS rules from style tags to an element
      */
     private function applyCssRules(array &$element, array $cssRules): void
@@ -530,18 +664,86 @@ class TreeBuilder
         }
 
         $elementId = $element['data']['properties']['settings']['advanced']['id'] ?? null;
-        if (!$elementId) {
-            return;
-        }
+        $elementClasses = $element['data']['properties']['settings']['advanced']['classes'] ?? [];
 
         foreach ($cssRules as $rule) {
-            if ($rule['selector'] === '#' . $elementId) {
-                $convertedStyles = $this->styleExtractor->toOxygenProperties($rule['declarations']);
-                $element['data']['properties'] = $this->mergeProperties($element['data']['properties'], $convertedStyles);
-                
-                $this->report->addInfo("Applied CSS rules from <style> tag to element #{$elementId}");
+            $selector = $rule['selector'];
+            $matched = false;
+
+            // Match #id
+            if ($elementId && $selector === '#' . $elementId) {
+                $matched = true;
+            }
+
+            // Match .className (simple single-class selectors only)
+            if (!$matched && strpos($selector, '.') === 0 && strpos($selector, ' ') === false
+                && strpos($selector, ':') === false && strpos($selector, '.', 1) === false) {
+                $className = substr($selector, 1);
+                if (in_array($className, $elementClasses, true)) {
+                    $matched = true;
+                }
+            }
+
+            if ($matched) {
+                $expandedDeclarations = $this->expandShorthandProperties($rule['declarations']);
+                $convertedStyles = $this->styleExtractor->toOxygenProperties($expandedDeclarations);
+                $element['data']['properties'] = $this->mergeProperties(
+                    $element['data']['properties'], ['design' => $convertedStyles]
+                );
+                $this->consumedCssSelectors[$selector] = true;
             }
         }
+    }
+
+    /**
+     * Expand shorthand CSS properties into longhand equivalents
+     */
+    private function expandShorthandProperties(array $declarations): array
+    {
+        $expanded = [];
+
+        foreach ($declarations as $property => $value) {
+            if ($property === 'margin' || $property === 'padding') {
+                $sides = $this->styleExtractor->parseShorthandSpacing($value);
+                if (!empty($sides)) {
+                    $expanded[$property . '-top'] = $sides['top'];
+                    $expanded[$property . '-right'] = $sides['right'];
+                    $expanded[$property . '-bottom'] = $sides['bottom'];
+                    $expanded[$property . '-left'] = $sides['left'];
+                } else {
+                    $expanded[$property] = $value;
+                }
+            } elseif ($property === 'border' && preg_match('/^(\S+)\s+(\S+)\s+(.+)$/', $value, $m)) {
+                $expanded['border-width'] = $m[1];
+                $expanded['border-style'] = $m[2];
+                $expanded['border-color'] = $m[3];
+            } elseif ($property === 'background' && preg_match('/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|[a-zA-Z]+)$/', trim($value))) {
+                $expanded['background-color'] = trim($value);
+            } else {
+                $expanded[$property] = $value;
+            }
+        }
+
+        return $expanded;
+    }
+
+    /**
+     * Remove consumed CSS rules from the raw CSS string
+     */
+    private function cleanupConsumedCssRules(string $css): string
+    {
+        if (empty($this->consumedCssSelectors)) {
+            return $css;
+        }
+
+        foreach (array_keys($this->consumedCssSelectors) as $selector) {
+            $escaped = preg_quote($selector, '/');
+            // Match the selector followed by its rule block { ... }
+            $pattern = '/' . $escaped . '\s*\{[^}]*\}\s*/';
+            $css = preg_replace($pattern, '', $css);
+        }
+
+        return $css;
     }
 
     /**
@@ -698,6 +900,54 @@ class TreeBuilder
     public function getStats(): array
     {
         return $this->report->toArray();
+    }
+
+    /**
+     * Get the heuristics service for configuration
+     */
+    public function getHeuristics(): HeuristicsService
+    {
+        return $this->heuristics;
+    }
+
+    /**
+     * Enable all heuristics for template-specific conversion
+     */
+    public function enableAllHeuristics(): void
+    {
+        $this->heuristics->enableAll();
+    }
+
+    /**
+     * Disable all heuristics for general-purpose conversion
+     */
+    public function disableAllHeuristics(): void
+    {
+        $this->heuristics->disableAll();
+    }
+
+    /**
+     * Enable output validation
+     */
+    public function enableValidation(): void
+    {
+        $this->validateOutput = true;
+    }
+
+    /**
+     * Disable output validation
+     */
+    public function disableValidation(): void
+    {
+        $this->validateOutput = false;
+    }
+
+    /**
+     * Get the validator instance
+     */
+    public function getValidator(): OutputValidator
+    {
+        return $this->validator;
     }
 
     /**

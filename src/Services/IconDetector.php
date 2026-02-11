@@ -2,6 +2,8 @@
 
 namespace OxyHtmlConverter\Services;
 
+use OxyHtmlConverter\ElementTypes;
+
 /**
  * Service to detect and create Oxygen elements for icon libraries
  */
@@ -94,7 +96,7 @@ class IconDetector
             $elements[] = [
                 'id' => $idGenerator(),
                 'data' => [
-                    'type' => 'OxygenElements\\HtmlCode',
+                    'type' => ElementTypes::HTML_CODE,
                     'properties' => [
                         'content' => [
                             'content' => [

@@ -2,6 +2,8 @@
 
 namespace OxyHtmlConverter;
 
+use OxyHtmlConverter\ElementTypes;
+
 /**
  * Handles AJAX endpoints for HTML conversion
  */
@@ -38,10 +40,11 @@ class Ajax
             return;
         }
 
-        // Validate HTML input size (max 10MB to prevent abuse)
-        $maxHtmlSize = 10 * 1024 * 1024; // 10MB
-        if (strlen($html) > $maxHtmlSize) {
-            wp_send_json_error(['message' => 'HTML input exceeds maximum size of 10MB'], 400);
+        // Size limit for single conversion (1MB)
+        if (strlen($html) > 1048576) {
+            wp_send_json_error([
+                'message' => 'HTML content too large. Maximum 1MB allowed for single conversion.',
+            ], 400);
             return;
         }
 
@@ -70,7 +73,7 @@ class Ajax
                     $rootElement = [
                         'id' => $options['startingNodeId'],
                         'data' => [
-                            'type' => 'OxygenElements\\Container',
+                            'type' => ElementTypes::CONTAINER,
                             'properties' => [],
                         ],
                         'children' => [$rootElement],
@@ -87,7 +90,7 @@ class Ajax
                         $rootElement = [
                             'id' => $options['startingNodeId'],
                             'data' => [
-                                'type' => 'OxygenElements\\Container',
+                                'type' => ElementTypes::CONTAINER,
                                 'properties' => [],
                             ],
                             'children' => [$result['cssElement'], $rootElement],
@@ -99,6 +102,13 @@ class Ajax
                 if (!empty($result['iconScriptElements'])) {
                     foreach ($result['iconScriptElements'] as $iconElement) {
                         array_unshift($rootElement['children'], $iconElement);
+                    }
+                }
+
+                // Include head link elements (Google Fonts, preconnect, etc.)
+                if (!empty($result['headLinkElements'])) {
+                    foreach ($result['headLinkElements'] as $linkElement) {
+                        array_unshift($rootElement['children'], $linkElement);
                     }
                 }
 
@@ -119,15 +129,29 @@ class Ajax
                 ], 400);
             }
         } catch (\Throwable $e) {
-            // Debug logging disabled for production
-            // if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-            //     error_log('Oxygen HTML Converter Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-            // }
+            if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                error_log('Oxygen HTML Converter Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            }
             wp_send_json_error([
                 'message' => 'Conversion error: ' . $e->getMessage(),
             ], 500);
         }
     }
+
+    /**
+     * Maximum number of items in a batch
+     */
+    private const MAX_BATCH_ITEMS = 50;
+
+    /**
+     * Maximum size per HTML item in bytes (500KB)
+     */
+    private const MAX_ITEM_SIZE = 512000;
+
+    /**
+     * Maximum total batch size in bytes (5MB)
+     */
+    private const MAX_BATCH_SIZE = 5242880;
 
     /**
      * Handle batch HTML to Oxygen JSON conversion
@@ -148,27 +172,50 @@ class Ajax
 
         // Get HTML inputs (expecting an array of HTML strings)
         $rawBatch = isset($_POST['batch']) ? $_POST['batch'] : [];
-
-        // Validate input is an array
-        if (!is_array($rawBatch)) {
-            wp_send_json_error(['message' => 'Invalid input: expected array'], 400);
-            return;
-        }
-
-        // Limit batch size to prevent abuse
-        $maxBatchSize = 100;
-        if (count($rawBatch) > $maxBatchSize) {
-            wp_send_json_error(['message' => 'Batch size exceeds maximum of ' . $maxBatchSize], 400);
-            return;
-        }
-
-        if (empty($rawBatch)) {
+        if (empty($rawBatch) || !is_array($rawBatch)) {
             wp_send_json_error(['message' => 'No HTML batch provided'], 400);
             return;
         }
 
-        // Sanitize batch array - ensure all items are strings
-        $batch = array_values(array_filter($rawBatch, 'is_string'));
+        // Safety limits
+        if (count($rawBatch) > self::MAX_BATCH_ITEMS) {
+            wp_send_json_error([
+                'message' => 'Batch too large. Maximum ' . self::MAX_BATCH_ITEMS . ' items allowed.',
+            ], 400);
+            return;
+        }
+
+        // Sanitize batch array - ensure all items are strings and within size limits
+        $batch = [];
+        $totalSize = 0;
+        $skipped = 0;
+
+        foreach ($rawBatch as $index => $item) {
+            if (!is_string($item)) {
+                $skipped++;
+                continue;
+            }
+
+            $itemSize = strlen($item);
+
+            // Skip items that are too large
+            if ($itemSize > self::MAX_ITEM_SIZE) {
+                $skipped++;
+                continue;
+            }
+
+            // Check total batch size
+            if ($totalSize + $itemSize > self::MAX_BATCH_SIZE) {
+                wp_send_json_error([
+                    'message' => 'Batch total size exceeds limit. Maximum ' . (self::MAX_BATCH_SIZE / 1048576) . 'MB allowed.',
+                    'processedItems' => count($batch),
+                ], 400);
+                return;
+            }
+
+            $batch[] = $item;
+            $totalSize += $itemSize;
+        }
 
         $results = [];
         $builder = new TreeBuilder();
@@ -201,10 +248,18 @@ class Ajax
                 }
             }
 
-            wp_send_json_success([
+            $response = [
                 'results' => $results,
                 'totalStats' => $totalStats,
-            ]);
+            ];
+
+            // Include skipped count if any items were skipped
+            if ($skipped > 0) {
+                $response['skippedItems'] = $skipped;
+                $response['warning'] = "{$skipped} item(s) were skipped due to invalid type or size limits.";
+            }
+
+            wp_send_json_success($response);
         } catch (\Throwable $e) {
             wp_send_json_error(['message' => 'Batch conversion error: ' . $e->getMessage()], 500);
         }
@@ -234,10 +289,11 @@ class Ajax
             return;
         }
 
-        // Validate HTML input size (max 10MB to prevent abuse)
-        $maxHtmlSize = 10 * 1024 * 1024; // 10MB
-        if (strlen($html) > $maxHtmlSize) {
-            wp_send_json_error(['message' => 'HTML input exceeds maximum size of 10MB'], 400);
+        // Size limit for preview (1MB)
+        if (strlen($html) > 1048576) {
+            wp_send_json_error([
+                'message' => 'HTML content too large. Maximum 1MB allowed.',
+            ], 400);
             return;
         }
 
@@ -264,10 +320,9 @@ class Ajax
                 ], 400);
             }
         } catch (\Throwable $e) {
-            // Debug logging disabled for production
-            // if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-            //     error_log('Oxygen HTML Converter Preview Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-            // }
+            if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                error_log('Oxygen HTML Converter Preview Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            }
             wp_send_json_error([
                 'message' => 'Preview error: ' . $e->getMessage(),
             ], 500);

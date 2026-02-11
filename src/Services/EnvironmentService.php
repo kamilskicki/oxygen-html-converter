@@ -41,8 +41,8 @@ class EnvironmentService
      */
     public function getClassHandlingMode(): string
     {
-        if (\function_exists('get_option')) {
-            return \get_option('oxy_html_converter_class_mode', 'auto');
+        if (function_exists('get_option')) {
+            return get_option('oxy_html_converter_class_mode', 'auto');
         }
         return 'auto';
     }

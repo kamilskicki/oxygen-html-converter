@@ -50,7 +50,7 @@ class FrameworkDetector
         foreach ($node->attributes as $attr) {
             $name = $attr->name;
             foreach ($alpinePrefixes as $prefix) {
-                if (\str_starts_with($name, $prefix)) {
+                if (str_starts_with($name, $prefix)) {
                     return true;
                 }
             }
@@ -64,7 +64,7 @@ class FrameworkDetector
     public function hasHtmxAttributes(\DOMElement $node): bool
     {
         foreach ($node->attributes as $attr) {
-            if (\str_starts_with($attr->name, 'hx-')) {
+            if (str_starts_with($attr->name, 'hx-')) {
                 return true;
             }
         }
@@ -91,12 +91,12 @@ class FrameworkDetector
     public function isFrameworkAttribute(string $name): bool
     {
         // Alpine.js
-        if (\str_starts_with($name, 'x-') || \str_starts_with($name, '@') || \str_starts_with($name, ':') || \str_starts_with($name, 'data-oxy-at-')) {
+        if (str_starts_with($name, 'x-') || str_starts_with($name, '@') || str_starts_with($name, ':') || str_starts_with($name, 'data-oxy-at-')) {
             return true;
         }
 
         // HTMX
-        if (\str_starts_with($name, 'hx-')) {
+        if (str_starts_with($name, 'hx-')) {
             return true;
         }
 
