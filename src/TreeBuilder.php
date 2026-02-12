@@ -273,13 +273,11 @@ class TreeBuilder
 
     /**
      * Create a CSS Code element for extracted styles
-     * Returns null if inlineStyles mode is enabled
+     * Now always creates the element (inline styles mode doesn't disable it)
      */
     private function createCssCodeElement(string $css): ?array
     {
-        // In inline styles mode, we don't create CSS Code elements
-        // All styles are applied directly to elements via applyCssRules
-        if ($this->inlineStyles) {
+        if (empty(trim($css))) {
             return null;
         }
 

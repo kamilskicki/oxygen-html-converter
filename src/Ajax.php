@@ -52,7 +52,7 @@ class Ajax
         $options = [
             'startingNodeId' => isset($_POST['startingNodeId']) ? intval($_POST['startingNodeId']) : 1,
             'wrapInContainer' => isset($_POST['wrapInContainer']) ? filter_var($_POST['wrapInContainer'], FILTER_VALIDATE_BOOLEAN) : false,
-            'includeCssElement' => isset($_POST['includeCssElement']) ? filter_var($_POST['includeCssElement'], FILTER_VALIDATE_BOOLEAN) : false, // Changed default to false
+            'includeCssElement' => isset($_POST['includeCssElement']) ? filter_var($_POST['includeCssElement'], FILTER_VALIDATE_BOOLEAN) : true, // Changed back to true
             'inlineStyles' => isset($_POST['inlineStyles']) ? filter_var($_POST['inlineStyles'], FILTER_VALIDATE_BOOLEAN) : true, // Default true
             'debugMode' => isset($_POST['debugMode']) ? filter_var($_POST['debugMode'], FILTER_VALIDATE_BOOLEAN) : false,
         ];
