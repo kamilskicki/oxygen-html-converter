@@ -155,10 +155,9 @@ class TreeBuilder
         }
 
         // Clean up CSS rules that were converted to native Oxygen features
-        $this->extractedCss = $this->animationDetector->cleanupConvertedCss($this->extractedCss);
-
-        // Clean up CSS rules that were applied as native design properties
-        $this->extractedCss = $this->cleanupConsumedCssRules($this->extractedCss);
+        // NOTE: We keep all CSS in the CSS Code element as fallback
+        // $this->extractedCss = $this->animationDetector->cleanupConvertedCss($this->extractedCss);
+        // $this->extractedCss = $this->cleanupConsumedCssRules($this->extractedCss);
 
         // Create CSS Code element if we have extracted CSS
         $cssElement = null;
