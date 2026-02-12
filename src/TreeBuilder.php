@@ -670,16 +670,30 @@ class TreeBuilder
             $selector = $rule['selector'];
             $matched = false;
 
-            // Match #id
+            // Match #id (exact)
             if ($elementId && $selector === '#' . $elementId) {
                 $matched = true;
             }
 
-            // Match .className (simple single-class selectors only)
-            if (!$matched && strpos($selector, '.') === 0 && strpos($selector, ' ') === false
-                && strpos($selector, ':') === false && strpos($selector, '.', 1) === false) {
-                $className = substr($selector, 1);
-                if (in_array($className, $elementClasses, true)) {
+            // Match .className - improved to handle multiple class selectors
+            // e.g., .flex, .items-center, .flex.items-center, .md:flex
+            if (!$matched && strpos($selector, '.') === 0) {
+                $matched = $this->selectorMatchesElement($selector, $elementClasses, $elementId);
+            }
+
+            // Match element selectors (e.g., div, section, article)
+            if (!$matched && preg_match('/^[a-z][a-z0-9]*$/i', $selector)) {
+                // Get tag name from element type
+                $tagName = $this->getTagNameFromElement($element);
+                if ($tagName && strtolower($selector) === strtolower($tagName)) {
+                    $matched = true;
+                }
+            }
+
+            // Match [attribute] selectors - simplified check
+            if (!$matched && strpos($selector, '[') !== false && $elementId) {
+                // Check for [id="..."] pattern
+                if (preg_match('/\[id=["\']?' . preg_quote($elementId, '/') . '["\']?\]/', $selector)) {
                     $matched = true;
                 }
             }
@@ -693,6 +707,57 @@ class TreeBuilder
                 $this->consumedCssSelectors[$selector] = true;
             }
         }
+    }
+
+    /**
+     * Check if a CSS selector matches an element's classes
+     * Handles: .class, .class1.class2, .responsive:class, etc.
+     */
+    private function selectorMatchesElement(string $selector, array $elementClasses, ?string $elementId): bool
+    {
+        // Remove pseudo-classes and pseudo-elements (:hover, ::before, etc.)
+        $selector = preg_replace('/::?[a-z-]+(\([^)]*\))?/', '', $selector);
+        
+        // Split by combinators (space, >, +, ~)
+        $parts = preg_split('/\s*[>+~]\s*|\s+(?![\[\(])/', $selector);
+        $lastPart = end($parts);
+        
+        // Extract classes from the last part of selector (the element itself)
+        preg_match_all('/\.([a-zA-Z0-9_-]+)/', $lastPart, $matches);
+        $selectorClasses = $matches[1] ?? [];
+        
+        if (empty($selectorClasses)) {
+            return false;
+        }
+        
+        // Check if ALL classes from selector are present in element
+        foreach ($selectorClasses as $class) {
+            if (!in_array($class, $elementClasses, true)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Get tag name from Oxygen element type
+     */
+    private function getTagNameFromElement(array $element): ?string
+    {
+        $type = $element['data']['type'] ?? '';
+        
+        // Map Oxygen element types to HTML tags
+        $mapping = [
+            'OxygenElements\\Container' => 'div',
+            'OxygenElements\\Text' => 'span',
+            'OxygenElements\\TextLink' => 'a',
+            'OxygenElements\\Image' => 'img',
+            'OxygenElements\\RichText' => 'div',
+            'OxygenElements\\Header' => 'header',
+        ];
+        
+        return $mapping[$type] ?? null;
     }
 
     /**
