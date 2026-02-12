@@ -52,7 +52,9 @@ class Ajax
         $options = [
             'startingNodeId' => isset($_POST['startingNodeId']) ? intval($_POST['startingNodeId']) : 1,
             'wrapInContainer' => isset($_POST['wrapInContainer']) ? filter_var($_POST['wrapInContainer'], FILTER_VALIDATE_BOOLEAN) : false,
-            'includeCssElement' => isset($_POST['includeCssElement']) ? filter_var($_POST['includeCssElement'], FILTER_VALIDATE_BOOLEAN) : true,
+            'includeCssElement' => isset($_POST['includeCssElement']) ? filter_var($_POST['includeCssElement'], FILTER_VALIDATE_BOOLEAN) : false, // Changed default to false
+            'inlineStyles' => isset($_POST['inlineStyles']) ? filter_var($_POST['inlineStyles'], FILTER_VALIDATE_BOOLEAN) : true, // Default true
+            'debugMode' => isset($_POST['debugMode']) ? filter_var($_POST['debugMode'], FILTER_VALIDATE_BOOLEAN) : false,
         ];
 
         try {
@@ -62,6 +64,10 @@ class Ajax
             if ($options['startingNodeId'] > 1) {
                 $builder->setStartingNodeId($options['startingNodeId']);
             }
+
+            // Configure builder options
+            $builder->setInlineStyles($options['inlineStyles']);
+            $builder->setDebugMode($options['debugMode']);
 
             $result = $builder->convert($html);
 

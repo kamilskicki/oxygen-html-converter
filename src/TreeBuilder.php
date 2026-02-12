@@ -43,6 +43,8 @@ class TreeBuilder
     private ConversionReport $report;
 
     private bool $validateOutput = false;
+    private bool $inlineStyles = true;  // NEW: Force all styles inline instead of CSS Code
+    private bool $debugMode = false;     // NEW: Enable debug logging
     private int $nodeIdCounter = 1;
     private string $extractedCss = '';
     private array $customClasses = [];
@@ -271,9 +273,16 @@ class TreeBuilder
 
     /**
      * Create a CSS Code element for extracted styles
+     * Returns null if inlineStyles mode is enabled
      */
-    private function createCssCodeElement(string $css): array
+    private function createCssCodeElement(string $css): ?array
     {
+        // In inline styles mode, we don't create CSS Code elements
+        // All styles are applied directly to elements via applyCssRules
+        if ($this->inlineStyles) {
+            return null;
+        }
+
         return [
             'id' => $this->generateNodeId(),
             'data' => [
@@ -660,11 +669,22 @@ class TreeBuilder
     private function applyCssRules(array &$element, array $cssRules): void
     {
         if (empty($cssRules)) {
+            $this->logDebug('No CSS rules to apply');
             return;
         }
 
         $elementId = $element['data']['properties']['settings']['advanced']['id'] ?? null;
         $elementClasses = $element['data']['properties']['settings']['advanced']['classes'] ?? [];
+        $elementType = $element['data']['type'] ?? 'unknown';
+
+        $this->logDebug(sprintf(
+            'Applying CSS rules to element type=%s, id=%s, classes=%s',
+            $elementType,
+            $elementId ?? 'none',
+            implode(',', $elementClasses) ?: 'none'
+        ));
+
+        $matchedCount = 0;
 
         foreach ($cssRules as $rule) {
             $selector = $rule['selector'];
@@ -673,12 +693,16 @@ class TreeBuilder
             // Match #id (exact)
             if ($elementId && $selector === '#' . $elementId) {
                 $matched = true;
+                $this->logDebug("Matched ID selector: $selector");
             }
 
             // Match .className - improved to handle multiple class selectors
             // e.g., .flex, .items-center, .flex.items-center, .md:flex
             if (!$matched && strpos($selector, '.') === 0) {
                 $matched = $this->selectorMatchesElement($selector, $elementClasses, $elementId);
+                if ($matched) {
+                    $this->logDebug("Matched class selector: $selector");
+                }
             }
 
             // Match element selectors (e.g., div, section, article)
@@ -687,6 +711,7 @@ class TreeBuilder
                 $tagName = $this->getTagNameFromElement($element);
                 if ($tagName && strtolower($selector) === strtolower($tagName)) {
                     $matched = true;
+                    $this->logDebug("Matched tag selector: $selector");
                 }
             }
 
@@ -695,18 +720,28 @@ class TreeBuilder
                 // Check for [id="..."] pattern
                 if (preg_match('/\[id=["\']?' . preg_quote($elementId, '/') . '["\']?\]/', $selector)) {
                     $matched = true;
+                    $this->logDebug("Matched attribute selector: $selector");
                 }
             }
 
             if ($matched) {
                 $expandedDeclarations = $this->expandShorthandProperties($rule['declarations']);
                 $convertedStyles = $this->styleExtractor->toOxygenProperties($expandedDeclarations);
+
+                $this->logDebug(sprintf(
+                    'Applying styles: %s',
+                    json_encode($convertedStyles)
+                ));
+
                 $element['data']['properties'] = $this->mergeProperties(
                     $element['data']['properties'], ['design' => $convertedStyles]
                 );
                 $this->consumedCssSelectors[$selector] = true;
+                $matchedCount++;
             }
         }
+
+        $this->logDebug("Total rules matched: $matchedCount");
     }
 
     /**
@@ -1027,5 +1062,32 @@ class TreeBuilder
             return $filename; // Minimal fix, just keep filename
         }
         return $url;
+    }
+
+    /**
+     * Enable inline styles mode - all CSS is applied directly to elements
+     * instead of creating CSS Code elements
+     */
+    public function setInlineStyles(bool $enabled): void
+    {
+        $this->inlineStyles = $enabled;
+    }
+
+    /**
+     * Enable debug mode - logs additional information during conversion
+     */
+    public function setDebugMode(bool $enabled): void
+    {
+        $this->debugMode = $enabled;
+    }
+
+    /**
+     * Log debug message (if debug mode is enabled)
+     */
+    private function logDebug(string $message): void
+    {
+        if ($this->debugMode) {
+            $this->report->addInfo('[DEBUG] ' . $message);
+        }
     }
 }
