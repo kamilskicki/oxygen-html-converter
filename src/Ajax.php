@@ -56,9 +56,13 @@ class Ajax
             'inlineStyles' => isset($_POST['inlineStyles']) ? filter_var($_POST['inlineStyles'], FILTER_VALIDATE_BOOLEAN) : true, // Default true
             'debugMode' => isset($_POST['debugMode']) ? filter_var($_POST['debugMode'], FILTER_VALIDATE_BOOLEAN) : false,
         ];
+        $options = apply_filters('oxy_html_converter_convert_options', $options, $_POST);
 
         try {
-            $builder = new TreeBuilder();
+            $builder = apply_filters('oxy_html_converter_tree_builder', new TreeBuilder(), $options, $html);
+            if (!($builder instanceof TreeBuilder)) {
+                $builder = new TreeBuilder();
+            }
 
             // Set starting node ID if provided
             if ($options['startingNodeId'] > 1) {
@@ -118,7 +122,7 @@ class Ajax
                     }
                 }
 
-                wp_send_json_success([
+                $payload = [
                     'element' => $rootElement,
                     'cssElement' => $result['cssElement'],
                     'extractedCss' => $result['extractedCss'],
@@ -127,7 +131,10 @@ class Ajax
                     'json' => json_encode([
                         'element' => $rootElement,
                     ], JSON_PRETTY_PRINT),
-                ]);
+                ];
+
+                $payload = apply_filters('oxy_html_converter_convert_response', $payload, $result, $options, $html);
+                wp_send_json_success($payload);
             } else {
                 wp_send_json_error([
                     'message' => $result['error'] ?? 'Conversion failed',
@@ -135,6 +142,7 @@ class Ajax
                 ], 400);
             }
         } catch (\Throwable $e) {
+            do_action('oxy_html_converter_conversion_exception', $e, $options);
             if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
                 error_log('Oxygen HTML Converter Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
@@ -265,8 +273,10 @@ class Ajax
                 $response['warning'] = "{$skipped} item(s) were skipped due to invalid type or size limits.";
             }
 
+            $response = apply_filters('oxy_html_converter_batch_response', $response, $results, $totalStats);
             wp_send_json_success($response);
         } catch (\Throwable $e) {
+            do_action('oxy_html_converter_batch_exception', $e);
             wp_send_json_error(['message' => 'Batch conversion error: ' . $e->getMessage()], 500);
         }
     }
@@ -311,7 +321,7 @@ class Ajax
                 // Generate preview summary
                 $summary = $this->generatePreviewSummary($result['element']);
 
-                wp_send_json_success([
+                $payload = [
                     'summary' => $summary,
                     'elementCount' => $result['stats']['elements'],
                     'tailwindClassCount' => $result['stats']['tailwindClasses'],
@@ -319,13 +329,17 @@ class Ajax
                     'customClasses' => $result['customClasses'],
                     'hasExtractedCss' => !empty($result['extractedCss']),
                     'warnings' => $result['stats']['warnings'],
-                ]);
+                ];
+
+                $payload = apply_filters('oxy_html_converter_preview_response', $payload, $result, $html);
+                wp_send_json_success($payload);
             } else {
                 wp_send_json_error([
                     'message' => $result['error'] ?? 'Preview failed',
                 ], 400);
             }
         } catch (\Throwable $e) {
+            do_action('oxy_html_converter_preview_exception', $e);
             if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
                 error_log('Oxygen HTML Converter Preview Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }

@@ -20,6 +20,8 @@ if (!defined('ABSPATH')) {
 define('OXY_HTML_CONVERTER_VERSION', '0.8.0-beta');
 define('OXY_HTML_CONVERTER_PATH', plugin_dir_path(__FILE__));
 define('OXY_HTML_CONVERTER_URL', plugin_dir_url(__FILE__));
+define('OXY_HTML_CONVERTER_IS_CORE', true);
+define('OXY_HTML_CONVERTER_API_VERSION', '1.0.0');
 
 // Load PHP 7.4 polyfills for PHP 8.0+ functions
 require_once OXY_HTML_CONVERTER_PATH . 'src/polyfills.php';
@@ -44,6 +46,8 @@ spl_autoload_register(function ($class) {
 
 // Initialize plugin
 add_action('plugins_loaded', function () {
+    do_action('oxy_html_converter_before_boot');
+
     // Check if Oxygen Builder 6 is active
     // Oxygen 6 is built on Breakdance and sets BREAKDANCE_MODE to 'oxygen'
     // Also check for legacy Oxygen detection methods for forward compatibility
@@ -59,5 +63,6 @@ add_action('plugins_loaded', function () {
     }
 
     // Initialize main plugin class
-    \OxyHtmlConverter\Plugin::getInstance();
+    $plugin = \OxyHtmlConverter\Plugin::getInstance();
+    do_action('oxy_html_converter_loaded', $plugin);
 });

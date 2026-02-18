@@ -8,6 +8,12 @@ namespace OxyHtmlConverter;
 class Plugin
 {
     private static ?Plugin $instance = null;
+    private array $featureFlags = [
+        'core' => true,
+        'pro' => false,
+        'batch_convert' => true,
+        'preview' => true,
+    ];
 
     public static function getInstance(): Plugin
     {
@@ -29,6 +35,13 @@ class Plugin
 
         // Register admin page
         new AdminPage();
+
+        /**
+         * Fired after core services are registered.
+         *
+         * Pro add-ons should hook here to register integrations.
+         */
+        do_action('oxy_html_converter_core_init', $this);
 
         // Enqueue builder scripts on multiple hooks to ensure it catches the builder environment
         add_action('wp_enqueue_scripts', [$this, 'enqueueBuilderScripts'], 9999);
@@ -59,10 +72,17 @@ class Plugin
             true
         );
 
-        wp_localize_script('oxy-html-converter', 'oxyHtmlConverter', [
+        $scriptData = [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('oxy_html_converter'),
-        ]);
+            'features' => apply_filters('oxy_html_converter_feature_flags', $this->featureFlags),
+            'apiVersion' => OXY_HTML_CONVERTER_API_VERSION,
+        ];
+
+        $scriptData = apply_filters('oxy_html_converter_builder_script_data', $scriptData);
+        wp_localize_script('oxy-html-converter', 'oxyHtmlConverter', $scriptData);
+
+        do_action('oxy_html_converter_after_enqueue_builder_scripts', $scriptData);
     }
 
     private function isOxygenBuilder(): bool

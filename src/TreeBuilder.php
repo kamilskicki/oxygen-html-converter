@@ -201,6 +201,7 @@ class TreeBuilder
             }
         }
 
+        $result = apply_filters('oxy_html_converter_conversion_result', $result, $html, $this);
         return $result;
     }
 
