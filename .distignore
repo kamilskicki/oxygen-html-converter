@@ -1,0 +1,11 @@
+.git
+.github
+.phpunit.cache
+vendor
+node_modules
+tests
+docs
+scaffolds
+*.zip
+composer.lock
+phpunit.xml

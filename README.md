@@ -8,6 +8,17 @@ Paste entire HTML pages and edit them natively in Oxygen — no iframes, no shor
 
 ⚠️ **Beta release** — this plugin is functional and tested, but edge cases exist. Feedback welcome via [GitHub Issues](https://github.com/kamilskicki/oxygen-html-converter/issues).
 
+## Open Core Model
+
+This repository is the **open-source Core** plugin.
+
+- Core stays public and community-driven.
+- Pro features should live in a separate private plugin repo.
+- Core exposes versioned hooks/filters so Pro can extend without forking.
+
+See `docs/OPEN_CORE.md` and `scaffolds/oxygen-html-converter-pro` for the starter structure.
+For publishing flow, see `docs/RELEASE_CHECKLIST.md`.
+
 ## Features
 
 ### Core Conversion
@@ -63,7 +74,6 @@ Paste entire HTML pages and edit them natively in Oxygen — no iframes, no shor
 cd wp-content/plugins/
 git clone https://github.com/kamilskicki/oxygen-html-converter.git
 cd oxygen-html-converter
-composer install --no-dev
 ```
 
 ## Usage
@@ -127,9 +137,28 @@ This is a beta release. Bug reports, feature requests, and pull requests are wel
 3. Commit your changes
 4. Push and open a Pull Request
 
+### Extension Hooks (for add-ons/Pro)
+
+Core provides extension points including:
+
+- `oxy_html_converter_before_boot`
+- `oxy_html_converter_core_init`
+- `oxy_html_converter_loaded`
+- `oxy_html_converter_feature_flags`
+- `oxy_html_converter_builder_script_data`
+- `oxy_html_converter_after_enqueue_builder_scripts`
+- `oxy_html_converter_convert_options`
+- `oxy_html_converter_tree_builder`
+- `oxy_html_converter_conversion_result`
+- `oxy_html_converter_convert_response`
+- `oxy_html_converter_batch_response`
+- `oxy_html_converter_preview_response`
+
+API compatibility is versioned via `OXY_HTML_CONVERTER_API_VERSION`.
+
 ## License
 
-GPL v2 or later — see [LICENSE](https://www.gnu.org/licenses/gpl-2.0.html)
+GPL-2.0-or-later — see [LICENSE](LICENSE)
 
 ## Author
 

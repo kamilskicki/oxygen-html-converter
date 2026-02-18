@@ -6,7 +6,7 @@ A robust, widely-adopted tool that reliably converts HTML templates to native Ox
 
 ---
 
-## Current Status (v1.1)
+## Current Status (v0.8.0-beta)
 
 ### What Works
 - HTML → Oxygen element mapping (all common tags)
@@ -25,6 +25,13 @@ A robust, widely-adopted tool that reliably converts HTML templates to native Ox
 ---
 
 ## Planned
+
+### Foundation — Open Core + Pro Split
+
+- Publish and maintain Core as a stable public plugin.
+- Keep Pro as a separate add-on plugin/repository.
+- Expand and stabilize Core extension hooks as public API.
+- Add release hygiene: issue templates, semantic versioning, release checklist.
 
 ### Tier 1 — Robustness (Target: 95% of static templates)
 
@@ -72,4 +79,4 @@ Areas where contributions are welcome:
 
 ---
 
-*Last updated: February 2025*
+*Last updated: February 18, 2026*

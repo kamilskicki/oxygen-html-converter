@@ -4,3 +4,13 @@ vendor/
 node_modules/
 .DS_Store
 composer.lock
+*.log
+artifacts/
+tmp/
+
+# Local research/scratch files (keep outside canonical source tree)
+KBAI/
+Implementation.md
+next.md
+Kamil.html
+Wedding.html

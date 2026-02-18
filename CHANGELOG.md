@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Core extension hooks for add-ons and Pro integrations.
+- Open Core documentation in `docs/OPEN_CORE.md`.
+- Pro starter scaffold in `scaffolds/oxygen-html-converter-pro`.
+- API contract version constant `OXY_HTML_CONVERTER_API_VERSION`.
+- Repository `LICENSE` file (GPL-2.0-or-later).
+- GitHub issue templates and release checklist.
+
+### Changed
+- Builder script localization now supports feature flag/filter injection.
+- AJAX responses now pass through extension filters.
+- Core/API documentation now lists all exported extension hooks.
+- Roadmap version naming aligned to current plugin version (`v0.8.0-beta`).
+
 ## [0.8.0-beta] — 2025-02-11
 
 ### Added
