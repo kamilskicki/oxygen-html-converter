@@ -480,6 +480,11 @@ class TreeBuilder
         if ($tagOption) {
             $element['data']['properties']['design'] = $element['data']['properties']['design'] ?? [];
             $element['data']['properties']['design']['tag'] = $tagOption;
+            // Oxygen element implementations vary: some read tag from design.tag,
+            // others from settings.advanced.tag.
+            $element['data']['properties']['settings'] = $element['data']['properties']['settings'] ?? [];
+            $element['data']['properties']['settings']['advanced'] = $element['data']['properties']['settings']['advanced'] ?? [];
+            $element['data']['properties']['settings']['advanced']['tag'] = $tagOption;
         }
 
         // Apply heuristics (optional template-specific optimizations)
@@ -589,6 +594,9 @@ class TreeBuilder
                 $element['children'][] = $textChild;
             }
 
+            // Buttons return early, so CSS rules must be applied before exiting.
+            $this->applyCssRules($element, $this->cssRules, $node);
+
             // Don't process other children for buttons - they're handled as text
             return $element;
         }
@@ -624,7 +632,7 @@ class TreeBuilder
 
 
         // Apply CSS rules from style tags if they match this element's ID
-        $this->applyCssRules($element, $this->cssRules);
+        $this->applyCssRules($element, $this->cssRules, $node);
 
         return $element;
     }
@@ -664,7 +672,7 @@ class TreeBuilder
     /**
      * Apply CSS rules from style tags to an element
      */
-    private function applyCssRules(array &$element, array $cssRules): void
+    private function applyCssRules(array &$element, array $cssRules, DOMElement $node): void
     {
         if (empty($cssRules)) {
             $this->logDebug('No CSS rules to apply');
@@ -685,41 +693,21 @@ class TreeBuilder
         $matchedCount = 0;
 
         foreach ($cssRules as $rule) {
-            $selector = $rule['selector'];
-            $matched = false;
-
-            // Match #id (exact)
-            if ($elementId && $selector === '#' . $elementId) {
-                $matched = true;
-                $this->logDebug("Matched ID selector: $selector");
+            $selector = trim($rule['selector']);
+            if ($selector === '') {
+                continue;
             }
 
-            // Match .className - improved to handle multiple class selectors
-            // e.g., .flex, .items-center, .flex.items-center, .md:flex
-            if (!$matched && strpos($selector, '.') === 0) {
-                $matched = $this->selectorMatchesElement($selector, $elementClasses, $elementId);
-                if ($matched) {
-                    $this->logDebug("Matched class selector: $selector");
-                }
+            // Keep state/pseudo selectors in the fallback CSS block.
+            // Converting them to native properties merges hover/::before styles
+            // into base styles and causes rendering regressions.
+            if ($this->selectorContainsPseudo($selector)) {
+                continue;
             }
 
-            // Match element selectors (e.g., div, section, article)
-            if (!$matched && preg_match('/^[a-z][a-z0-9]*$/i', $selector)) {
-                // Get tag name from element type
-                $tagName = $this->getTagNameFromElement($element);
-                if ($tagName && strtolower($selector) === strtolower($tagName)) {
-                    $matched = true;
-                    $this->logDebug("Matched tag selector: $selector");
-                }
-            }
-
-            // Match [attribute] selectors - simplified check
-            if (!$matched && strpos($selector, '[') !== false && $elementId) {
-                // Check for [id="..."] pattern
-                if (preg_match('/\[id=["\']?' . preg_quote($elementId, '/') . '["\']?\]/', $selector)) {
-                    $matched = true;
-                    $this->logDebug("Matched attribute selector: $selector");
-                }
+            $matched = $this->selectorMatchesElement($selector, $elementClasses, $elementId, $node, $element);
+            if ($matched) {
+                $this->logDebug("Matched selector: $selector");
             }
 
             if ($matched) {
@@ -743,33 +731,188 @@ class TreeBuilder
     }
 
     /**
-     * Check if a CSS selector matches an element's classes
-     * Handles: .class, .class1.class2, .responsive:class, etc.
+     * Check if a CSS selector matches the current DOM element.
+     *
+     * Supports simple selectors used by imported templates:
+     * - #id, .class, tag, tag.class
+     * - descendant selectors (e.g. .nav-links a, footer .footer-col a)
+     * - basic attribute selectors (e.g. [data-animate], [id="navbar"])
      */
-    private function selectorMatchesElement(string $selector, array $elementClasses, ?string $elementId): bool
+    private function selectorMatchesElement(
+        string $selector,
+        array $elementClasses,
+        ?string $elementId,
+        DOMElement $node,
+        array $element
+    ): bool
     {
         // Remove pseudo-classes and pseudo-elements (:hover, ::before, etc.)
-        $selector = preg_replace('/::?[a-z-]+(\([^)]*\))?/', '', $selector);
-        
-        // Split by combinators (space, >, +, ~)
-        $parts = preg_split('/\s*[>+~]\s*|\s+(?![\[\(])/', $selector);
-        $lastPart = end($parts);
-        
-        // Extract classes from the last part of selector (the element itself)
-        preg_match_all('/\.([a-zA-Z0-9_-]+)/', $lastPart, $matches);
-        $selectorClasses = $matches[1] ?? [];
-        
-        if (empty($selectorClasses)) {
+        $selector = trim($selector);
+        $selector = preg_replace('/::?[a-z-]+(\([^)]*\))?/i', '', $selector);
+        $selector = trim($selector);
+
+        if ($selector === '') {
             return false;
         }
-        
-        // Check if ALL classes from selector are present in element
-        foreach ($selectorClasses as $class) {
-            if (!in_array($class, $elementClasses, true)) {
+
+        // Fast path for simple class selectors to keep performance predictable.
+        if (strpos($selector, '.') === 0 &&
+            strpos($selector, ' ') === false &&
+            strpos($selector, '>') === false &&
+            strpos($selector, '+') === false &&
+            strpos($selector, '~') === false &&
+            strpos($selector, '[') === false &&
+            strpos($selector, '#') === false) {
+            preg_match_all('/\.([a-zA-Z0-9_\-\\\\:]+)/', $selector, $matches);
+            $selectorClasses = $matches[1] ?? [];
+
+            if (empty($selectorClasses)) {
+                return false;
+            }
+
+            foreach ($selectorClasses as $class) {
+                $class = str_replace('\\', '', $class);
+                if (!in_array($class, $elementClasses, true)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Fast path for exact ID selector.
+        if ($elementId && $selector === '#' . $elementId) {
+            return true;
+        }
+
+        // Fast path for plain tag selector.
+        if (preg_match('/^[a-z][a-z0-9-]*$/i', $selector)) {
+            $tagName = $this->getTagNameFromElement($element);
+            return $tagName !== null && strtolower($selector) === strtolower($tagName);
+        }
+
+        // Fallback for descendant/compound selectors.
+        return $this->selectorMatchesDomPath($selector, $node);
+    }
+
+    /**
+     * Match descendant/compound selectors against the current DOM node.
+     *
+     * Child/sibling combinators are treated as descendant matching as a pragmatic fallback.
+     */
+    private function selectorMatchesDomPath(string $selector, DOMElement $node): bool
+    {
+        // Normalize combinators to spaces to support common patterns.
+        $selector = preg_replace('/\s*[>+~]\s*/', ' ', $selector);
+        $parts = preg_split('/\s+/', trim($selector));
+
+        if (empty($parts)) {
+            return false;
+        }
+
+        $current = $node;
+        $lastIndex = count($parts) - 1;
+
+        for ($i = $lastIndex; $i >= 0; $i--) {
+            $part = trim($parts[$i]);
+            if ($part === '') {
+                continue;
+            }
+
+            if (!($current instanceof DOMElement)) {
+                return false;
+            }
+
+            // Rightmost selector part must match this node itself.
+            if ($i === $lastIndex) {
+                if (!$this->simpleSelectorMatchesNode($part, $current)) {
+                    return false;
+                }
+                $current = ($current->parentNode instanceof DOMElement) ? $current->parentNode : null;
+                continue;
+            }
+
+            // Remaining selector parts can match any ancestor.
+            $matched = false;
+            while ($current instanceof DOMElement) {
+                if ($this->simpleSelectorMatchesNode($part, $current)) {
+                    $matched = true;
+                    $current = ($current->parentNode instanceof DOMElement) ? $current->parentNode : null;
+                    break;
+                }
+                $current = ($current->parentNode instanceof DOMElement) ? $current->parentNode : null;
+            }
+
+            if (!$matched) {
                 return false;
             }
         }
-        
+
+        return true;
+    }
+
+    /**
+     * Match a single selector part (tag/id/class/attributes) against one DOM element.
+     */
+    private function simpleSelectorMatchesNode(string $selectorPart, DOMElement $node): bool
+    {
+        $selectorPart = trim($selectorPart);
+        if ($selectorPart === '' || $selectorPart === '*') {
+            return true;
+        }
+
+        $attributes = [];
+        if (preg_match_all('/\[\s*([a-zA-Z0-9_\-:]+)(?:\s*=\s*[\'"]?([^\'"\]]+)[\'"]?)?\s*\]/', $selectorPart, $attrMatches, PREG_SET_ORDER)) {
+            foreach ($attrMatches as $match) {
+                $attributes[] = [
+                    'name' => $match[1],
+                    'value' => $match[2] ?? null,
+                ];
+            }
+            $selectorPart = preg_replace('/\[[^\]]+\]/', '', $selectorPart);
+        }
+
+        $tag = null;
+        if (preg_match('/^[a-zA-Z][a-zA-Z0-9\-]*/', $selectorPart, $tagMatch)) {
+            $tag = strtolower($tagMatch[0]);
+        }
+
+        $id = null;
+        if (preg_match('/#([a-zA-Z0-9_\-:\\\\]+)/', $selectorPart, $idMatch)) {
+            $id = str_replace('\\', '', $idMatch[1]);
+        }
+
+        preg_match_all('/\.([a-zA-Z0-9_\-:\\\\]+)/', $selectorPart, $classMatches);
+        $classes = $classMatches[1] ?? [];
+
+        if ($tag !== null && strtolower($node->tagName) !== $tag) {
+            return false;
+        }
+
+        if ($id !== null && $node->getAttribute('id') !== $id) {
+            return false;
+        }
+
+        if (!empty($classes)) {
+            $nodeClasses = array_filter(array_map('trim', explode(' ', $node->getAttribute('class'))));
+            foreach ($classes as $class) {
+                $class = str_replace('\\', '', $class);
+                if (!in_array($class, $nodeClasses, true)) {
+                    return false;
+                }
+            }
+        }
+
+        foreach ($attributes as $attribute) {
+            $attrName = $attribute['name'];
+            if (!$node->hasAttribute($attrName)) {
+                return false;
+            }
+            if ($attribute['value'] !== null && $node->getAttribute($attrName) !== $attribute['value']) {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -778,18 +921,25 @@ class TreeBuilder
      */
     private function getTagNameFromElement(array $element): ?string
     {
+        $tag = $element['data']['properties']['design']['tag'] ?? null;
+        if (is_string($tag) && $tag !== '') {
+            return strtolower($tag);
+        }
+
         $type = $element['data']['type'] ?? '';
-        
+
         // Map Oxygen element types to HTML tags
         $mapping = [
             'OxygenElements\\Container' => 'div',
+            'OxygenElements\\ContainerLink' => 'a',
             'OxygenElements\\Text' => 'span',
             'OxygenElements\\TextLink' => 'a',
             'OxygenElements\\Image' => 'img',
+            'OxygenElements\\Html5Video' => 'video',
             'OxygenElements\\RichText' => 'div',
             'OxygenElements\\Header' => 'header',
         ];
-        
+
         return $mapping[$type] ?? null;
     }
 
@@ -939,17 +1089,56 @@ class TreeBuilder
      */
     private function mergeProperties(array $content, array $styles): array
     {
-        $merged = $content;
+        return $this->mergeAssociativeProperties($content, $styles);
+    }
 
-        foreach ($styles as $key => $value) {
-            if (is_array($value) && isset($merged[$key]) && is_array($merged[$key])) {
-                $merged[$key] = array_merge_recursive($merged[$key], $value);
+    /**
+     * Merge arrays recursively with override semantics.
+     *
+     * array_merge_recursive() turns duplicate scalar keys into arrays, which
+     * breaks Oxygen properties (e.g. color/background/position become arrays).
+     */
+    private function mergeAssociativeProperties(array $base, array $override): array
+    {
+        $merged = $base;
+
+        foreach ($override as $key => $value) {
+            if (
+                array_key_exists($key, $merged)
+                && is_array($merged[$key])
+                && is_array($value)
+                && $this->isAssocArray($merged[$key])
+                && $this->isAssocArray($value)
+            ) {
+                $merged[$key] = $this->mergeAssociativeProperties($merged[$key], $value);
             } else {
                 $merged[$key] = $value;
             }
         }
 
         return $merged;
+    }
+
+    /**
+     * True for associative arrays, false for indexed arrays.
+     */
+    private function isAssocArray(array $array): bool
+    {
+        if ($array === []) {
+            return false;
+        }
+
+        return array_keys($array) !== range(0, count($array) - 1);
+    }
+
+    /**
+     * Detect pseudo-class / pseudo-element selectors.
+     */
+    private function selectorContainsPseudo(string $selector): bool
+    {
+        // Ignore attribute selectors when looking for pseudo markers.
+        $withoutAttributes = preg_replace('/\[[^\]]*\]/', '', $selector);
+        return (bool) preg_match('/::?[a-z-]+(\([^)]*\))?/i', (string) $withoutAttributes);
     }
 
     /**

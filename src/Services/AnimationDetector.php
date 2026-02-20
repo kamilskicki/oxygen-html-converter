@@ -257,7 +257,8 @@ class AnimationDetector
             // Distance from @keyframes fadeInUp: translateY(40px)
             $distance = 40; // default based on typical fadeInUp
 
-            $this->lastConsumedClasses[] = $cls;
+            // Keep the original class on element: keyframe classes often carry
+            // non-animation styling (layout/typography/button visuals).
             $this->consumedCssSelectors[] = '.' . $cls;
 
             return [

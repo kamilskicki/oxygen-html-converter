@@ -87,7 +87,7 @@ class ElementMapper
      */
     private const CONTAINER_TAG_OPTIONS = [
         'section', 'footer', 'header', 'nav', 'aside', 'figure',
-        'article', 'main', 'details', 'summary', 'ul', 'li', 'ol'
+        'article', 'main', 'details', 'summary', 'ul', 'li', 'ol', 'button'
     ];
 
     /**
@@ -191,6 +191,16 @@ class ElementMapper
                     'content' => [
                         'content' => [
                             'text' => $text,
+                        ],
+                    ],
+                    // Buttons should contain phrasing content (not block-level wrappers).
+                    // Force Text child to render as <span> inside <button>.
+                    'design' => [
+                        'tag' => 'span',
+                    ],
+                    'settings' => [
+                        'advanced' => [
+                            'tag' => 'span',
                         ],
                     ],
                 ],
