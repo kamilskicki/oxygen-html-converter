@@ -30,7 +30,7 @@ For publishing flow, see `docs/RELEASE_CHECKLIST.md`.
 ### Interactive & Dynamic
 - **Event handler conversion** — `onclick`, `onmouseenter`, etc. → Oxygen Interactions
 - **JavaScript transformation** — scripts are rewritten for Oxygen compatibility
-- **Framework detection** — Alpine.js, Vue, React, HTMX detected and preserved
+- **Framework detection** — Alpine.js, HTMX, and Stimulus attributes detected and preserved
 
 ### CSS Intelligence
 - **Tailwind CSS detection** — classes are preserved; WindPress integration supported
@@ -55,9 +55,9 @@ For publishing flow, see `docs/RELEASE_CHECKLIST.md`.
 | `<video>` | Video |
 | `<ul>`, `<ol>` | Container (list) |
 | `<li>` | Container (list item) |
-| `<form>` | Container (form) |
-| `<input>`, `<textarea>`, `<select>`, `<button>` | Form elements |
-| `<svg>` | SVG / Icon |
+| `<form>`, `<input>`, `<textarea>`, `<select>` | HTML Code |
+| `<button>` | Container |
+| `<svg>` | HTML Code (raw SVG) |
 | `<iframe>` | HTML Code |
 | `<script>`, `<style>` | Code elements |
 
@@ -92,17 +92,18 @@ cd oxygen-html-converter
 ### Method 3: Import Modal (in Builder)
 1. Inside the Oxygen editor, press `Ctrl+Shift+H`
 2. Paste HTML into the modal
-3. Click **Import** — elements are inserted at your cursor position
+3. Click **Import** — converted JSON is copied to your clipboard, then press `Ctrl+V` in the builder to paste
 
 ## Requirements
 
 - WordPress 5.0+
 - PHP 7.4+
 - Oxygen Builder 6.x
+- A logged-in user with the `edit_posts` capability (recommended: restrict usage to Admins only)
 
 ## Known Limitations (Beta)
 
-- **JavaScript frameworks** (React, Vue, Alpine.js) are detected but not fully converted to Oxygen equivalents — framework attributes are preserved for manual handling
+- **Framework attributes** (Alpine.js, HTMX, Stimulus.js) are preserved, but framework behavior is not fully converted to Oxygen equivalents
 - **External stylesheets** are not fetched or parsed — only inline styles are converted
 - **Complex JavaScript** with closures, async patterns, or module imports may need manual adjustment after conversion
 - **Web Components** (`<template>`, `<slot>`) are preserved as HTML Code blocks
@@ -112,7 +113,7 @@ cd oxygen-html-converter
 ## Roadmap to v1.0
 
 - [ ] External CSS stylesheet fetching & parsing
-- [ ] Batch import (multiple pages)
+- [ ] Batch import UI (multiple pages)
 - [ ] Template library integration
 - [ ] WP Media Library image import
 - [ ] Full test suite
@@ -126,7 +127,7 @@ See [ROADMAP.md](ROADMAP.md) for the full development plan.
 - **PHP 7.4 – 8.3**
 - **Tailwind CSS** — classes preserved, WindPress integration supported
 - **Bootstrap** — classes preserved
-- **Alpine.js, HTMX** — attributes detected and preserved
+- **Alpine.js, HTMX, Stimulus.js** — attributes detected and preserved
 
 ## Contributing
 
@@ -141,11 +142,6 @@ This is a beta release. Bug reports, feature requests, and pull requests are wel
 
 - Stable unit gate:
   - `composer test`
-- Legacy/regression suite (not part of default gate):
-  - `composer test:legacy`
-
-Legacy tests are stored in `tests/Legacy` and track behavior/classes that are
-not currently part of active Core runtime.
 
 ### Extension Hooks (for add-ons/Pro)
 

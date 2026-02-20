@@ -42,8 +42,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - PHP 7.4 compatibility (union types, `str_starts_with` polyfill)
-- AJAX input validation (10 MB HTML limit, 100-item batch limit)
-- Removed debug `error_log()` calls
+- AJAX input validation limits (single conversion: 1 MB; batch: 50 items max, 500 KB per item, 5 MB total)
+- Removed routine debug `error_log()` noise from normal conversion flow
 
 ## [0.1.0] — 2024-12-01
 
@@ -55,6 +55,6 @@ All notable changes to this project will be documented in this file.
 - Event handler → Oxygen Interactions conversion
 - JavaScript function transformation
 - Tailwind CSS class detection
-- Framework detection (Alpine.js, Vue, React, HTMX)
+- Framework detection (Alpine.js, HTMX, Stimulus.js)
 - Admin page (Tools → Oxygen HTML Converter)
 - Builder integration (Ctrl+V paste, Ctrl+Shift+H import modal)

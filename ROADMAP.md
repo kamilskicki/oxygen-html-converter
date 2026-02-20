@@ -18,7 +18,7 @@ A robust, widely-adopted tool that reliably converts HTML templates to native Ox
 - Tailwind CSS detection (WindPress integration)
 - CSS Grid detection
 - Animation and transition detection
-- Framework detection (Alpine.js, Vue, React, HTMX)
+- Framework detection (Alpine.js, HTMX, Stimulus.js)
 - Conversion reporting with warnings
 - Output validation
 
