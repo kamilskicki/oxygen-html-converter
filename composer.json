@@ -25,6 +25,10 @@
     "phpunit/phpunit": "^9.5",
     "mockery/mockery": "^1.4"
   },
+  "scripts": {
+    "test": "phpunit --testsuite Unit",
+    "test:legacy": "phpunit --configuration phpunit.legacy.xml"
+  },
   "config": {
     "optimize-autoloader": true,
     "sort-packages": true,

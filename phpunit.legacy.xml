@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         cacheResultFile=".phpunit.cache/test-results-legacy"
+         executionOrder="depends,defects"
+         verbose="true">
+    <testsuites>
+        <testsuite name="Legacy">
+            <directory>tests/Legacy</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

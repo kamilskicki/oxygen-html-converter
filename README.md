@@ -137,6 +137,16 @@ This is a beta release. Bug reports, feature requests, and pull requests are wel
 3. Commit your changes
 4. Push and open a Pull Request
 
+### Testing
+
+- Stable unit gate:
+  - `composer test`
+- Legacy/regression suite (not part of default gate):
+  - `composer test:legacy`
+
+Legacy tests are stored in `tests/Legacy` and track behavior/classes that are
+not currently part of active Core runtime.
+
 ### Extension Hooks (for add-ons/Pro)
 
 Core provides extension points including:
