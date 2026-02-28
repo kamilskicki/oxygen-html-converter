@@ -67,6 +67,7 @@ class ElementMapperTest extends TestCase
 
             // Link element
             'a' => ['a', 'OxygenElements\\TextLink'],
+            'button' => ['button', 'OxygenElements\\Container'],
 
             // Image element
             'img' => ['img', 'OxygenElements\\Image'],
@@ -152,6 +153,65 @@ class ElementMapperTest extends TestCase
         $properties = $this->mapper->buildProperties($img);
 
         $this->assertArrayHasKey('content', $properties);
+    }
+
+    public function testBuildPropertiesForVideo(): void
+    {
+        $video = $this->createElement('video', [
+            'src' => 'video.mp4',
+            'autoplay' => 'autoplay',
+            'muted' => 'muted',
+            'playsinline' => 'playsinline',
+        ]);
+
+        $properties = $this->mapper->buildProperties($video);
+
+        $this->assertSame('video.mp4', $properties['content']['content']['video_file_url']);
+        $this->assertTrue($properties['content']['content']['autoplay']);
+        $this->assertTrue($properties['content']['content']['muted']);
+        $this->assertTrue($properties['content']['content']['plays_inline']);
+    }
+
+    public function testVideoWithoutSourceFallsBackToHtmlCodeType(): void
+    {
+        $video = $this->createElement('video');
+        $type = $this->mapper->getElementType('video', $video);
+
+        $this->assertSame('OxygenElements\\HtmlCode', $type);
+    }
+
+    public function testButtonMapsToEssentialButtonWhenPreferred(): void
+    {
+        $this->mapper->setPreferEssentialElements(true);
+        $button = $this->createElement('button', [], 'Click me');
+
+        $type = $this->mapper->getElementType('button', $button);
+
+        $this->assertSame('EssentialElements\\Button', $type);
+    }
+
+    public function testEssentialButtonPropertiesContainTextAndLink(): void
+    {
+        $this->mapper->setPreferEssentialElements(true);
+        $button = $this->createElement('button', [
+            'onclick' => "window.open('https://example.com', '_blank')",
+            'target' => '_blank',
+        ], 'Buy now');
+
+        $properties = $this->mapper->buildProperties($button);
+
+        $this->assertSame('Buy now', $properties['content']['content']['text']);
+        $this->assertSame('url', $properties['content']['content']['link']['type']);
+        $this->assertSame('https://example.com', $properties['content']['content']['link']['url']);
+        $this->assertTrue($properties['content']['content']['link']['openInNewTab']);
+    }
+
+    public function testEssentialButtonDoesNotNeedChildTextElement(): void
+    {
+        $this->mapper->setPreferEssentialElements(true);
+        $button = $this->createElement('button', [], 'Click me');
+
+        $this->assertFalse($this->mapper->needsChildTextElement($button));
     }
 
     public function testBuildPropertiesForLink(): void

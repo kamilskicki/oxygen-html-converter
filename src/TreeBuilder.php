@@ -45,6 +45,7 @@ class TreeBuilder
     private bool $validateOutput = false;
     private bool $inlineStyles = true;  // NEW: Force all styles inline instead of CSS Code
     private bool $debugMode = false;     // NEW: Enable debug logging
+    private ?bool $preferEssentialElements = null;
     private int $nodeIdCounter = 1;
     private string $extractedCss = '';
     private array $customClasses = [];
@@ -91,6 +92,11 @@ class TreeBuilder
         $this->jsPatterns = [];
         $this->consumedCssSelectors = [];
         $this->report->reset();
+
+        // Configure element mapping mode per conversion.
+        // Manual override takes precedence; otherwise resolve from environment setting.
+        $preferEssentialElements = $this->preferEssentialElements ?? $this->environment->shouldPreferEssentialElements();
+        $this->mapper->setPreferEssentialElements($preferEssentialElements);
 
         // Parse HTML
         $root = $this->parser->parse($html);
@@ -499,6 +505,9 @@ class TreeBuilder
         }
         if ($tag === 'a' && isset($element['data']['properties']['content']['content']['url'])) {
             $element['data']['properties']['content']['content']['url'] = $this->sanitizeUrl($element['data']['properties']['content']['content']['url']);
+        }
+        if ($tag === 'button' && isset($element['data']['properties']['content']['content']['link']['url'])) {
+            $element['data']['properties']['content']['content']['link']['url'] = $this->sanitizeUrl($element['data']['properties']['content']['content']['link']['url']);
         }
 
         // Apply fixed header spacing heuristic (optional)
@@ -938,6 +947,7 @@ class TreeBuilder
             'OxygenElements\\Html5Video' => 'video',
             'OxygenElements\\RichText' => 'div',
             'OxygenElements\\Header' => 'header',
+            'EssentialElements\\Button' => 'button',
         ];
 
         return $mapping[$type] ?? null;
@@ -1266,6 +1276,15 @@ class TreeBuilder
     public function setDebugMode(bool $enabled): void
     {
         $this->debugMode = $enabled;
+    }
+
+    /**
+     * Override auto element mapping to prefer EssentialElements button output.
+     */
+    public function setPreferEssentialElements(bool $enabled): void
+    {
+        $this->preferEssentialElements = $enabled;
+        $this->mapper->setPreferEssentialElements($enabled);
     }
 
     /**

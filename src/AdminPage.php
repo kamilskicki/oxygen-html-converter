@@ -24,6 +24,25 @@ class AdminPage
             'sanitize_callback' => 'sanitize_text_field',
             'default' => 'auto',
         ]);
+
+        register_setting('oxy_html_converter_options', 'oxy_html_converter_element_mapping_mode', [
+            'type' => 'string',
+            'sanitize_callback' => [$this, 'sanitizeElementMappingMode'],
+            'default' => 'auto',
+        ]);
+    }
+
+    /**
+     * Sanitize element mapping mode option.
+     */
+    public function sanitizeElementMappingMode($value): string
+    {
+        $value = sanitize_text_field($value);
+        if (!in_array($value, ['auto', 'oxygen', 'essential'], true)) {
+            return 'auto';
+        }
+
+        return $value;
     }
 
     /**
@@ -32,7 +51,7 @@ class AdminPage
     public function addMenuPage(): void
     {
         add_submenu_page(
-            'oxygen_admin', // Parent slug (Oxygen's admin menu)
+            'oxygen', // Oxygen 6 parent slug
             'HTML Converter',
             'HTML Converter',
             'edit_posts',
@@ -55,7 +74,11 @@ class AdminPage
      */
     public function enqueueAdminAssets(string $hook): void
     {
-        if (!in_array($hook, ['oxygen_page_oxy-html-converter', 'tools_page_oxy-html-converter-tool'])) {
+        if (!in_array($hook, [
+            'oxygen_page_oxy-html-converter',
+            'oxygen_admin_page_oxy-html-converter', // legacy compatibility
+            'tools_page_oxy-html-converter-tool',
+        ], true)) {
             return;
         }
 
@@ -86,6 +109,7 @@ class AdminPage
     public function renderPage(): void
     {
         $classMode = get_option('oxy_html_converter_class_mode', 'auto');
+        $elementMappingMode = get_option('oxy_html_converter_element_mapping_mode', 'auto');
         ?>
         <div class="wrap oxy-html-converter-wrap">
             <h1>Oxygen HTML Converter</h1>
@@ -101,6 +125,15 @@ class AdminPage
                             <option value="auto" <?php selected($classMode, 'auto'); ?>>Auto-detect (WindPress if available, otherwise Native)</option>
                             <option value="windpress" <?php selected($classMode, 'windpress'); ?>>Force WindPress Mode (Keep all classes)</option>
                             <option value="native" <?php selected($classMode, 'native'); ?>>Force Oxygen Native Mode (Convert Tailwind to properties)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-field">
+                        <label for="oxy_html_converter_element_mapping_mode" style="font-weight: 600; margin-right: 10px;">Button Mapping Mode:</label>
+                        <select name="oxy_html_converter_element_mapping_mode" id="oxy_html_converter_element_mapping_mode">
+                            <option value="auto" <?php selected($elementMappingMode, 'auto'); ?>>Auto-detect (Use Essential button when available)</option>
+                            <option value="oxygen" <?php selected($elementMappingMode, 'oxygen'); ?>>Force Oxygen Button Mapping</option>
+                            <option value="essential" <?php selected($elementMappingMode, 'essential'); ?>>Force EssentialElements Button Mapping</option>
                         </select>
                     </div>
 
@@ -188,6 +221,7 @@ class AdminPage
                         <tr><td><code>&lt;p&gt;</code>, <code>&lt;h1&gt;</code>-<code>&lt;h6&gt;</code>, <code>&lt;span&gt;</code></td><td>Text</td></tr>
                         <tr><td><code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, <code>&lt;table&gt;</code></td><td>Rich Text</td></tr>
                         <tr><td><code>&lt;a&gt;</code></td><td>Text Link</td></tr>
+                        <tr><td><code>&lt;button&gt;</code></td><td>Container or Essential Button (mode-dependent)</td></tr>
                         <tr><td><code>&lt;img&gt;</code></td><td>Image</td></tr>
                         <tr><td><code>&lt;iframe&gt;</code>, <code>&lt;svg&gt;</code>, <code>&lt;form&gt;</code></td><td>HTML Code</td></tr>
                     </tbody>

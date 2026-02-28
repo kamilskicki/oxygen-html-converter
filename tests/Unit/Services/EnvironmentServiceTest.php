@@ -71,4 +71,61 @@ class EnvironmentServiceTest extends TestCase
         $mockService->shouldReceive('isWindPressActive')->once()->andReturn(false);
         $this->assertFalse($mockService->shouldUseWindPressMode());
     }
+
+    /**
+     * @test
+     */
+    public function it_returns_auto_as_default_element_mapping_mode()
+    {
+        $this->assertEquals('auto', $this->service->getElementMappingMode());
+    }
+
+    /**
+     * @test
+     */
+    public function it_should_not_prefer_essential_elements_when_mode_is_oxygen()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getElementMappingMode')->andReturn('oxygen');
+
+        $this->assertFalse($mockService->shouldPreferEssentialElements());
+    }
+
+    /**
+     * @test
+     */
+    public function it_should_prefer_essential_elements_when_mode_is_essential_and_plugin_is_active()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getElementMappingMode')->andReturn('essential');
+        $mockService->shouldReceive('isBreakdanceElementsForOxygenActive')->once()->andReturn(true);
+
+        $this->assertTrue($mockService->shouldPreferEssentialElements());
+    }
+
+    /**
+     * @test
+     */
+    public function it_should_not_prefer_essential_elements_when_mode_is_essential_and_plugin_is_inactive()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getElementMappingMode')->andReturn('essential');
+        $mockService->shouldReceive('isBreakdanceElementsForOxygenActive')->once()->andReturn(false);
+
+        $this->assertFalse($mockService->shouldPreferEssentialElements());
+    }
+
+    /**
+     * @test
+     */
+    public function it_should_follow_plugin_detection_when_element_mapping_mode_is_auto()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getElementMappingMode')->andReturn('auto');
+        $mockService->shouldReceive('isBreakdanceElementsForOxygenActive')->once()->andReturn(true);
+        $this->assertTrue($mockService->shouldPreferEssentialElements());
+
+        $mockService->shouldReceive('isBreakdanceElementsForOxygenActive')->once()->andReturn(false);
+        $this->assertFalse($mockService->shouldPreferEssentialElements());
+    }
 }

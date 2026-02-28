@@ -87,12 +87,20 @@ class Plugin
 
     private function isOxygenBuilder(): bool
     {
-        // Broad detection for Oxygen 6 / Breakdance environment
-        return isset($_GET['oxygen']) ||
-               isset($_GET['ct_builder']) ||
-               isset($_GET['breakdance_iframe']) ||
-               isset($_GET['oxygen_iframe']) ||
-               (defined('OXYGEN_IFRAME') && OXYGEN_IFRAME) ||
-               (defined('BREAKDANCE_MODE') && BREAKDANCE_MODE === 'oxygen' && !is_admin());
+        $oxygenParam = isset($_GET['oxygen']) ? (string) $_GET['oxygen'] : '';
+        $breakdanceParam = isset($_GET['breakdance']) ? (string) $_GET['breakdance'] : '';
+
+        // Oxygen/Breakdance builder loader route: ?oxygen=builder&id=...
+        $isBuilderLoader = $oxygenParam === 'builder' ||
+                           $breakdanceParam === 'builder' ||
+                           isset($_GET['ct_builder']);
+
+        // Builder iframe requests include one of these flags.
+        $isBuilderIframe = !empty($_GET['breakdance_iframe']) ||
+                           !empty($_GET['oxygen_iframe']) ||
+                           !empty($_GET['breakdance_gutenberg_iframe']) ||
+                           (defined('OXYGEN_IFRAME') && OXYGEN_IFRAME);
+
+        return $isBuilderLoader || $isBuilderIframe;
     }
 }

@@ -66,4 +66,62 @@ class EnvironmentService
 
         return false;
     }
+
+    /**
+     * Check if Breakdance Elements for Oxygen plugin is active.
+     */
+    public function isBreakdanceElementsForOxygenActive(): bool
+    {
+        if (defined('BREAKDANCE_ELEMENTS_FOR_OXYGEN_VERSION')) {
+            return true;
+        }
+
+        if (class_exists('\\EssentialElements\\Button')) {
+            return true;
+        }
+
+        if (function_exists('is_plugin_active')) {
+            return is_plugin_active('breakdance-elements-for-oxygen/plugin.php');
+        }
+
+        return false;
+    }
+
+    /**
+     * Get element mapping mode.
+     *
+     * @return string 'auto', 'oxygen', or 'essential'
+     */
+    public function getElementMappingMode(): string
+    {
+        $mode = 'auto';
+        if (function_exists('get_option')) {
+            $mode = (string) get_option('oxy_html_converter_element_mapping_mode', 'auto');
+        }
+
+        if (!in_array($mode, ['auto', 'oxygen', 'essential'], true)) {
+            return 'auto';
+        }
+
+        return $mode;
+    }
+
+    /**
+     * Determine if converter should prefer EssentialElements mappings.
+     */
+    public function shouldPreferEssentialElements(): bool
+    {
+        $mode = $this->getElementMappingMode();
+
+        if ($mode === 'oxygen') {
+            return false;
+        }
+
+        if ($mode === 'essential') {
+            return $this->isBreakdanceElementsForOxygenActive();
+        }
+
+        // auto
+        return $this->isBreakdanceElementsForOxygenActive();
+    }
 }

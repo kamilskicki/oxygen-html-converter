@@ -33,6 +33,9 @@ final class ElementTypes
     // Header element (for sticky headers)
     public const HEADER = 'OxygenElements\\Header';
 
+    // Breakdance Elements for Oxygen element
+    public const ESSENTIAL_BUTTON = 'EssentialElements\\Button';
+
     /**
      * All valid element types
      */
@@ -48,6 +51,7 @@ final class ElementTypes
         self::CSS_CODE,
         self::JAVASCRIPT_CODE,
         self::HEADER,
+        self::ESSENTIAL_BUTTON,
     ];
 
     /**

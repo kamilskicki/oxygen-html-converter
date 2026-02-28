@@ -14,10 +14,19 @@ use OxyHtmlConverter\ElementTypes;
 class ElementMapper
 {
     private GridDetector $gridDetector;
+    private bool $preferEssentialElements = false;
 
     public function __construct()
     {
         $this->gridDetector = new GridDetector();
+    }
+
+    /**
+     * Prefer Breakdance Elements for Oxygen mappings when available.
+     */
+    public function setPreferEssentialElements(bool $prefer): void
+    {
+        $this->preferEssentialElements = $prefer;
     }
 
     /**
@@ -115,12 +124,23 @@ class ElementMapper
     {
         $tag = strtolower($tag);
 
+        // Map native <button> to EssentialElements Button when explicitly enabled.
+        if ($tag === 'button' && $this->preferEssentialElements) {
+            return ElementTypes::ESSENTIAL_BUTTON;
+        }
+
         // Special handling for links that should become ContainerLink
         if ($tag === 'a' && $node !== null) {
             // If the link has complex children or looks like a button, use ContainerLink
             if ($this->isButtonLikeLink($node)) {
                 return ElementTypes::CONTAINER_LINK;
             }
+        }
+
+        // Only map to Html5Video when a source URL is present.
+        // Source-less video tags are safer as raw HTML Code.
+        if ($tag === 'video' && $node !== null && !$this->hasVideoSource($node)) {
+            return ElementTypes::HTML_CODE;
         }
 
         // Removed Header mapping - using standard Container for navbar
@@ -164,9 +184,10 @@ class ElementMapper
     {
         $tag = strtolower($node->tagName);
 
-        // Only buttons get flat text children; links recurse their children naturally
+        // Only native Oxygen buttons need flat text children.
+        // EssentialElements Button keeps text in content.content.text.
         if ($tag === 'button') {
-            return true;
+            return !$this->preferEssentialElements;
         }
 
         return false;
@@ -308,6 +329,10 @@ class ElementMapper
                 $properties = $this->buildContainerLinkProperties($node);
                 break;
 
+            case ElementTypes::ESSENTIAL_BUTTON:
+                $properties = $this->buildEssentialButtonProperties($node);
+                break;
+
             case ElementTypes::IMAGE:
                 $properties = $this->buildImageProperties($node);
                 break;
@@ -402,21 +427,7 @@ class ElementMapper
      */
     private function buildContainerLinkProperties(DOMElement $node): array
     {
-        $tag = strtolower($node->tagName);
-
-        // Get URL from href (for <a>) or onclick (for <button>)
-        $url = '#';
-        if ($tag === 'a') {
-            $url = $node->getAttribute('href') ?: '#';
-        } elseif ($tag === 'button') {
-            $onclick = $node->getAttribute('onclick');
-            if (preg_match("/location\s*[=.]\s*['\"]([^'\"]+)['\"]/i", $onclick, $matches)) {
-                $url = $matches[1];
-            } elseif (preg_match("/window\.open\s*\(\s*['\"]([^'\"]+)['\"]/i", $onclick, $matches)) {
-                $url = $matches[1];
-            }
-        }
-
+        $url = $this->getLinkUrlForNode($node);
         $target = $node->getAttribute('target');
 
         $properties = [
@@ -432,6 +443,35 @@ class ElementMapper
         }
 
         return $properties;
+    }
+
+    /**
+     * Build EssentialElements Button properties.
+     */
+    private function buildEssentialButtonProperties(DOMElement $node): array
+    {
+        $text = trim((string) preg_replace('/\s+/', ' ', $node->textContent));
+        if ($text === '') {
+            $text = 'Button';
+        }
+
+        $link = [
+            'type' => 'url',
+            'url' => $this->getLinkUrlForNode($node),
+        ];
+
+        if ($node->getAttribute('target') === '_blank') {
+            $link['openInNewTab'] = true;
+        }
+
+        return [
+            'content' => [
+                'content' => [
+                    'text' => $text,
+                    'link' => $link,
+                ],
+            ],
+        ];
     }
 
     /**
@@ -481,8 +521,20 @@ class ElementMapper
      */
     private function buildVideoProperties(DOMElement $node): array
     {
-        // For video, use HTML code element as it's more flexible
-        return $this->buildHtmlCodeProperties($node);
+        $videoUrl = $this->getVideoSourceUrl($node);
+
+        return [
+            'content' => [
+                'content' => [
+                    'video_file_url' => $videoUrl,
+                    'loop' => $node->hasAttribute('loop'),
+                    'autoplay' => $node->hasAttribute('autoplay'),
+                    'muted' => $node->hasAttribute('muted'),
+                    'controls' => $node->hasAttribute('controls'),
+                    'plays_inline' => $node->hasAttribute('playsinline') || $node->hasAttribute('plays-inline'),
+                ],
+            ],
+        ];
     }
 
     /**
@@ -588,6 +640,62 @@ class ElementMapper
         }
 
         return false;
+    }
+
+    /**
+     * Check whether a <video> element has a usable source URL.
+     */
+    private function hasVideoSource(DOMElement $node): bool
+    {
+        return $this->getVideoSourceUrl($node) !== '';
+    }
+
+    /**
+     * Extract source URL from <video src> or nested <source src>.
+     */
+    private function getVideoSourceUrl(DOMElement $node): string
+    {
+        $src = trim($node->getAttribute('src'));
+        if ($src !== '') {
+            return $src;
+        }
+
+        $sources = $node->getElementsByTagName('source');
+        foreach ($sources as $source) {
+            if (!($source instanceof DOMElement)) {
+                continue;
+            }
+
+            $sourceSrc = trim($source->getAttribute('src'));
+            if ($sourceSrc !== '') {
+                return $sourceSrc;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Resolve URL from href (for <a>) or onclick handlers (for <button>).
+     */
+    private function getLinkUrlForNode(DOMElement $node): string
+    {
+        $tag = strtolower($node->tagName);
+        if ($tag === 'a') {
+            return $node->getAttribute('href') ?: '#';
+        }
+
+        if ($tag === 'button') {
+            $onclick = $node->getAttribute('onclick');
+            if (preg_match("/location\s*[=.]\s*['\"]([^'\"]+)['\"]/i", $onclick, $matches)) {
+                return $matches[1];
+            }
+            if (preg_match("/window\.open\s*\(\s*['\"]([^'\"]+)['\"]/i", $onclick, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return '#';
     }
 
     /**
