@@ -2,6 +2,8 @@
 
 namespace OxyHtmlConverter;
 
+use OxyHtmlConverter\Services\EnvironmentService;
+
 /**
  * Admin page for HTML conversion
  */
@@ -110,6 +112,24 @@ class AdminPage
     {
         $classMode = get_option('oxy_html_converter_class_mode', 'auto');
         $elementMappingMode = get_option('oxy_html_converter_element_mapping_mode', 'auto');
+        $environment = new EnvironmentService();
+
+        $isEssentialPluginActive = $environment->isBreakdanceElementsForOxygenActive();
+        $isEssentialContractCompatible = $environment->isEssentialButtonContractCompatible();
+        $effectiveButtonMapping = $environment->shouldPreferEssentialElements() ? 'essential' : 'oxygen';
+        $contractIssues = $isEssentialPluginActive ? $environment->getEssentialButtonContractIssues() : [];
+
+        $contractStatusText = 'Not checked';
+        $contractStatusColor = '#6c757d';
+        if ($isEssentialPluginActive) {
+            if ($isEssentialContractCompatible) {
+                $contractStatusText = 'Compatible';
+                $contractStatusColor = '#2e7d32';
+            } else {
+                $contractStatusText = 'Incompatible';
+                $contractStatusColor = '#c62828';
+            }
+        }
         ?>
         <div class="wrap oxy-html-converter-wrap">
             <h1>Oxygen HTML Converter</h1>
@@ -139,6 +159,58 @@ class AdminPage
 
                     <?php submit_button('Save Settings', 'secondary', 'submit', false); ?>
                 </form>
+            </div>
+
+            <div class="oxy-contract-health" style="margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ccd0d4; border-radius: 4px;">
+                <h2 style="margin-top: 0;">Contract Health</h2>
+                <p class="description" style="margin-top: 0;">
+                    Compatibility status for builder element contracts used by the converter.
+                </p>
+
+                <table class="widefat striped" style="max-width: 960px;">
+                    <tbody>
+                        <tr>
+                            <td style="width: 280px;"><strong>Configured Button Mode</strong></td>
+                            <td><code><?php echo esc_html($elementMappingMode); ?></code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Effective Button Mapping</strong></td>
+                            <td>
+                                <code><?php echo esc_html($effectiveButtonMapping); ?></code>
+                                <?php if ($effectiveButtonMapping !== $elementMappingMode && $elementMappingMode !== 'auto'): ?>
+                                    <span style="margin-left: 8px; color: #c62828;">(fallback applied)</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Breakdance Elements for Oxygen</strong></td>
+                            <td style="color: <?php echo $isEssentialPluginActive ? '#2e7d32' : '#c62828'; ?>;">
+                                <?php echo $isEssentialPluginActive ? 'Detected' : 'Not detected'; ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Essential Button Contract</strong></td>
+                            <td style="color: <?php echo esc_attr($contractStatusColor); ?>;">
+                                <?php echo esc_html($contractStatusText); ?>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <?php if (!empty($contractIssues)): ?>
+                    <div style="margin-top: 12px; padding: 12px; border: 1px solid #f3b3b3; background: #fff5f5; border-radius: 4px;">
+                        <strong>Contract Issues</strong>
+                        <ul style="margin: 8px 0 0 18px;">
+                            <?php foreach ($contractIssues as $issue): ?>
+                                <li><?php echo esc_html($issue); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php elseif ($isEssentialPluginActive && $isEssentialContractCompatible): ?>
+                    <div style="margin-top: 12px; padding: 12px; border: 1px solid #b8e6be; background: #f2fff4; border-radius: 4px;">
+                        <strong>All required Essential button contract checks passed.</strong>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div class="oxy-converter-container">
