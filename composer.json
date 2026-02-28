@@ -27,7 +27,8 @@
   },
   "scripts": {
     "test": "phpunit --testsuite Unit",
-    "test:legacy": "phpunit --configuration phpunit.legacy.xml"
+    "test:legacy": "phpunit --configuration phpunit.legacy.xml",
+    "test:contracts": "phpunit tests/Unit/Compatibility/InstalledBuilderContractsTest.php"
   },
   "config": {
     "optimize-autoloader": true,

@@ -98,6 +98,32 @@ class TreeBuilder
         $preferEssentialElements = $this->preferEssentialElements ?? $this->environment->shouldPreferEssentialElements();
         $this->mapper->setPreferEssentialElements($preferEssentialElements);
 
+        // Report compatibility decisions when mapping mode is environment-driven.
+        if ($this->preferEssentialElements === null) {
+            $mappingMode = $this->environment->getElementMappingMode();
+            $essentialPluginActive = $this->environment->isBreakdanceElementsForOxygenActive();
+
+            if ($mappingMode === 'essential' && !$preferEssentialElements) {
+                $issues = $essentialPluginActive
+                    ? $this->environment->getEssentialButtonContractIssues()
+                    : ['Breakdance Elements for Oxygen plugin is not active'];
+                $message = 'Essential button mapping was requested, but compatibility contract failed. Falling back to Oxygen mapping.';
+                if (!empty($issues)) {
+                    $message .= ' Issues: ' . implode('; ', $issues);
+                }
+                $this->report->addWarning($message);
+            } elseif ($mappingMode === 'auto' && $essentialPluginActive && !$preferEssentialElements) {
+                $issues = $this->environment->getEssentialButtonContractIssues();
+                $message = 'Essential button contract check failed in auto mode. Using Oxygen button mapping.';
+                if (!empty($issues)) {
+                    $message .= ' Issues: ' . implode('; ', $issues);
+                }
+                $this->report->addWarning($message);
+            } elseif ($preferEssentialElements) {
+                $this->report->addInfo('Essential button mapping enabled (contract verified).');
+            }
+        }
+
         // Parse HTML
         $root = $this->parser->parse($html);
         if (!$root) {

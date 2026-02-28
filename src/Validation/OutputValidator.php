@@ -2,6 +2,7 @@
 
 namespace OxyHtmlConverter\Validation;
 
+use OxyHtmlConverter\Contracts\ElementContractRegistry;
 use OxyHtmlConverter\ElementTypes;
 
 /**
@@ -116,6 +117,7 @@ class OutputValidator
             } else {
                 // Validate properties structure
                 $this->validateProperties($element['data']['properties'], "$path.data.properties");
+                $this->validateContractProperties($element['data']['type'] ?? '', $element['data']['properties'], $path);
             }
         }
 
@@ -206,6 +208,47 @@ class OutputValidator
         } elseif (!is_array($interaction['actions'])) {
             $this->errors[] = "[$path] Interaction 'actions' must be an array";
         }
+    }
+
+    /**
+     * Validate required contract property paths for known element types.
+     */
+    private function validateContractProperties(string $type, array $properties, string $path): void
+    {
+        if ($type === '') {
+            return;
+        }
+
+        $requiredPaths = ElementContractRegistry::getRequiredPropertyPaths($type);
+        if (empty($requiredPaths)) {
+            return;
+        }
+
+        foreach ($requiredPaths as $requiredPath) {
+            if (!$this->hasPath($properties, $requiredPath)) {
+                $this->warnings[] = sprintf(
+                    '[%s] Missing contract path for %s: %s',
+                    $path,
+                    $type,
+                    $requiredPath
+                );
+            }
+        }
+    }
+
+    private function hasPath(array $properties, string $path): bool
+    {
+        $segments = explode('.', $path);
+        $current = $properties;
+
+        foreach ($segments as $segment) {
+            if (!is_array($current) || !array_key_exists($segment, $current)) {
+                return false;
+            }
+            $current = $current[$segment];
+        }
+
+        return true;
     }
 
     /**

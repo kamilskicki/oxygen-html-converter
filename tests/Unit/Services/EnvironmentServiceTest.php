@@ -99,6 +99,7 @@ class EnvironmentServiceTest extends TestCase
         $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
         $mockService->shouldReceive('getElementMappingMode')->andReturn('essential');
         $mockService->shouldReceive('isBreakdanceElementsForOxygenActive')->once()->andReturn(true);
+        $mockService->shouldReceive('isEssentialButtonContractCompatible')->once()->andReturn(true);
 
         $this->assertTrue($mockService->shouldPreferEssentialElements());
     }
@@ -123,9 +124,65 @@ class EnvironmentServiceTest extends TestCase
         $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
         $mockService->shouldReceive('getElementMappingMode')->andReturn('auto');
         $mockService->shouldReceive('isBreakdanceElementsForOxygenActive')->once()->andReturn(true);
+        $mockService->shouldReceive('isEssentialButtonContractCompatible')->once()->andReturn(true);
         $this->assertTrue($mockService->shouldPreferEssentialElements());
 
         $mockService->shouldReceive('isBreakdanceElementsForOxygenActive')->once()->andReturn(false);
         $this->assertFalse($mockService->shouldPreferEssentialElements());
+    }
+
+    /**
+     * @test
+     */
+    public function it_should_not_prefer_essential_elements_when_contract_is_incompatible()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getElementMappingMode')->andReturn('essential');
+        $mockService->shouldReceive('isBreakdanceElementsForOxygenActive')->once()->andReturn(true);
+        $mockService->shouldReceive('isEssentialButtonContractCompatible')->once()->andReturn(false);
+
+        $this->assertFalse($mockService->shouldPreferEssentialElements());
+    }
+
+    /**
+     * @test
+     */
+    public function it_returns_empty_contract_issues_when_status_does_not_contain_issues()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getEssentialButtonContractStatus')
+            ->once()
+            ->andReturn(['compatible' => false]);
+
+        $this->assertSame([], $mockService->getEssentialButtonContractIssues());
+    }
+
+    /**
+     * @test
+     */
+    public function it_returns_contract_issues_from_status()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getEssentialButtonContractStatus')
+            ->once()
+            ->andReturn([
+                'compatible' => false,
+                'issues' => ['Issue A', 'Issue B'],
+            ]);
+
+        $this->assertSame(['Issue A', 'Issue B'], $mockService->getEssentialButtonContractIssues());
+    }
+
+    /**
+     * @test
+     */
+    public function it_reports_contract_compatibility_from_status()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getEssentialButtonContractStatus')
+            ->once()
+            ->andReturn(['compatible' => true, 'issues' => []]);
+
+        $this->assertTrue($mockService->isEssentialButtonContractCompatible());
     }
 }

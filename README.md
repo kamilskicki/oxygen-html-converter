@@ -56,7 +56,7 @@ For publishing flow, see `docs/RELEASE_CHECKLIST.md`.
 | `<ul>`, `<ol>` | Container (list) |
 | `<li>` | Container (list item) |
 | `<form>`, `<input>`, `<textarea>`, `<select>` | HTML Code |
-| `<button>` | Container |
+| `<button>` | Container (or Essential Button in Essential mode) |
 | `<svg>` | HTML Code (raw SVG) |
 | `<iframe>` | HTML Code |
 | `<script>`, `<style>` | Code elements |
@@ -142,6 +142,11 @@ This is a beta release. Bug reports, feature requests, and pull requests are wel
 
 - Stable unit gate:
   - `composer test`
+- Live builder source contracts (auto-skip if paths unavailable):
+  - `vendor/bin/phpunit tests/Unit/Compatibility/InstalledBuilderContractsTest.php`
+  - Optional env overrides:
+    - `OXY_HTML_CONVERTER_OXYGEN_DIR=/path/to/oxygen`
+    - `OXY_HTML_CONVERTER_BREAKDANCE_ELEMENTS_DIR=/path/to/breakdance-elements-for-oxygen`
 
 ### Extension Hooks (for add-ons/Pro)
 

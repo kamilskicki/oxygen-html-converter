@@ -7,6 +7,9 @@ namespace OxyHtmlConverter\Services;
  */
 class EnvironmentService
 {
+    private ?BuilderContractService $builderContractService = null;
+    private ?array $essentialButtonContractStatus = null;
+
     /**
      * Check if the WindPress plugin is active
      *
@@ -117,11 +120,58 @@ class EnvironmentService
             return false;
         }
 
+        if (!$this->isBreakdanceElementsForOxygenActive()) {
+            return false;
+        }
+
         if ($mode === 'essential') {
-            return $this->isBreakdanceElementsForOxygenActive();
+            return $this->isEssentialButtonContractCompatible();
         }
 
         // auto
-        return $this->isBreakdanceElementsForOxygenActive();
+        return $this->isEssentialButtonContractCompatible();
+    }
+
+    /**
+     * Check if the EssentialElements Button contract is compatible.
+     */
+    public function isEssentialButtonContractCompatible(): bool
+    {
+        $status = $this->getEssentialButtonContractStatus();
+        return (bool) ($status['compatible'] ?? false);
+    }
+
+    /**
+     * Get detailed status for the EssentialElements Button contract.
+     *
+     * @return array{compatible:bool,class:string,issues:array,details:array}
+     */
+    public function getEssentialButtonContractStatus(): array
+    {
+        if ($this->essentialButtonContractStatus !== null) {
+            return $this->essentialButtonContractStatus;
+        }
+
+        $this->essentialButtonContractStatus = $this->getBuilderContractService()->evaluateEssentialButtonContract();
+        return $this->essentialButtonContractStatus;
+    }
+
+    /**
+     * Get compatibility issues for EssentialElements Button contract.
+     */
+    public function getEssentialButtonContractIssues(): array
+    {
+        $status = $this->getEssentialButtonContractStatus();
+        $issues = $status['issues'] ?? [];
+        return is_array($issues) ? $issues : [];
+    }
+
+    private function getBuilderContractService(): BuilderContractService
+    {
+        if ($this->builderContractService === null) {
+            $this->builderContractService = new BuilderContractService();
+        }
+
+        return $this->builderContractService;
     }
 }
