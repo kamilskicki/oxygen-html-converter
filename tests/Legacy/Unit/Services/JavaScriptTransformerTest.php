@@ -153,4 +153,63 @@ JS;
         $this->assertStringNotContainsString('smooth', $output);
         $this->assertStringContainsString('keepMe', $output);
     }
+
+    public function testNamedIifeWrappersDoNotLeaveInvalidInvocationRemnants(): void
+    {
+        $js = <<<'JS'
+(function initLoader() {
+    console.log('loader');
+})();
+
+(function initScrollAnimations() {
+    console.log('scroll');
+})();
+JS;
+
+        $output = $this->transformer->transformJavaScriptForOxygen($js);
+
+        $this->assertStringContainsString("window.initLoader = function(event, target, action) {", $output);
+        $this->assertStringContainsString("window.initScrollAnimations = function(event, target, action) {", $output);
+        $this->assertStringContainsString('window.initLoader();', $output);
+        $this->assertStringContainsString('window.initScrollAnimations();', $output);
+        $this->assertStringNotContainsString('()();', $output);
+        $this->assertStringNotContainsString('(function initLoader', $output);
+        $this->assertStringNotContainsString('(function initScrollAnimations', $output);
+    }
+
+    public function testExtractedFunctionsKeepLocalAliasesForInternalCalls(): void
+    {
+        $js = <<<'JS'
+(function () {
+    var nav = document.getElementById('nav');
+
+    function onScroll() {
+        if (window.scrollY > 50) nav.classList.add('scrolled');
+    }
+
+    function easeOutExpo(t) {
+        return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    }
+
+    function animateCounter(el) {
+        return easeOutExpo(0.5);
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    animateCounter(nav);
+})();
+JS;
+
+        $output = $this->transformer->transformJavaScriptForOxygen($js);
+
+        $this->assertStringContainsString('window.onScroll = function(event, target, action) {', $output);
+        $this->assertStringContainsString('var onScroll = window.onScroll;', $output);
+        $this->assertStringContainsString('window.easeOutExpo = function(event, target, action) {', $output);
+        $this->assertStringContainsString('var easeOutExpo = window.easeOutExpo;', $output);
+        $this->assertStringContainsString('window.animateCounter = function(event, target, action) {', $output);
+        $this->assertStringContainsString('var animateCounter = window.animateCounter;', $output);
+        $this->assertStringContainsString("window.addEventListener('scroll', onScroll, { passive: true });", $output);
+        $this->assertStringContainsString('return easeOutExpo(0.5);', $output);
+        $this->assertStringContainsString('animateCounter(nav);', $output);
+    }
 }

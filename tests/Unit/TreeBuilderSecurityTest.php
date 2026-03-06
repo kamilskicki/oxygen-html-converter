@@ -14,6 +14,7 @@ class TreeBuilderSecurityTest extends TestCase
 <html>
 <head>
   <link rel="stylesheet" href="https://cdn.example.com/style.css">
+  <script>window.demo = true;</script>
 </head>
 <body>
   <div data-lucide="menu">Icon</div>
@@ -29,6 +30,7 @@ HTML;
 
         $this->assertTrue($result['success']);
         $this->assertSame([], $result['headLinkElements']);
+        $this->assertSame([], $result['headScriptElements']);
         $this->assertSame([], $result['iconScriptElements']);
         $this->assertSame([], $result['detectedIconLibraries']);
 
@@ -114,5 +116,64 @@ HTML;
                 $this->collectElementTypes($child, $types);
             }
         }
+    }
+
+    public function testExtractsHeadScriptsWithoutDuplicatingIconCdnScripts(): void
+    {
+        $html = <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { brand: '#ff0084' } } } };</script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div data-lucide="menu">Icon</div>
+</body>
+</html>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $headScripts = $result['headScriptElements'] ?? [];
+        $this->assertCount(2, $headScripts);
+
+        $payloads = array_map(
+            static fn (array $element): string => (string) ($element['data']['properties']['content']['content']['html_code'] ?? ''),
+            $headScripts
+        );
+
+        $combinedPayload = implode("\n", $payloads);
+        $this->assertStringContainsString('https://cdn.tailwindcss.com', $combinedPayload);
+        $this->assertStringContainsString('tailwind.config', $combinedPayload);
+        $this->assertStringNotContainsString('https://unpkg.com/lucide@latest', $combinedPayload);
+
+        $iconElements = $result['iconScriptElements'] ?? [];
+        $this->assertCount(1, $iconElements);
+
+        $iconPayload = (string) ($iconElements[0]['data']['properties']['content']['content']['html_code'] ?? '');
+        $this->assertStringContainsString('https://unpkg.com/lucide@latest', $iconPayload);
+    }
+
+    public function testAppendsTailwindFallbackCssForTypographyUtilities(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert('<h1 class="text-6xl md:text-8xl text-white leading-[0.9] tracking-tight uppercase">Hello</h1>');
+
+        $this->assertTrue($result['success']);
+        $this->assertNotNull($result['cssElement']);
+
+        $css = (string) ($result['cssElement']['data']['properties']['content']['content']['css_code'] ?? '');
+        $this->assertStringContainsString('.text-6xl { font-size: 3.75rem !important; line-height: 1 !important; }', $css);
+        $this->assertStringContainsString('.text-white { color: #ffffff !important; }', $css);
+        $this->assertStringContainsString('.leading-\\[0\\.9\\] { line-height: 0.9 !important; }', $css);
+        $this->assertStringContainsString('.tracking-tight { letter-spacing: -0.025em !important; }', $css);
+        $this->assertStringContainsString('.uppercase { text-transform: uppercase !important; }', $css);
+        $this->assertStringContainsString('@media (min-width: 768px)', $css);
+        $this->assertStringContainsString('.md\\:text-8xl { font-size: 6rem !important; line-height: 1 !important; }', $css);
     }
 }

@@ -183,7 +183,15 @@ class HeuristicsService
             return false;
         }
 
-        $isInNav = ($node->parentNode instanceof DOMElement && strtolower($node->parentNode->tagName) === 'nav');
+        $isInNav = false;
+        $current = $node->parentNode;
+        while ($current instanceof DOMElement) {
+            if (strtolower($current->tagName) === 'nav') {
+                $isInNav = true;
+                break;
+            }
+            $current = $current->parentNode;
+        }
         $hasNavClass = strpos($node->getAttribute('class'), 'nav') !== false;
 
         if ($isInNav || $hasNavClass) {

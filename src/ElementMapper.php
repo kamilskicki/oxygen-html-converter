@@ -411,7 +411,7 @@ class ElementMapper
         ];
 
         // If it's a nav link or looks like one, default to white
-        if (($node->parentNode instanceof DOMElement && strtolower($node->parentNode->tagName) === 'nav') || strpos($node->getAttribute('class'), 'nav') !== false) {
+        if ($this->isInsideNav($node) || strpos($node->getAttribute('class'), 'nav') !== false) {
              $properties['design']['typography']['color'] = '#ffffff';
         }
 
@@ -443,6 +443,20 @@ class ElementMapper
         }
 
         return $properties;
+    }
+
+    private function isInsideNav(DOMElement $node): bool
+    {
+        $current = $node->parentNode;
+
+        while ($current instanceof DOMElement) {
+            if (strtolower($current->tagName) === 'nav') {
+                return true;
+            }
+            $current = $current->parentNode;
+        }
+
+        return false;
     }
 
     /**

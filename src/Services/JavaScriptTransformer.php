@@ -38,6 +38,8 @@ class JavaScriptTransformer
 
         // Extract function definitions and separate them from other code
         $functions = [];
+        $aliases = [];
+        $initializers = [];
         $otherCode = $js;
 
         // 1. ES6 Class Methods (extract before classes are potentially removed or modified)
@@ -45,6 +47,37 @@ class JavaScriptTransformer
         // entries.forEach(entry => { ... }) being incorrectly matched as class methods.
         // Class methods within ES6 classes will still work in the original code context.
         // This section only extracts standalone method-like patterns which is too aggressive.
+
+        // Named IIFE wrappers: (function initThing() { ... })();
+        // Extract the full wrapper so we do not leave invalid remnants like `()();`.
+        $offset = 0;
+        while (preg_match('/\(\s*(async\s+)?function\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)\s*\{/i', $otherCode, $matches, PREG_OFFSET_CAPTURE, $offset)) {
+            $isAsync = !empty($matches[1][0]);
+            $funcName = $matches[2][0];
+            $originalParams = trim($matches[3][0]);
+            $matchStart = $matches[0][1];
+            $fullMatch = $matches[0][0];
+            $bracePos = $matchStart + strlen($fullMatch) - 1;
+            $endPos = $this->findMatchingBrace($otherCode, $bracePos);
+
+            if ($endPos !== false) {
+                $functionBody = substr($otherCode, $bracePos + 1, $endPos - $bracePos - 1);
+                $functions[] = $this->createOxygenCompatibleFunction($funcName, $originalParams, $functionBody, $isAsync);
+                $aliases[$funcName] = "var {$funcName} = window.{$funcName};";
+                $initializers[] = "window.{$funcName}();";
+
+                $afterWrapper = substr($otherCode, $endPos + 1);
+                $wrapperLength = 0;
+                if (preg_match('/^\s*\)\s*(?:\(\s*\))?\s*;?/', $afterWrapper, $trailing)) {
+                    $wrapperLength = strlen($trailing[0]);
+                }
+
+                $otherCode = substr($otherCode, 0, $matchStart) . substr($otherCode, $endPos + 1 + $wrapperLength);
+                $offset = 0;
+            } else {
+                $offset = $matchStart + strlen($fullMatch);
+            }
+        }
 
         // Standard function declarations: [async] function name() { ... }
         $offset = 0;
@@ -66,6 +99,7 @@ class JavaScriptTransformer
 
                 // Transform to Oxygen-compatible window function
                 $functions[] = $this->createOxygenCompatibleFunction($funcName, $originalParams, $functionBody, $isAsync);
+                $aliases[$funcName] = "var {$funcName} = window.{$funcName};";
 
                 // Remove function from other code
                 $otherCode = substr($otherCode, 0, $matchStart) . substr($otherCode, $endPos + 1);
@@ -93,6 +127,7 @@ class JavaScriptTransformer
                 if ($endPos !== false) {
                     $functionBody = substr($otherCode, $bracePos + 1, $endPos - $bracePos - 1);
                     $functions[] = "window.{$funcName} = " . ($isAsync ? "async " : "") . ($isFunctionExpr ? "function({$originalParams})" : "{$originalParams} =>") . " {{$functionBody}}";
+                    $aliases[$funcName] = "var {$funcName} = window.{$funcName};";
                     $otherCode = substr($otherCode, 0, $matchStart) . substr($otherCode, $endPos + 1);
                     $offset = 0;
                     continue;
@@ -103,6 +138,7 @@ class JavaScriptTransformer
                 if (preg_match('/^([^;\r\n]+)/', $remaining, $exprMatches)) {
                     $expression = trim($exprMatches[1]);
                     $functions[] = "window.{$funcName} = " . ($isAsync ? "async " : "") . "{$originalParams} => {$expression}";
+                    $aliases[$funcName] = "var {$funcName} = window.{$funcName};";
                     $otherCode = substr($otherCode, 0, $matchStart) . substr($otherCode, $matchStart + strlen($fullMatch) + strlen($exprMatches[0]));
                     $offset = 0;
                     continue;
@@ -112,6 +148,7 @@ class JavaScriptTransformer
         }
 
         // Clean up other code (remove empty lines, trim)
+        $otherCode = preg_replace('/^\s*\(?\s*\)\s*(?:\(\s*\))?\s*;?\s*$/m', '', $otherCode);
         $otherCode = preg_replace('/^\s*[\r\n]+/m', '', $otherCode);
         $otherCode = trim($otherCode);
 
@@ -123,6 +160,16 @@ class JavaScriptTransformer
         if (!empty($functions)) {
             $output .= "// Functions (available on window object)\n";
             $output .= implode("\n\n", $functions);
+            $output .= "\n\n";
+        }
+
+        if (!empty($aliases)) {
+            $output .= implode("\n", array_values($aliases));
+            $output .= "\n\n";
+        }
+
+        if (!empty($initializers)) {
+            $output .= implode("\n", $initializers);
             $output .= "\n\n";
         }
 

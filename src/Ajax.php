@@ -217,18 +217,37 @@ class Ajax
                     }
                 }
 
-                // Include icon scripts if they exist
-                if (!empty($result['iconScriptElements'])) {
-                    foreach ($result['iconScriptElements'] as $iconElement) {
-                        array_unshift($rootElement['children'], $iconElement);
+                $prependChildren = [];
+
+                if (!empty($result['headLinkElements']) && is_array($result['headLinkElements'])) {
+                    foreach ($result['headLinkElements'] as $linkElement) {
+                        if (is_array($linkElement)) {
+                            $prependChildren[] = $linkElement;
+                        }
                     }
                 }
 
-                // Include head link elements (Google Fonts, preconnect, etc.)
-                if (!empty($result['headLinkElements'])) {
-                    foreach ($result['headLinkElements'] as $linkElement) {
-                        array_unshift($rootElement['children'], $linkElement);
+                if (!empty($result['headScriptElements']) && is_array($result['headScriptElements'])) {
+                    foreach ($result['headScriptElements'] as $scriptElement) {
+                        if (is_array($scriptElement)) {
+                            $prependChildren[] = $scriptElement;
+                        }
                     }
+                }
+
+                if (!empty($result['iconScriptElements']) && is_array($result['iconScriptElements'])) {
+                    foreach ($result['iconScriptElements'] as $iconElement) {
+                        if (is_array($iconElement)) {
+                            $prependChildren[] = $iconElement;
+                        }
+                    }
+                }
+
+                if ($prependChildren) {
+                    $existingChildren = isset($rootElement['children']) && is_array($rootElement['children'])
+                        ? $rootElement['children']
+                        : [];
+                    $rootElement['children'] = array_merge($prependChildren, $existingChildren);
                 }
 
                 $payload = [

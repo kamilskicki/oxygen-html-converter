@@ -9,6 +9,7 @@ use OxyHtmlConverter\Services\ClassStrategyService;
 use OxyHtmlConverter\Services\IconDetector;
 use OxyHtmlConverter\Services\InteractionDetector;
 use OxyHtmlConverter\Services\TailwindDetector;
+use OxyHtmlConverter\Services\TailwindCssFallbackGenerator;
 use OxyHtmlConverter\Services\FrameworkDetector;
 use OxyHtmlConverter\Services\CssParser;
 use OxyHtmlConverter\Services\AnimationDetector;
@@ -34,6 +35,7 @@ class TreeBuilder
     private IconDetector $iconDetector;
     private InteractionDetector $interactionDetector;
     private TailwindDetector $tailwindDetector;
+    private TailwindCssFallbackGenerator $tailwindFallbackGenerator;
     private FrameworkDetector $frameworkDetector;
     private CssParser $cssParser;
     private AnimationDetector $animationDetector;
@@ -109,6 +111,7 @@ class TreeBuilder
         $this->report = new ConversionReport();
         $this->environment = new EnvironmentService();
         $this->tailwindDetector = new TailwindDetector();
+        $this->tailwindFallbackGenerator = new TailwindCssFallbackGenerator();
         $this->classStrategy = new ClassStrategyService($this->environment, $this->report, $this->tailwindDetector);
         $this->iconDetector = new IconDetector();
         $this->frameworkDetector = new FrameworkDetector($this->report);
@@ -180,6 +183,7 @@ class TreeBuilder
 
         // Extract custom CSS from <style> tags
         $this->extractedCss = $this->extractStyleTags($this->parser->getDom());
+        $this->appendTailwindFallbackCss($this->parser->getDom());
 
         // Parse extracted CSS rules
         $this->cssRules = $this->cssParser->parse($this->extractedCss);
@@ -242,6 +246,7 @@ class TreeBuilder
         }
 
         $headLinkElements = [];
+        $headScriptElements = [];
         $iconScriptElements = [];
 
         if (!$this->safeMode) {
@@ -250,6 +255,9 @@ class TreeBuilder
 
             // Extract <link> tags from <head> (Google Fonts, preconnect, etc.)
             $headLinkElements = $this->extractHeadLinks($this->parser->getDom());
+
+            // Preserve non-icon <script> tags from <head> as raw HTML so execution order remains intact.
+            $headScriptElements = $this->extractHeadScripts($this->parser->getDom(), $this->detectedIconLibraries);
 
             // Create script elements for detected icon libraries
             $iconScriptElements = $this->iconDetector->createIconLibraryElements(
@@ -265,6 +273,7 @@ class TreeBuilder
             'element' => $rootElement,
             'cssElement' => $cssElement,
             'headLinkElements' => $headLinkElements,
+            'headScriptElements' => $headScriptElements,
             'iconScriptElements' => $iconScriptElements,
             'detectedIconLibraries' => $this->detectedIconLibraries,
             'extractedCss' => $this->extractedCss,
@@ -314,6 +323,41 @@ class TreeBuilder
         return $css;
     }
 
+    private function appendTailwindFallbackCss(\DOMDocument $doc): void
+    {
+        $classTokens = [];
+        $elements = $doc->getElementsByTagName('*');
+
+        foreach ($elements as $element) {
+            if (!($element instanceof DOMElement)) {
+                continue;
+            }
+
+            $classAttr = trim((string) $element->getAttribute('class'));
+            if ($classAttr === '') {
+                continue;
+            }
+
+            foreach (preg_split('/\s+/', $classAttr) ?: [] as $token) {
+                $token = trim((string) $token);
+                if ($token !== '' && $this->tailwindDetector->isTailwindClass($token)) {
+                    $classTokens[] = $token;
+                }
+            }
+        }
+
+        $fallbackCss = $this->tailwindFallbackGenerator->generate($classTokens);
+        if ($fallbackCss === '') {
+            return;
+        }
+
+        if ($this->extractedCss !== '') {
+            $this->extractedCss .= "\n";
+        }
+
+        $this->extractedCss .= "/* Tailwind utility fallback */\n" . $fallbackCss . "\n";
+    }
+
     /**
      * Extract <link> tags from <head> (stylesheets, preconnect, etc.)
      */
@@ -332,6 +376,65 @@ class TreeBuilder
 
             $html = $doc->saveHTML($linkTag);
             if (empty(trim($html))) {
+                continue;
+            }
+
+            $elements[] = [
+                'id' => $this->generateNodeId(),
+                'data' => [
+                    'type' => ElementTypes::HTML_CODE,
+                    'properties' => [
+                        'content' => [
+                            'content' => [
+                                'html_code' => $html,
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ];
+        }
+
+        return $elements;
+    }
+
+    /**
+     * Extract non-icon <script> tags from <head> in source order.
+     *
+     * These stay as raw HTML Code blocks instead of JavaScript Code so inline
+     * setup like tailwind.config is not delayed by Oxygen's DOMContentLoaded wrapper.
+     */
+    private function extractHeadScripts(\DOMDocument $doc, array $detectedIconLibraries = []): array
+    {
+        $elements = [];
+        $iconCdns = [];
+
+        foreach ($detectedIconLibraries as $library) {
+            $cdn = trim((string) ($library['cdn'] ?? ''));
+            if ($cdn !== '') {
+                $iconCdns[] = $cdn;
+            }
+        }
+
+        $xpath = new \DOMXPath($doc);
+        $scriptTags = $xpath->query('//head//script');
+
+        if ($scriptTags === false) {
+            return $elements;
+        }
+
+        foreach ($scriptTags as $scriptTag) {
+            if (!($scriptTag instanceof DOMElement)) {
+                continue;
+            }
+
+            $src = trim((string) $scriptTag->getAttribute('src'));
+            if ($src !== '' && in_array($src, $iconCdns, true)) {
+                continue;
+            }
+
+            $html = $doc->saveHTML($scriptTag);
+            if (empty(trim((string) $html))) {
                 continue;
             }
 

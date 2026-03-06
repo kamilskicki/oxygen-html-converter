@@ -58,6 +58,18 @@ class OutputValidator
             $this->validateElement($result['cssElement'], 'cssElement');
         }
 
+        if (isset($result['headLinkElements']) && is_array($result['headLinkElements'])) {
+            foreach ($result['headLinkElements'] as $index => $headElement) {
+                $this->validateElement($headElement, "headLinkElements[$index]");
+            }
+        }
+
+        if (isset($result['headScriptElements']) && is_array($result['headScriptElements'])) {
+            foreach ($result['headScriptElements'] as $index => $headElement) {
+                $this->validateElement($headElement, "headScriptElements[$index]");
+            }
+        }
+
         // Validate icon script elements if present
         if (isset($result['iconScriptElements']) && is_array($result['iconScriptElements'])) {
             foreach ($result['iconScriptElements'] as $index => $iconElement) {
