@@ -98,6 +98,17 @@ class TailwindCssFallbackGenerator
         'text-gray-900' => '#111827',
     ];
 
+    private const GRADIENT_DIRECTIONS = [
+        'bg-gradient-to-r' => 'to right',
+        'bg-gradient-to-l' => 'to left',
+        'bg-gradient-to-t' => 'to top',
+        'bg-gradient-to-b' => 'to bottom',
+        'bg-gradient-to-tr' => 'to top right',
+        'bg-gradient-to-tl' => 'to top left',
+        'bg-gradient-to-br' => 'to bottom right',
+        'bg-gradient-to-bl' => 'to bottom left',
+    ];
+
     /**
      * @param array<int, string> $classTokens
      */
@@ -197,6 +208,13 @@ class TailwindCssFallbackGenerator
             return ['text-align: ' . self::TEXT_ALIGNS[$utility] . ' !important;'];
         }
 
+        if ($utility === 'text-transparent') {
+            return [
+                'color: transparent !important;',
+                '-webkit-text-fill-color: transparent !important;',
+            ];
+        }
+
         if (isset(self::COLORS[$utility])) {
             return ['color: ' . self::COLORS[$utility] . ' !important;'];
         }
@@ -207,6 +225,41 @@ class TailwindCssFallbackGenerator
 
         if ($utility === 'not-italic') {
             return ['font-style: normal !important;'];
+        }
+
+        if ($utility === 'bg-clip-text') {
+            return [
+                'background-clip: text !important;',
+                '-webkit-background-clip: text !important;',
+            ];
+        }
+
+        if (isset(self::GRADIENT_DIRECTIONS[$utility])) {
+            return ['background-image: linear-gradient(' . self::GRADIENT_DIRECTIONS[$utility] . ', var(--tw-gradient-stops)) !important;'];
+        }
+
+        if (preg_match('/^from-(.+)$/', $utility, $matches)) {
+            $color = $this->resolveGradientColorValue($matches[1]);
+            if ($color !== null) {
+                return [
+                    '--tw-gradient-from: ' . $color . ' !important;',
+                    '--tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(255, 255, 255, 0)) !important;',
+                ];
+            }
+        }
+
+        if (preg_match('/^via-(.+)$/', $utility, $matches)) {
+            $color = $this->resolveGradientColorValue($matches[1]);
+            if ($color !== null) {
+                return ['--tw-gradient-stops: var(--tw-gradient-from), ' . $color . ', var(--tw-gradient-to, rgba(255, 255, 255, 0)) !important;'];
+            }
+        }
+
+        if (preg_match('/^to-(.+)$/', $utility, $matches)) {
+            $color = $this->resolveGradientColorValue($matches[1]);
+            if ($color !== null) {
+                return ['--tw-gradient-to: ' . $color . ' !important;'];
+            }
         }
 
         if (preg_match('/^leading-\[(.+)\]$/', $utility, $matches)) {
@@ -229,6 +282,23 @@ class TailwindCssFallbackGenerator
         }
 
         return [];
+    }
+
+    private function resolveGradientColorValue(string $value): ?string
+    {
+        $namedColorKey = 'text-' . $value;
+        if (isset(self::COLORS[$namedColorKey])) {
+            return self::COLORS[$namedColorKey];
+        }
+
+        if (preg_match('/^\[(.+)\]$/', $value, $matches)) {
+            $normalized = $this->normalizeArbitraryValue($matches[1]);
+            if ($this->looksLikeColor($normalized)) {
+                return $normalized;
+            }
+        }
+
+        return null;
     }
 
     private function normalizeArbitraryValue(string $value): string
