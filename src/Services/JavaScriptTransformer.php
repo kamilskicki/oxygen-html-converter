@@ -57,6 +57,11 @@ class JavaScriptTransformer
             $originalParams = trim($matches[3][0]);
             $matchStart = $matches[0][1];
             $fullMatch = $matches[0][0];
+
+            if (!$this->isTopLevelNamedIifePosition($otherCode, $matchStart)) {
+                $offset = $matchStart + strlen($fullMatch);
+                continue;
+            }
             $bracePos = $matchStart + strlen($fullMatch) - 1;
             $endPos = $this->findMatchingBrace($otherCode, $bracePos);
 
@@ -87,6 +92,11 @@ class JavaScriptTransformer
             $originalParams = trim($matches[3][0]);
             $matchStart = $matches[0][1];
             $fullMatch = $matches[0][0];
+
+            if (!$this->isTopLevelStatementPosition($otherCode, $matchStart)) {
+                $offset = $matchStart + strlen($fullMatch);
+                continue;
+            }
 
             // Find the opening brace position
             $bracePos = $matchStart + strlen($fullMatch) - 1;
@@ -119,6 +129,11 @@ class JavaScriptTransformer
             $hasBraces = !empty($matches[5][0]);
             $matchStart = $matches[0][1];
             $fullMatch = $matches[0][0];
+
+            if (!$this->isTopLevelStatementPosition($otherCode, $matchStart)) {
+                $offset = $matchStart + strlen($fullMatch);
+                continue;
+            }
 
             if ($hasBraces) {
                 $bracePos = $matchStart + strlen($fullMatch) - 1;
@@ -253,6 +268,115 @@ class JavaScriptTransformer
         }
 
         return $depth === 0 ? $pos - 1 : false;
+    }
+
+    /**
+     * Only top-level statements are safe to export onto window.
+     *
+     * Nested helpers inside IIFEs / wrappers rely on local closure state and must stay local.
+     */
+    private function isTopLevelStatementPosition(string $code, int $position): bool
+    {
+        $depths = $this->getStructuralDepthsAtPosition($code, $position);
+
+        return $depths['brace'] === 0 && $depths['paren'] === 0 && $depths['bracket'] === 0;
+    }
+
+    /**
+     * Named IIFEs are allowed one wrapping parenthesis before the function token.
+     */
+    private function isTopLevelNamedIifePosition(string $code, int $position): bool
+    {
+        $depths = $this->getStructuralDepthsAtPosition($code, $position);
+
+        return $depths['brace'] === 0 && $depths['bracket'] === 0 && $depths['paren'] === 0;
+    }
+
+    /**
+     * Track parser-safe structural depth up to a byte offset.
+     *
+     * This is intentionally lightweight. We only need enough fidelity to distinguish
+     * top-level declarations from nested helpers without pulling in a full JS parser.
+     *
+     * @return array{brace:int, paren:int, bracket:int}
+     */
+    private function getStructuralDepthsAtPosition(string $code, int $position): array
+    {
+        $length = min(strlen($code), max(0, $position));
+        $braceDepth = 0;
+        $parenDepth = 0;
+        $bracketDepth = 0;
+        $inString = false;
+        $stringChar = '';
+        $inComment = false;
+        $commentType = '';
+
+        for ($pos = 0; $pos < $length; $pos++) {
+            $char = $code[$pos];
+            $nextChar = $pos + 1 < $length ? $code[$pos + 1] : '';
+            $prevChar = $pos > 0 ? $code[$pos - 1] : '';
+
+            if (!$inString && !$inComment) {
+                if ($char === '/' && $nextChar === '/') {
+                    $inComment = true;
+                    $commentType = 'single';
+                    $pos++;
+                    continue;
+                }
+
+                if ($char === '/' && $nextChar === '*') {
+                    $inComment = true;
+                    $commentType = 'multi';
+                    $pos++;
+                    continue;
+                }
+            } elseif ($inComment) {
+                if ($commentType === 'single' && ($char === "\n" || $char === "\r")) {
+                    $inComment = false;
+                    if ($char === "\r" && $nextChar === "\n") {
+                        $pos++;
+                    }
+                } elseif ($commentType === 'multi' && $char === '*' && $nextChar === '/') {
+                    $inComment = false;
+                    $pos++;
+                }
+
+                continue;
+            }
+
+            if (!$inString && ($char === '"' || $char === "'" || $char === '`')) {
+                $inString = true;
+                $stringChar = $char;
+                continue;
+            }
+
+            if ($inString) {
+                if ($char === $stringChar && $prevChar !== '\\') {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '{') {
+                $braceDepth++;
+            } elseif ($char === '}') {
+                $braceDepth = max(0, $braceDepth - 1);
+            } elseif ($char === '(') {
+                $parenDepth++;
+            } elseif ($char === ')') {
+                $parenDepth = max(0, $parenDepth - 1);
+            } elseif ($char === '[') {
+                $bracketDepth++;
+            } elseif ($char === ']') {
+                $bracketDepth = max(0, $bracketDepth - 1);
+            }
+        }
+
+        return [
+            'brace' => $braceDepth,
+            'paren' => $parenDepth,
+            'bracket' => $bracketDepth,
+        ];
     }
 
     /**
@@ -550,29 +674,30 @@ class JavaScriptTransformer
         $datasetKey = 'arg' . ucfirst($funcNameLower);
 
         $argExtraction = "\n    // Extract original arguments from data-arg-{$funcNameLower} attribute (set by converter)\n";
-        $argExtraction .= "    var _rawArgs = target ? (target.dataset['{$datasetKey}'] || target.getAttribute('data-arg-{$funcNameLower}') || '') : '';\n";
+        $argExtraction .= "    var _args = Array.prototype.slice.call(arguments);\n";
+        $argExtraction .= "    var _hasOxygenTarget = !!(target && (typeof target.getAttribute === 'function' || typeof target.dataset !== 'undefined'));\n";
+        $argExtraction .= "    var _fallbackArgs = _hasOxygenTarget ? [target, action, event] : _args;\n";
+        $argExtraction .= "    var _rawArgs = _hasOxygenTarget ? (target.dataset['{$datasetKey}'] || target.getAttribute('data-arg-{$funcNameLower}') || '') : '';\n";
+        $argExtraction .= "    var _coerceArg = function(value) {\n";
+        $argExtraction .= "        if (typeof value !== 'string') { return value; }\n";
+        $argExtraction .= "        var _trimmed = value.trim();\n";
+        $argExtraction .= "        if (_trimmed === '') { return value; }\n";
+        $argExtraction .= "        if (!isNaN(_trimmed)) {\n";
+        $argExtraction .= "            return _trimmed.indexOf('.') !== -1 ? parseFloat(_trimmed) : parseInt(_trimmed, 10);\n";
+        $argExtraction .= "        }\n";
+        $argExtraction .= "        return _trimmed;\n";
+        $argExtraction .= "    };\n";
 
-        // Create variable assignments for each original parameter
-        foreach ($params as $index => $param) {
-            if ($index === 0) {
-                // First param gets the raw value (or parsed if numeric)
-                $argExtraction .= "    var {$param} = _rawArgs;\n";
-                $argExtraction .= "    if (_rawArgs !== '' && !isNaN(_rawArgs)) { {$param} = parseInt(_rawArgs, 10); }\n";
-            } else {
-                // Multiple params would need comma-split
-                $argExtraction .= "    // Note: Multiple params - split by comma if needed\n";
-                $argExtraction .= "    var _argParts = _rawArgs.split(',');\n";
-                $argExtraction .= "    var {$param} = _argParts[{$index}] ? _argParts[{$index}].trim() : undefined;\n";
-                break; // Only add split logic once
-            }
+        if (count($params) > 1) {
+            $argExtraction .= "    var _argParts = _rawArgs !== '' ? _rawArgs.split(',') : [];\n";
         }
 
-        // Handle multiple params after split
-        if (count($params) > 1) {
-            foreach ($params as $index => $param) {
-                if ($index > 0) {
-                    $argExtraction .= "    if (_argParts[{$index}]) { {$param} = _argParts[{$index}].trim(); if (!isNaN({$param})) { {$param} = parseInt({$param}, 10); } }\n";
-                }
+        foreach ($params as $index => $param) {
+            $argExtraction .= "    var {$param} = _fallbackArgs[{$index}];\n";
+            if (count($params) > 1) {
+                $argExtraction .= "    if (_argParts[{$index}] !== undefined && _argParts[{$index}] !== '') { {$param} = _coerceArg(_argParts[{$index}].trim()); }\n";
+            } else {
+                $argExtraction .= "    if (_rawArgs !== '') { {$param} = _coerceArg(_rawArgs); }\n";
             }
         }
 
