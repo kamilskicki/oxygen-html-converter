@@ -745,7 +745,7 @@ class TreeBuilder
             $element['data']['properties']['settings']['animations']['entrance_animation'] = $animationSettings;
 
             // Remove consumed animation classes from element
-            $consumedClasses = $this->animationDetector->getConsumedClasses();
+            $consumedClasses = $this->animationDetector->getRemovableConsumedClasses();
             if (!empty($consumedClasses) && isset($element['data']['properties']['settings']['advanced']['classes'])) {
                 $element['data']['properties']['settings']['advanced']['classes'] = array_values(
                     array_diff($element['data']['properties']['settings']['advanced']['classes'], $consumedClasses)
@@ -823,8 +823,19 @@ class TreeBuilder
             return $element;
         }
 
-        // Process children if this is a container element
-        if ($this->mapper->isContainer($tag, $node) && !$this->mapper->shouldKeepInnerHtml($tag)) {
+        // Convert text-only containers directly to Text to avoid wrapper elements
+        // that distort layout for decorative or typographic blocks.
+        if ($this->mapper->isContainer($tag, $node)
+            && !$this->mapper->shouldKeepInnerHtml($tag)
+            && $this->mapper->shouldConvertToText($node)
+        ) {
+            $element['data']['type'] = ElementTypes::TEXT;
+            $element['data']['properties']['content'] = $element['data']['properties']['content'] ?? [];
+            $element['data']['properties']['content']['content'] = [
+                'text' => $this->mapper->getInnerHtml($node),
+            ];
+            $element['children'] = [];
+        } elseif ($this->mapper->isContainer($tag, $node) && !$this->mapper->shouldKeepInnerHtml($tag)) {
             $children = [];
             foreach ($node->childNodes as $childNode) {
                 $childElement = $this->convertNode($childNode);

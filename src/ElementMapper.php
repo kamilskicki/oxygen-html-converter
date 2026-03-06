@@ -164,11 +164,11 @@ class ElementMapper
             }
         }
 
-        // Check if link has block-level children (div, etc.)
+        // Check if link has non-textual or block-like children that need ContainerLink rendering.
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement) {
                 $childTag = strtolower($child->tagName);
-                if (in_array($childTag, ['div', 'span', 'img', 'svg', 'i', 'icon'])) {
+                if (in_array($childTag, ['div', 'img', 'svg', 'i', 'icon'])) {
                     return true;
                 }
             }
@@ -259,8 +259,7 @@ class ElementMapper
         $type = $this->getElementType($tag, $node);
 
         return $type === ElementTypes::CONTAINER ||
-               $type === ElementTypes::CONTAINER_LINK ||
-               $type === ElementTypes::TEXT_LINK; // Links can wrap other elements
+               $type === ElementTypes::CONTAINER_LINK;
     }
 
     /**

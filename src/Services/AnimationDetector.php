@@ -88,6 +88,20 @@ class AnimationDetector
     }
 
     /**
+     * Get consumed classes that are safe to remove from the element.
+     *
+     * Scroll-reveal base classes are kept because source CSS and JS may still
+     * depend on them for the final visual state and timing.
+     */
+    public function getRemovableConsumedClasses(): array
+    {
+        return array_values(array_filter(
+            $this->lastConsumedClasses,
+            static fn (string $class): bool => !in_array($class, self::SCROLL_REVEAL_CLASSES, true)
+        ));
+    }
+
+    /**
      * Get all CSS selectors that were converted to native animations.
      */
     public function getConsumedCssSelectors(): array

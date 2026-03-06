@@ -176,4 +176,45 @@ HTML;
         $this->assertStringContainsString('@media (min-width: 768px)', $css);
         $this->assertStringContainsString('.md\\:text-8xl { font-size: 6rem !important; line-height: 1 !important; }', $css);
     }
+
+    public function testScrollRevealBaseClassIsPreservedWhenEntranceAnimationIsAdded(): void
+    {
+        $html = <<<HTML
+<style>
+.reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>
+<div class="hero__title reveal reveal-delay-2">Animated content</div>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $classes = $result['element']['data']['properties']['settings']['advanced']['classes'] ?? [];
+        $animation = $result['element']['data']['properties']['settings']['animations']['entrance_animation'] ?? null;
+
+        $this->assertNotNull($animation);
+        $this->assertContains('reveal', $classes);
+        $this->assertContains('reveal-delay-2', $classes);
+    }
+
+    public function testTextOnlyDivContainerConvertsDirectlyToTextElement(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert('<div class="hero__watermark">84%</div>');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('OxygenElements\\Text', $result['element']['data']['type']);
+        $this->assertSame('84%', trim((string) ($result['element']['data']['properties']['content']['content']['text'] ?? '')));
+        $this->assertSame([], $result['element']['children'] ?? []);
+    }
 }

@@ -72,6 +72,7 @@ class AnimationDetectorTest extends TestCase
         $this->assertEquals(300, $result['delay']);
         $this->assertContains('stagger-3', $this->detector->getConsumedClasses());
         $this->assertContains('animate-on-scroll', $this->detector->getConsumedClasses());
+        $this->assertSame(['stagger-3'], $this->detector->getRemovableConsumedClasses());
     }
 
     public function test_detects_keyframe_fadeInUp(): void

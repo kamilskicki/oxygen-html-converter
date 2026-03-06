@@ -289,6 +289,32 @@ class ElementMapperTest extends TestCase
         $this->assertFalse($this->mapper->isButtonLikeLink($link));
     }
 
+    public function testIsButtonLikeLinkReturnsFalseForInlineSpanChild(): void
+    {
+        $doc = new DOMDocument();
+        @$doc->loadHTML('<a href="#" class="nav-logo">kamil <span>tomczyk</span></a>');
+        $link = $doc->getElementsByTagName('a')->item(0);
+
+        $this->assertInstanceOf(DOMElement::class, $link);
+        $this->assertFalse($this->mapper->isButtonLikeLink($link));
+        $this->assertSame('OxygenElements\\TextLink', $this->mapper->getElementType('a', $link));
+    }
+
+    public function testBuildPropertiesForInlineSpanLinkPreservesInlineHtml(): void
+    {
+        $doc = new DOMDocument();
+        @$doc->loadHTML('<a href="#" class="nav-logo">kamil <span>tomczyk</span></a>');
+        $link = $doc->getElementsByTagName('a')->item(0);
+
+        $this->assertInstanceOf(DOMElement::class, $link);
+        $this->assertFalse($this->mapper->isContainer('a', $link));
+
+        $properties = $this->mapper->buildProperties($link);
+
+        $this->assertSame('kamil <span>tomczyk</span>', trim($properties['content']['content']['text']));
+        $this->assertSame('#', $properties['content']['content']['url']);
+    }
+
     public function testBuildChildTextElement(): void
     {
         $button = $this->createElement('button', [], 'Click me');
