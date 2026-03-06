@@ -2,6 +2,7 @@
     'use strict';
 
     const config = window.oxyHtmlConverter || {};
+    const converterOptions = window.OxyHtmlConverterOptions || null;
 
     /**
      * Show toast notification in Oxygen UI
@@ -67,12 +68,21 @@
     /**
      * Convert HTML via AJAX
      */
-    async function convertHtml(html) {
+    async function convertHtml(html, options = {}) {
         const formData = new FormData();
         formData.append('action', 'oxy_html_convert');
         formData.append('nonce', config.nonce);
         formData.append('html', html);
-        formData.append('wrapInContainer', 'true');
+
+        const requestFields = converterOptions
+            ? converterOptions.buildConvertRequestFields(options)
+            : {
+                wrapInContainer: 'true',
+                safeMode: options.safeMode ? 'true' : 'false',
+            };
+
+        formData.append('wrapInContainer', requestFields.wrapInContainer);
+        formData.append('safeMode', requestFields.safeMode);
 
         const response = await fetch(config.ajaxUrl, {
             method: 'POST',
@@ -205,6 +215,10 @@
                         resize: vertical;
                         box-sizing: border-box;
                     "></textarea>
+                    <label style="display:flex; align-items:center; gap:8px; margin-top: 12px; font-size: 13px;">
+                        <input type="checkbox" id="oxy-html-import-safe-mode">
+                        Safe mode (strip scripts, event handlers, and external head assets)
+                    </label>
                     <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
                         <button id="oxy-html-import-cancel" style="
                             padding: 8px 16px;
@@ -232,11 +246,15 @@
         const cancelBtn = modal.querySelector('#oxy-html-import-cancel');
         const submitBtn = modal.querySelector('#oxy-html-import-submit');
         const input = modal.querySelector('#oxy-html-import-input');
+        const safeModeCheckbox = modal.querySelector('#oxy-html-import-safe-mode');
 
         // Close modal
         function closeModal() {
             overlay.style.display = 'none';
             input.value = '';
+            if (safeModeCheckbox) {
+                safeModeCheckbox.checked = false;
+            }
         }
 
         // Open modal
@@ -262,7 +280,9 @@
             submitBtn.textContent = 'Converting...';
 
             try {
-                const result = await convertHtml(html);
+                const result = await convertHtml(html, {
+                    safeMode: safeModeCheckbox && safeModeCheckbox.checked,
+                });
 
                 if (result.json) {
                     closeModal();

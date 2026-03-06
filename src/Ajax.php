@@ -9,11 +9,122 @@ use OxyHtmlConverter\ElementTypes;
  */
 class Ajax
 {
+    /**
+     * Capability required to use converter endpoints.
+     */
+    private function getRequiredCapability(): string
+    {
+        $capability = 'manage_options';
+
+        /**
+         * Filter required capability for converter AJAX endpoints.
+         *
+         * @param string $capability Default capability (`manage_options`).
+         */
+        return (string) apply_filters('oxy_html_converter_required_capability', $capability);
+    }
+
+    /**
+     * Should detailed exception messages be exposed to clients.
+     */
+    private function shouldExposeDetailedErrors(): bool
+    {
+        $default = defined('WP_DEBUG') && WP_DEBUG;
+
+        /**
+         * Filter whether detailed server error messages should be returned to clients.
+         *
+         * @param bool $default Defaults to true only when WP_DEBUG is enabled.
+         */
+        return (bool) apply_filters('oxy_html_converter_expose_error_details', $default);
+    }
+
+    /**
+     * Build a client-safe error message.
+     */
+    private function getClientErrorMessage(string $defaultMessage, \Throwable $e): string
+    {
+        if ($this->shouldExposeDetailedErrors()) {
+            return $defaultMessage . ': ' . $e->getMessage();
+        }
+
+        return $defaultMessage;
+    }
+
     public function __construct()
     {
         add_action('wp_ajax_oxy_html_convert', [$this, 'handleConvert']);
         add_action('wp_ajax_oxy_html_convert_preview', [$this, 'handlePreview']);
         add_action('wp_ajax_oxy_html_convert_batch', [$this, 'handleBatchConvert']);
+    }
+
+    /**
+     * Parse a boolean-ish value from request/filter payloads.
+     */
+    private function parseBool($value, bool $default = false): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if ($value === null) {
+            return $default;
+        }
+
+        if (is_int($value)) {
+            return $value !== 0;
+        }
+
+        $parsed = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($parsed === null) {
+            return $default;
+        }
+
+        return (bool) $parsed;
+    }
+
+    /**
+     * Normalize convert options.
+     */
+    private function normalizeConvertOptions(array $input): array
+    {
+        $startingNodeId = isset($input['startingNodeId']) ? intval($input['startingNodeId']) : 1;
+        if ($startingNodeId < 1) {
+            $startingNodeId = 1;
+        }
+
+        return [
+            'startingNodeId' => $startingNodeId,
+            'wrapInContainer' => $this->parseBool($input['wrapInContainer'] ?? false, false),
+            'includeCssElement' => $this->parseBool($input['includeCssElement'] ?? true, true),
+            'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
+            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
+            'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
+        ];
+    }
+
+    /**
+     * Normalize batch options.
+     */
+    private function normalizeBatchOptions(array $input): array
+    {
+        return [
+            'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
+            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
+            'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
+        ];
+    }
+
+    /**
+     * Normalize preview options.
+     */
+    private function normalizePreviewOptions(array $input): array
+    {
+        return [
+            'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
+            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
+            'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
+        ];
     }
 
     /**
@@ -28,7 +139,7 @@ class Ajax
         }
 
         // Check permissions
-        if (!current_user_can('edit_posts')) {
+        if (!current_user_can($this->getRequiredCapability())) {
             wp_send_json_error(['message' => 'Permission denied'], 403);
             return;
         }
@@ -49,14 +160,11 @@ class Ajax
         }
 
         // Get options
-        $options = [
-            'startingNodeId' => isset($_POST['startingNodeId']) ? intval($_POST['startingNodeId']) : 1,
-            'wrapInContainer' => isset($_POST['wrapInContainer']) ? filter_var($_POST['wrapInContainer'], FILTER_VALIDATE_BOOLEAN) : false,
-            'includeCssElement' => isset($_POST['includeCssElement']) ? filter_var($_POST['includeCssElement'], FILTER_VALIDATE_BOOLEAN) : true, // Changed back to true
-            'inlineStyles' => isset($_POST['inlineStyles']) ? filter_var($_POST['inlineStyles'], FILTER_VALIDATE_BOOLEAN) : true, // Default true
-            'debugMode' => isset($_POST['debugMode']) ? filter_var($_POST['debugMode'], FILTER_VALIDATE_BOOLEAN) : false,
-        ];
-        $options = apply_filters('oxy_html_converter_convert_options', $options, $_POST);
+        $options = $this->normalizeConvertOptions($_POST);
+        $filteredOptions = apply_filters('oxy_html_converter_convert_options', $options, $_POST);
+        if (is_array($filteredOptions)) {
+            $options = $this->normalizeConvertOptions(array_merge($options, $filteredOptions));
+        }
 
         try {
             $builder = apply_filters('oxy_html_converter_tree_builder', new TreeBuilder(), $options, $html);
@@ -71,6 +179,7 @@ class Ajax
 
             // Configure builder options
             $builder->setInlineStyles($options['inlineStyles']);
+            $builder->setSafeMode($options['safeMode']);
             $builder->setDebugMode($options['debugMode']);
 
             $result = $builder->convert($html);
@@ -147,7 +256,7 @@ class Ajax
                 error_log('Oxygen HTML Converter Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
             wp_send_json_error([
-                'message' => 'Conversion error: ' . $e->getMessage(),
+                'message' => $this->getClientErrorMessage('Conversion failed', $e),
             ], 500);
         }
     }
@@ -179,7 +288,7 @@ class Ajax
         }
 
         // Check permissions
-        if (!current_user_can('edit_posts')) {
+        if (!current_user_can($this->getRequiredCapability())) {
             wp_send_json_error(['message' => 'Permission denied'], 403);
             return;
         }
@@ -227,12 +336,24 @@ class Ajax
                 return;
             }
 
-            $batch[] = $item;
+            $batch[] = [
+                'index' => $index,
+                'html' => $item,
+            ];
             $totalSize += $itemSize;
         }
 
         $results = [];
         $builder = new TreeBuilder();
+        $options = $this->normalizeBatchOptions($_POST);
+        $filteredOptions = apply_filters('oxy_html_converter_batch_options', $options, $_POST);
+        if (is_array($filteredOptions)) {
+            $options = $this->normalizeBatchOptions(array_merge($options, $filteredOptions));
+        }
+
+        $builder->setInlineStyles($options['inlineStyles']);
+        $builder->setSafeMode($options['safeMode']);
+        $builder->setDebugMode($options['debugMode']);
         $totalStats = [
             'elements' => 0,
             'tailwindClasses' => 0,
@@ -242,10 +363,11 @@ class Ajax
         ];
 
         try {
-            foreach ($batch as $index => $html) {
-                $html = wp_unslash($html);
+            foreach ($batch as $batchItem) {
+                $index = (int) $batchItem['index'];
+                $html = wp_unslash((string) $batchItem['html']);
                 $result = $builder->convert($html);
-                
+
                 if ($result['success']) {
                     $results[] = [
                         'index' => $index,
@@ -277,7 +399,9 @@ class Ajax
             wp_send_json_success($response);
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_batch_exception', $e);
-            wp_send_json_error(['message' => 'Batch conversion error: ' . $e->getMessage()], 500);
+            wp_send_json_error([
+                'message' => $this->getClientErrorMessage('Batch conversion failed', $e),
+            ], 500);
         }
     }
 
@@ -293,7 +417,7 @@ class Ajax
         }
 
         // Check permissions
-        if (!current_user_can('edit_posts')) {
+        if (!current_user_can($this->getRequiredCapability())) {
             wp_send_json_error(['message' => 'Permission denied'], 403);
             return;
         }
@@ -313,8 +437,17 @@ class Ajax
             return;
         }
 
+        $options = $this->normalizePreviewOptions($_POST);
+        $filteredOptions = apply_filters('oxy_html_converter_preview_options', $options, $_POST);
+        if (is_array($filteredOptions)) {
+            $options = $this->normalizePreviewOptions(array_merge($options, $filteredOptions));
+        }
+
         try {
             $builder = new TreeBuilder();
+            $builder->setInlineStyles($options['inlineStyles']);
+            $builder->setSafeMode($options['safeMode']);
+            $builder->setDebugMode($options['debugMode']);
             $result = $builder->convert($html);
 
             if ($result['success']) {
@@ -344,7 +477,7 @@ class Ajax
                 error_log('Oxygen HTML Converter Preview Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
             wp_send_json_error([
-                'message' => 'Preview error: ' . $e->getMessage(),
+                'message' => $this->getClientErrorMessage('Preview failed', $e),
             ], 500);
         }
     }

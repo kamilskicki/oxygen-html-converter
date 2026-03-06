@@ -1,0 +1,10 @@
+{
+  "name": "oxygen-html-converter-core",
+  "private": true,
+  "description": "Node-based frontend behavior tests for Oxygen HTML Converter core plugin.",
+  "scripts": {
+    "test:js": "node tests/js/run-tests.cjs",
+    "test:php": "composer test",
+    "test": "npm run test:js && npm run test:php"
+  }
+}

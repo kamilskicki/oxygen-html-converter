@@ -45,6 +45,7 @@ class TreeBuilder
     private bool $validateOutput = false;
     private bool $inlineStyles = true;  // NEW: Force all styles inline instead of CSS Code
     private bool $debugMode = false;     // NEW: Enable debug logging
+    private bool $safeMode = false;
     private ?bool $preferEssentialElements = null;
     private int $nodeIdCounter = 1;
     private string $extractedCss = '';
@@ -55,6 +56,49 @@ class TreeBuilder
     private bool $fixedHeaderDetected = false;
     private array $jsPatterns = [];
     private array $consumedCssSelectors = [];
+
+    /**
+     * Dangerous tags removed from raw HtmlCode blocks in safe mode.
+     */
+    private const SAFE_MODE_BLOCKED_HTML_TAGS = [
+        'script',
+        'style',
+        'link',
+        'meta',
+        'iframe',
+        'object',
+        'embed',
+        'base',
+    ];
+
+    /**
+     * Allowed tags for raw HtmlCode blocks in safe mode.
+     */
+    private const SAFE_MODE_ALLOWED_HTML_TAGS = [
+        'a', 'abbr', 'article', 'aside', 'b', 'blockquote', 'br', 'button',
+        'caption', 'cite', 'code', 'col', 'colgroup', 'dd', 'details', 'dfn',
+        'div', 'dl', 'dt', 'em', 'fieldset', 'figcaption', 'figure', 'footer',
+        'form', 'g', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'i',
+        'img', 'input', 'label', 'legend', 'li', 'main', 'mark', 'nav',
+        'ol', 'option', 'p', 'path', 'polygon', 'polyline', 'pre', 'rect',
+        'section', 'select', 'small', 'source', 'span', 'strong', 'sub', 'summary',
+        'sup', 'svg', 'table', 'tbody', 'td', 'textarea', 'tfoot', 'th',
+        'thead', 'tr', 'u', 'ul', 'video',
+    ];
+
+    /**
+     * Allowed non-prefixed attributes for raw HtmlCode blocks in safe mode.
+     */
+    private const SAFE_MODE_ALLOWED_HTML_ATTRIBUTES = [
+        'accept', 'action', 'alt', 'autocomplete', 'autofocus', 'checked',
+        'class', 'cols', 'colspan', 'controls', 'd', 'disabled', 'enctype',
+        'for', 'height', 'href', 'id', 'loading', 'loop', 'max', 'maxlength',
+        'method', 'min', 'minlength', 'multiple', 'muted', 'name', 'pattern',
+        'placeholder', 'playsinline', 'poster', 'readonly', 'rel', 'required',
+        'role', 'rows', 'rowspan', 'selected', 'src', 'step', 'tabindex',
+        'target', 'title', 'type', 'value', 'viewbox', 'width', 'xlink:href',
+        'xmlns',
+    ];
 
     public function __construct()
     {
@@ -197,17 +241,24 @@ class TreeBuilder
             $cssElement = $this->createCssCodeElement($this->extractedCss);
         }
 
-        // Detect icon libraries in the HTML
-        $this->detectedIconLibraries = $this->iconDetector->detectIconLibraries($this->parser->getDom());
+        $headLinkElements = [];
+        $iconScriptElements = [];
 
-        // Extract <link> tags from <head> (Google Fonts, preconnect, etc.)
-        $headLinkElements = $this->extractHeadLinks($this->parser->getDom());
+        if (!$this->safeMode) {
+            // Detect icon libraries in the HTML
+            $this->detectedIconLibraries = $this->iconDetector->detectIconLibraries($this->parser->getDom());
 
-        // Create script elements for detected icon libraries
-        $iconScriptElements = $this->iconDetector->createIconLibraryElements(
-            $this->detectedIconLibraries,
-            function() { return $this->generateNodeId(); }
-        );
+            // Extract <link> tags from <head> (Google Fonts, preconnect, etc.)
+            $headLinkElements = $this->extractHeadLinks($this->parser->getDom());
+
+            // Create script elements for detected icon libraries
+            $iconScriptElements = $this->iconDetector->createIconLibraryElements(
+                $this->detectedIconLibraries,
+                function() { return $this->generateNodeId(); }
+            );
+        } else {
+            $this->report->addInfo('Safe mode enabled: stripped scripts, event handlers, and external head assets.');
+        }
 
         $result = [
             'success' => true,
@@ -373,6 +424,10 @@ class TreeBuilder
 
         // Handle Script Tags
         if ($tag === 'script') {
+            if ($this->safeMode) {
+                return null;
+            }
+
             $src = $node->getAttribute('src');
             $scriptContent = $node->textContent;
 
@@ -464,6 +519,10 @@ class TreeBuilder
 
         // Handle Link Tags (External CSS)
         if ($tag === 'link') {
+            if ($this->safeMode) {
+                return null;
+            }
+
             $element = [
                 'id' => $this->generateNodeId(),
                 'data' => [
@@ -501,11 +560,19 @@ class TreeBuilder
         // Get element properties from mapper
         $contentProperties = $this->mapper->buildProperties($node);
 
-        // Extract and convert styles
-        $styleProperties = $this->styleExtractor->extractAndConvert($node);
+        // Extract and convert inline style attributes only when inline style mode is enabled.
+        $styleProperties = $this->inlineStyles
+            ? $this->styleExtractor->extractAndConvert($node)
+            : [];
 
         // Merge properties
         $element['data']['properties'] = $this->mergeProperties($contentProperties, $styleProperties);
+
+        if ($this->safeMode && $elementType === ElementTypes::HTML_CODE) {
+            if (!$this->sanitizeHtmlCodeElement($element)) {
+                return null;
+            }
+        }
 
         // Handle tag option
         $tagOption = $this->mapper->getTagOption($tag);
@@ -527,13 +594,28 @@ class TreeBuilder
 
         // Sanitize URLs for Images and Links
         if ($tag === 'img' && isset($element['data']['properties']['content']['image']['url'])) {
-            $element['data']['properties']['content']['image']['url'] = $this->sanitizeUrl($element['data']['properties']['content']['image']['url']);
+            $element['data']['properties']['content']['image']['url'] = $this->sanitizeUrl(
+                $element['data']['properties']['content']['image']['url'],
+                ['http', 'https', 'data']
+            );
         }
         if ($tag === 'a' && isset($element['data']['properties']['content']['content']['url'])) {
-            $element['data']['properties']['content']['content']['url'] = $this->sanitizeUrl($element['data']['properties']['content']['content']['url']);
+            $element['data']['properties']['content']['content']['url'] = $this->sanitizeUrl(
+                $element['data']['properties']['content']['content']['url'],
+                ['http', 'https', 'mailto', 'tel']
+            );
         }
         if ($tag === 'button' && isset($element['data']['properties']['content']['content']['link']['url'])) {
-            $element['data']['properties']['content']['content']['link']['url'] = $this->sanitizeUrl($element['data']['properties']['content']['content']['link']['url']);
+            $element['data']['properties']['content']['content']['link']['url'] = $this->sanitizeUrl(
+                $element['data']['properties']['content']['content']['link']['url'],
+                ['http', 'https', 'mailto', 'tel']
+            );
+        }
+        if ($tag === 'video' && isset($element['data']['properties']['content']['content']['video_file_url'])) {
+            $element['data']['properties']['content']['content']['video_file_url'] = $this->sanitizeUrl(
+                $element['data']['properties']['content']['content']['video_file_url'],
+                ['http', 'https', 'data']
+            );
         }
 
         // Apply fixed header spacing heuristic (optional)
@@ -630,7 +712,9 @@ class TreeBuilder
             }
 
             // Buttons return early, so CSS rules must be applied before exiting.
-            $this->applyCssRules($element, $this->cssRules, $node);
+            if ($this->inlineStyles) {
+                $this->applyCssRules($element, $this->cssRules, $node);
+            }
 
             // Don't process other children for buttons - they're handled as text
             return $element;
@@ -667,7 +751,9 @@ class TreeBuilder
 
 
         // Apply CSS rules from style tags if they match this element's ID
-        $this->applyCssRules($element, $this->cssRules, $node);
+        if ($this->inlineStyles) {
+            $this->applyCssRules($element, $this->cssRules, $node);
+        }
 
         return $element;
     }
@@ -1274,17 +1360,217 @@ class TreeBuilder
     }
 
     /**
+     * Sanitize HtmlCode payloads in safe mode.
+     */
+    private function sanitizeHtmlCodeElement(array &$element): bool
+    {
+        $html = $element['data']['properties']['content']['content']['html_code'] ?? null;
+        if (!is_string($html) || trim($html) === '') {
+            return true;
+        }
+
+        $sanitized = $this->sanitizeHtmlCodeFragment($html);
+        if ($sanitized === '') {
+            $this->report->addWarning('Safe mode removed an HtmlCode block because no safe markup remained.');
+            return false;
+        }
+
+        $element['data']['properties']['content']['content']['html_code'] = $sanitized;
+        return true;
+    }
+
+    /**
+     * Strict allowlist sanitizer for HtmlCode payloads in safe mode.
+     */
+    private function sanitizeHtmlCodeFragment(string $html): string
+    {
+        $html = trim($html);
+        if ($html === '') {
+            return '';
+        }
+
+        $doc = new \DOMDocument('1.0', 'UTF-8');
+        $previousUseErrors = libxml_use_internal_errors(true);
+
+        $wrapped = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><div id="oxy-safe-root">'
+            . $html
+            . '</div></body></html>';
+
+        $loaded = $doc->loadHTML($wrapped, LIBXML_NOERROR | LIBXML_NOWARNING);
+
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousUseErrors);
+
+        if (!$loaded) {
+            return '';
+        }
+
+        $xpath = new \DOMXPath($doc);
+        $root = $xpath->query('//*[@id="oxy-safe-root"]')->item(0);
+        if (!($root instanceof DOMElement)) {
+            return '';
+        }
+
+        $this->sanitizeHtmlCodeNode($root);
+
+        $output = '';
+        $children = [];
+        foreach ($root->childNodes as $child) {
+            $children[] = $child;
+        }
+        foreach ($children as $child) {
+            $output .= $doc->saveHTML($child);
+        }
+
+        return trim($output);
+    }
+
+    /**
+     * Recursively sanitize a DOM node with allowlist rules.
+     */
+    private function sanitizeHtmlCodeNode(\DOMNode $node): void
+    {
+        if (!($node instanceof DOMElement)) {
+            return;
+        }
+
+        $tag = strtolower($node->tagName);
+
+        // Remove actively dangerous tags completely.
+        if (in_array($tag, self::SAFE_MODE_BLOCKED_HTML_TAGS, true)) {
+            if ($node->parentNode) {
+                $node->parentNode->removeChild($node);
+            }
+            return;
+        }
+
+        // Unwrap unknown tags but keep their (sanitized) children.
+        if ($tag !== 'div' || $node->getAttribute('id') !== 'oxy-safe-root') {
+            if (!in_array($tag, self::SAFE_MODE_ALLOWED_HTML_TAGS, true)) {
+                if ($node->parentNode) {
+                    $children = [];
+                    foreach ($node->childNodes as $child) {
+                        $children[] = $child;
+                    }
+                    foreach ($children as $child) {
+                        $node->parentNode->insertBefore($child, $node);
+                    }
+                    $node->parentNode->removeChild($node);
+                }
+                return;
+            }
+        }
+
+        $attributeNames = [];
+        foreach ($node->attributes as $attribute) {
+            $attributeNames[] = $attribute->name;
+        }
+
+        foreach ($attributeNames as $attributeName) {
+            $name = strtolower($attributeName);
+            $value = $node->getAttribute($attributeName);
+
+            if (strpos($name, 'on') === 0 || $name === 'style') {
+                $node->removeAttribute($attributeName);
+                continue;
+            }
+
+            if (!$this->isAllowedHtmlCodeAttribute($name)) {
+                $node->removeAttribute($attributeName);
+                continue;
+            }
+
+            if (in_array($name, ['href', 'action', 'formaction', 'xlink:href'], true)) {
+                $node->setAttribute($attributeName, $this->sanitizeUrl($value, ['http', 'https', 'mailto', 'tel']));
+                continue;
+            }
+
+            if (in_array($name, ['src', 'poster'], true)) {
+                $node->setAttribute($attributeName, $this->sanitizeUrl($value, ['http', 'https', 'data']));
+                continue;
+            }
+
+            if ($name === 'target' && !in_array($value, ['_self', '_blank', '_parent', '_top'], true)) {
+                $node->removeAttribute($attributeName);
+                continue;
+            }
+        }
+
+        $children = [];
+        foreach ($node->childNodes as $child) {
+            $children[] = $child;
+        }
+
+        foreach ($children as $child) {
+            $this->sanitizeHtmlCodeNode($child);
+        }
+    }
+
+    /**
+     * Attribute allowlist for HtmlCode sanitizer.
+     */
+    private function isAllowedHtmlCodeAttribute(string $attribute): bool
+    {
+        if (in_array($attribute, self::SAFE_MODE_ALLOWED_HTML_ATTRIBUTES, true)) {
+            return true;
+        }
+
+        if (strpos($attribute, 'data-') === 0 || strpos($attribute, 'aria-') === 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Sanitize local URLs
      */
-    private function sanitizeUrl(string $url): string
+    private function sanitizeUrl(string $url, array $allowedSchemes = ['http', 'https']): string
     {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+
         if (strpos($url, 'file://') === 0) {
             // Extract filename or relative path
             $parts = explode('/', str_replace('\\', '/', $url));
             $filename = end($parts);
             return $filename; // Minimal fix, just keep filename
         }
-        return $url;
+
+        // Allow local anchors, root-relative paths, and query-relative paths.
+        if (preg_match('/^(#|\/|\.\.?\/|\?)/', $url)) {
+            return $url;
+        }
+
+        // No explicit scheme -> keep as relative URL.
+        if (!preg_match('/^([a-zA-Z][a-zA-Z0-9+.-]*):/', $url, $matches)) {
+            return $url;
+        }
+
+        $scheme = strtolower($matches[1]);
+        if (!in_array($scheme, $allowedSchemes, true)) {
+            return '#';
+        }
+
+        if ($scheme === 'data') {
+            // Restrict data URLs to image/video payloads.
+            if (preg_match('/^data:(image|video)\/[a-z0-9.+-]+;base64,[a-z0-9+\/=\s]+$/i', $url)) {
+                $dataUrl = preg_replace('/\s+/', '', $url);
+                return is_string($dataUrl) ? $dataUrl : '#';
+            }
+            return '#';
+        }
+
+        if ($scheme === 'http' || $scheme === 'https') {
+            $sanitized = esc_url_raw($url);
+            return is_string($sanitized) && $sanitized !== '' ? $sanitized : '#';
+        }
+
+        // mailto/tel: strip CRLF to prevent header injection.
+        $safeUrl = preg_replace('/[\r\n]+/', '', $url);
+        return is_string($safeUrl) ? $safeUrl : '#';
     }
 
     /**
@@ -1294,6 +1580,17 @@ class TreeBuilder
     public function setInlineStyles(bool $enabled): void
     {
         $this->inlineStyles = $enabled;
+    }
+
+    /**
+     * Enable safe mode conversion.
+     *
+     * Safe mode strips script tags, event handlers, and external head/link assets.
+     */
+    public function setSafeMode(bool $enabled): void
+    {
+        $this->safeMode = $enabled;
+        $this->interactionDetector->setStripEventHandlers($enabled);
     }
 
     /**

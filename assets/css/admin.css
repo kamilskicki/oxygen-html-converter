@@ -49,6 +49,8 @@
 
 .oxy-converter-options {
     margin: 15px 0;
+    display: grid;
+    gap: 8px;
 }
 
 .oxy-converter-options label {
@@ -56,6 +58,21 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
+}
+
+.oxy-converter-preset {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.oxy-converter-preset label {
+    font-weight: 600;
+    cursor: default;
+}
+
+.oxy-converter-preset select {
+    min-width: 220px;
 }
 
 .oxy-converter-actions {

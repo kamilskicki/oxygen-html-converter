@@ -8,6 +8,7 @@ namespace OxyHtmlConverter\Services;
 class InteractionDetector
 {
     private ?FrameworkDetector $frameworkDetector;
+    private bool $stripEventHandlers = false;
 
     /** Pre-detected toggle interactions from JS analysis: elementId => interaction */
     private array $detectedToggles = [];
@@ -21,6 +22,14 @@ class InteractionDetector
     public function __construct(?FrameworkDetector $frameworkDetector = null)
     {
         $this->frameworkDetector = $frameworkDetector;
+    }
+
+    /**
+     * Strip event handler attributes instead of converting/preserving them.
+     */
+    public function setStripEventHandlers(bool $enabled): void
+    {
+        $this->stripEventHandlers = $enabled;
     }
 
     /**
@@ -94,6 +103,11 @@ class InteractionDetector
 
             // Check if this is an event handler → convert to Oxygen Interaction
             if (isset(self::EVENT_TO_TRIGGER_MAP[$name])) {
+                if ($this->stripEventHandlers) {
+                    $toRemove[] = $name;
+                    continue;
+                }
+
                 $interaction = $this->createInteractionFromHandler(self::EVENT_TO_TRIGGER_MAP[$name], $value, $element);
                 if ($interaction) {
                     $interactions[] = $interaction;
@@ -110,6 +124,14 @@ class InteractionDetector
                 $originalName = $name;
                 if (str_starts_with($name, 'data-oxy-at-')) {
                     $originalName = '@' . substr($name, 12);
+                }
+
+                if ($this->stripEventHandlers && (
+                    str_starts_with($originalName, '@') ||
+                    str_starts_with($originalName, 'x-on:')
+                )) {
+                    $toRemove[] = $name;
+                    continue;
                 }
 
                 // Try to convert simple Alpine @click or x-on:click

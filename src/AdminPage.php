@@ -9,6 +9,21 @@ use OxyHtmlConverter\Services\EnvironmentService;
  */
 class AdminPage
 {
+    /**
+     * Capability required to access converter UI and actions.
+     */
+    private function getRequiredCapability(): string
+    {
+        $capability = 'manage_options';
+
+        /**
+         * Filter required capability for the converter.
+         *
+         * @param string $capability Default capability (`manage_options`).
+         */
+        return (string) apply_filters('oxy_html_converter_required_capability', $capability);
+    }
+
     public function __construct()
     {
         add_action('admin_menu', [$this, 'addMenuPage']);
@@ -52,11 +67,13 @@ class AdminPage
      */
     public function addMenuPage(): void
     {
+        $capability = $this->getRequiredCapability();
+
         add_submenu_page(
             'oxygen', // Oxygen 6 parent slug
             'HTML Converter',
             'HTML Converter',
-            'edit_posts',
+            $capability,
             'oxy-html-converter',
             [$this, 'renderPage']
         );
@@ -65,7 +82,7 @@ class AdminPage
         add_management_page(
             'Oxygen HTML Converter',
             'Oxygen HTML Converter',
-            'edit_posts',
+            $capability,
             'oxy-html-converter-tool',
             [$this, 'renderPage']
         );
@@ -92,9 +109,17 @@ class AdminPage
         );
 
         wp_enqueue_script(
+            'oxy-html-converter-presets',
+            OXY_HTML_CONVERTER_URL . 'assets/js/lib/presets.js',
+            [],
+            OXY_HTML_CONVERTER_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'oxy-html-converter-admin',
             OXY_HTML_CONVERTER_URL . 'assets/js/admin.js',
-            ['jquery'],
+            ['jquery', 'oxy-html-converter-presets'],
             OXY_HTML_CONVERTER_VERSION,
             true
         );
@@ -110,6 +135,10 @@ class AdminPage
      */
     public function renderPage(): void
     {
+        if (!current_user_can($this->getRequiredCapability())) {
+            wp_die(esc_html__('You do not have permission to access this page.', 'oxygen-html-converter'));
+        }
+
         $classMode = get_option('oxy_html_converter_class_mode', 'auto');
         $elementMappingMode = get_option('oxy_html_converter_element_mapping_mode', 'auto');
         $environment = new EnvironmentService();
@@ -219,9 +248,30 @@ class AdminPage
                     <textarea id="oxy-html-input" placeholder="Paste your HTML here..."></textarea>
 
                     <div class="oxy-converter-options">
+                        <div class="oxy-converter-preset">
+                            <label for="oxy-convert-preset">Conversion Preset</label>
+                            <select id="oxy-convert-preset">
+                                <option value="balanced" selected>Balanced (Recommended)</option>
+                                <option value="safe">Safe Import</option>
+                                <option value="fidelity">Max Fidelity</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
                         <label>
                             <input type="checkbox" id="oxy-wrap-container" checked>
                             Wrap in container element
+                        </label>
+                        <label>
+                            <input type="checkbox" id="oxy-include-css" checked>
+                            Include extracted CSS Code element
+                        </label>
+                        <label>
+                            <input type="checkbox" id="oxy-inline-styles" checked>
+                            Apply inline/class styles to Oxygen design properties
+                        </label>
+                        <label>
+                            <input type="checkbox" id="oxy-safe-mode">
+                            Safe mode (strip scripts, event handlers, and external head assets)
                         </label>
                     </div>
 

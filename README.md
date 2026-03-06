@@ -26,6 +26,7 @@ For publishing flow, see `docs/RELEASE_CHECKLIST.md`.
 - **Smart element mapping** — tags are mapped to their closest Oxygen equivalents
 - **Style extraction** — inline CSS is converted to Oxygen properties
 - **Class & ID preservation** — all classes and IDs are carried over
+- **Safe mode import** — optionally strip scripts, event handlers, and external head assets
 
 ### Interactive & Dynamic
 - **Event handler conversion** — `onclick`, `onmouseenter`, etc. → Oxygen Interactions
@@ -81,8 +82,11 @@ cd oxygen-html-converter
 ### Method 1: Admin Page
 1. Go to **Tools → Oxygen HTML Converter**
 2. Paste your HTML into the editor
-3. Click **Convert**
-4. Copy the generated JSON into an Oxygen page
+3. Choose a preset: **Balanced**, **Safe Import**, **Max Fidelity**, or **Custom**
+4. Optional: enable **Safe mode** to strip scripts/event handlers/external head assets
+5. Optional: toggle CSS/style strategy (include CSS element, apply inline/class styles)
+6. Click **Convert**
+7. Copy the generated JSON into an Oxygen page
 
 ### Method 2: Direct Paste (in Builder)
 1. Open any page in Oxygen Builder 6
@@ -99,7 +103,8 @@ cd oxygen-html-converter
 - WordPress 5.0+
 - PHP 7.4+
 - Oxygen Builder 6.x
-- A logged-in user with the `edit_posts` capability (recommended: restrict usage to Admins only)
+- A logged-in user with the `manage_options` capability by default
+- Capability can be customized via the `oxy_html_converter_required_capability` filter
 
 ## Known Limitations (Beta)
 
@@ -142,6 +147,10 @@ This is a beta release. Bug reports, feature requests, and pull requests are wel
 
 - Stable unit gate:
   - `composer test`
+- Frontend behavior tests (no external deps):
+  - `npm run test:js`
+- Combined PHP + JS gate:
+  - `npm test`
 - Live builder source contracts (auto-skip if paths unavailable):
   - `vendor/bin/phpunit tests/Unit/Compatibility/InstalledBuilderContractsTest.php`
   - Optional env overrides:
@@ -159,11 +168,15 @@ Core provides extension points including:
 - `oxy_html_converter_builder_script_data`
 - `oxy_html_converter_after_enqueue_builder_scripts`
 - `oxy_html_converter_convert_options`
+- `oxy_html_converter_required_capability`
+- `oxy_html_converter_preview_options`
+- `oxy_html_converter_batch_options`
 - `oxy_html_converter_tree_builder`
 - `oxy_html_converter_conversion_result`
 - `oxy_html_converter_convert_response`
 - `oxy_html_converter_batch_response`
 - `oxy_html_converter_preview_response`
+- `oxy_html_converter_expose_error_details`
 
 API compatibility is versioned via `OXY_HTML_CONVERTER_API_VERSION`.
 

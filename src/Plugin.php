@@ -65,9 +65,17 @@ class Plugin
         }
 
         wp_enqueue_script(
+            'oxy-html-converter-options',
+            OXY_HTML_CONVERTER_URL . 'assets/js/lib/converter-options.js',
+            [],
+            OXY_HTML_CONVERTER_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'oxy-html-converter',
             OXY_HTML_CONVERTER_URL . 'assets/js/converter.js',
-            [],
+            ['oxy-html-converter-options'],
             OXY_HTML_CONVERTER_VERSION,
             true
         );

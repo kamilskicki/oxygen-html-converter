@@ -10,6 +10,12 @@
   const $convertBtn = $("#oxy-convert-btn");
   const $copyBtn = $("#oxy-copy-btn");
   const $wrapContainer = $("#oxy-wrap-container");
+  const $includeCss = $("#oxy-include-css");
+  const $inlineStyles = $("#oxy-inline-styles");
+  const $safeMode = $("#oxy-safe-mode");
+  const $preset = $("#oxy-convert-preset");
+  const presetUtils = window.OxyHtmlConverterPresets || null;
+  let isApplyingPreset = false;
 
   const $previewResult = $("#oxy-preview-result");
   const $previewContent = $("#oxy-preview-content");
@@ -55,6 +61,37 @@
   }
 
   /**
+   * Apply a conversion preset to option checkboxes.
+   */
+  function applyPreset(preset) {
+    isApplyingPreset = true;
+    const values = presetUtils
+      ? presetUtils.getPresetValues(preset)
+      : {
+          wrapInContainer: true,
+          includeCssElement: true,
+          inlineStyles: true,
+          safeMode: false,
+        };
+
+    $wrapContainer.prop("checked", !!values.wrapInContainer);
+    $includeCss.prop("checked", !!values.includeCssElement);
+    $inlineStyles.prop("checked", !!values.inlineStyles);
+    $safeMode.prop("checked", !!values.safeMode);
+
+    isApplyingPreset = false;
+  }
+
+  function getCurrentOptions() {
+    return {
+      wrapInContainer: $wrapContainer.is(":checked"),
+      includeCssElement: $includeCss.is(":checked"),
+      inlineStyles: $inlineStyles.is(":checked"),
+      safeMode: $safeMode.is(":checked"),
+    };
+  }
+
+  /**
    * Preview HTML conversion
    */
   function previewHtml() {
@@ -74,42 +111,40 @@
         action: "oxy_html_convert_preview",
         nonce: config.nonce,
         html: html,
+        inlineStyles: $inlineStyles.is(":checked"),
+        safeMode: $safeMode.is(":checked"),
       },
       success: function (response) {
         hideLoading($previewBtn);
 
         if (response.success) {
           const data = response.data;
-          let html = "";
+          const $content = $("<div>");
 
-          html +=
-            '<div class="preview-stat"><span>Total Elements:</span><strong>' +
-            data.elementCount +
-            "</strong></div>";
-          html +=
-            '<div class="preview-stat"><span>Tailwind Classes:</span><strong>' +
-            (data.tailwindClassCount || 0) +
-            "</strong></div>";
-          html +=
-            '<div class="preview-stat"><span>Custom Classes:</span><strong>' +
-            (data.customClassCount || 0) +
-            "</strong></div>";
-
-          if (data.summary && data.summary.byType) {
-            html +=
-              '<div class="preview-types"><strong>Element Types:</strong><br>';
-            for (const [type, count] of Object.entries(data.summary.byType)) {
-              html +=
-                '<span class="preview-type">' +
-                type +
-                " (" +
-                count +
-                ")</span>";
-            }
-            html += "</div>";
+          function addPreviewStat(label, value) {
+            const $stat = $('<div class="preview-stat">');
+            $stat.append($("<span>").text(label));
+            $stat.append($("<strong>").text(String(value)));
+            $content.append($stat);
           }
 
-          $previewContent.html(html);
+          addPreviewStat("Total Elements:", data.elementCount);
+          addPreviewStat("Tailwind Classes:", data.tailwindClassCount || 0);
+          addPreviewStat("Custom Classes:", data.customClassCount || 0);
+
+          if (data.summary && data.summary.byType) {
+            const $types = $('<div class="preview-types">');
+            $types.append($("<strong>").text("Element Types:"));
+            $types.append("<br>");
+            for (const [type, count] of Object.entries(data.summary.byType)) {
+              $types.append(
+                $('<span class="preview-type">').text(type + " (" + count + ")")
+              );
+            }
+            $content.append($types);
+          }
+
+          $previewContent.empty().append($content.children());
           $previewResult.show();
         } else {
           showError(response.data?.message || "Preview failed.");
@@ -146,6 +181,9 @@
         nonce: config.nonce,
         html: html,
         wrapInContainer: $wrapContainer.is(":checked"),
+        includeCssElement: $includeCss.is(":checked"),
+        inlineStyles: $inlineStyles.is(":checked"),
+        safeMode: $safeMode.is(":checked"),
       },
       success: function (response) {
         hideLoading($convertBtn);
@@ -167,7 +205,7 @@
             const $warnings = $("#report-warnings ul").empty();
             if (data.stats.warnings && data.stats.warnings.length > 0) {
               data.stats.warnings.forEach((w) =>
-                $warnings.append("<li>" + w + "</li>")
+                $warnings.append($("<li>").text(String(w)))
               );
               $("#report-warnings").show();
             } else {
@@ -177,7 +215,7 @@
             const $info = $("#report-info ul").empty();
             if (data.stats.info && data.stats.info.length > 0) {
               data.stats.info.forEach((i) =>
-                $info.append("<li>" + i + "</li>")
+                $info.append($("<li>").text(String(i)))
               );
               $("#report-info").show();
             } else {
@@ -265,12 +303,39 @@
   $copyBtn.on("click", copyToClipboard);
 
   // Clear results when input changes
-  $htmlInput.on("input", function () {
+  function markOutputOutdated() {
     if (lastConvertedJson) {
       $copyBtn.prop("disabled", true);
       $jsonStatus.text("(outdated)");
     }
+  }
+
+  $htmlInput.on("input", markOutputOutdated);
+  $preset.on("change", function () {
+    const preset = $preset.val();
+    if (preset !== "custom") {
+      applyPreset(String(preset));
+    }
+    markOutputOutdated();
   });
+
+  function handleManualOptionChange() {
+    if (!isApplyingPreset) {
+      const resolvedPreset = presetUtils
+        ? presetUtils.resolvePresetFromOptions(getCurrentOptions())
+        : "custom";
+      $preset.val(resolvedPreset);
+    }
+    markOutputOutdated();
+  }
+
+  $wrapContainer.on("change", handleManualOptionChange);
+  $includeCss.on("change", handleManualOptionChange);
+  $inlineStyles.on("change", handleManualOptionChange);
+  $safeMode.on("change", handleManualOptionChange);
+
+  // Ensure options match the default selected preset on load.
+  applyPreset(String($preset.val() || "balanced"));
 
   // Keyboard shortcuts
   $htmlInput.on("keydown", function (e) {
