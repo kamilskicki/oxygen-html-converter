@@ -1,165 +1,86 @@
 # Oxygen HTML Converter
 
-> **v0.8.0-beta** — Convert HTML to native Oxygen Builder 6 elements.
+Convert pasted HTML into native Oxygen Builder 6 content that can be edited and saved in the builder.
 
-Paste entire HTML pages and edit them natively in Oxygen — no iframes, no shortcodes, no code blocks.
+This repository is the public `Core` plugin. The long-term product goal is simple: paste HTML, get a native Oxygen document, and continue editing without validation errors or broken document state.
 
-**Built by [Kamil Skicki](https://kamilskicki.com)** — growth engineer & WordPress specialist.
+Current release line:
+- `v0.9.0-beta` work in progress
+- stable public baseline: `v0.8.0-beta`
 
-⚠️ **Beta release** — this plugin is functional and tested, but edge cases exist. Feedback welcome via [GitHub Issues](https://github.com/kamilskicki/oxygen-html-converter/issues).
+## What Core Does
 
-## Open Core Model
+- Converts full HTML fragments and pages into native Oxygen elements
+- Preserves IDs, classes, data attributes, and inline styles
+- Supports builder paste/import flows
+- Preserves supported scripts and interactions needed for parity
+- Keeps imported content editable in Oxygen Builder
 
-This repository is the **open-source Core** plugin.
+## Supported Scope
 
-- Core stays public and community-driven.
-- Pro features should live in a separate private plugin repo.
-- Core exposes versioned hooks/filters so Pro can extend without forking.
+Core is intended for:
+- single-page marketing and landing-page HTML
+- inline styles
+- utility-first markup, especially Tailwind-like classes
+- WindPress-assisted Tailwind rendering
+- common frontend interactions such as nav toggles, anchor scroll, reveal-on-scroll, counters, and simple inline handlers
 
-See `docs/OPEN_CORE.md` and `scaffolds/oxygen-html-converter-pro` for the starter structure.
-For publishing flow, see `docs/RELEASE_CHECKLIST.md`.
+Core is not yet a promise of perfect conversion for every arbitrary frontend stack on the web.
 
-## Features
+Detailed scope:
+- [Supported Scope](docs/SUPPORTED_SCOPE.md)
+- [Definition of Done for v0.9.0-beta](docs/DOD-0.9.0-BETA.md)
 
-### Core Conversion
-- **Full HTML page import** → native Oxygen elements
-- **Smart element mapping** — tags are mapped to their closest Oxygen equivalents
-- **Style extraction** — inline CSS is converted to Oxygen properties
-- **Class & ID preservation** — all classes and IDs are carried over
-- **Safe mode import** — optionally strip scripts, event handlers, and external head assets
+## Import Methods
 
-### Interactive & Dynamic
-- **Event handler conversion** — `onclick`, `onmouseenter`, etc. → Oxygen Interactions
-- **JavaScript transformation** — scripts are rewritten for Oxygen compatibility
-- **Framework detection** — Alpine.js, HTMX, and Stimulus attributes detected and preserved
-
-### CSS Intelligence
-- **Tailwind CSS detection** — classes are preserved; WindPress integration supported
-- **CSS Grid detection** — grid layouts are mapped to Oxygen grid settings
-- **Animation detection** — CSS animations and transitions are identified
-- **Inline style parsing** — comprehensive CSS property → Oxygen property mapping
-
-### Import Methods
-- **Admin interface** — Tools → Oxygen HTML Converter (paste & convert)
-- **Direct paste in builder** — `Ctrl+V` to paste HTML directly
-- **Import modal** — `Ctrl+Shift+H` for the import dialog inside the builder
-
-## Element Mapping
-
-| HTML Element | Oxygen Element |
-|---|---|
-| `<div>`, `<section>`, `<article>`, `<header>`, `<footer>`, `<main>`, `<nav>`, `<aside>` | Container |
-| `<a>` (wrapping block content) | Container Link |
-| `<a>` (inline) | Text Link |
-| `<p>`, `<h1>`–`<h6>`, `<span>`, `<blockquote>` | Text |
-| `<img>` | Image |
-| `<video>` | Video |
-| `<ul>`, `<ol>` | Container (list) |
-| `<li>` | Container (list item) |
-| `<form>`, `<input>`, `<textarea>`, `<select>` | HTML Code |
-| `<button>` | Container (or Essential Button in Essential mode) |
-| `<svg>` | HTML Code (raw SVG) |
-| `<iframe>` | HTML Code |
-| `<script>`, `<style>` | Code elements |
-
-## Installation
-
-1. Download the latest release ZIP
-2. In WordPress admin, go to **Plugins → Add New → Upload Plugin**
-3. Upload the ZIP and activate
-4. Ensure **Oxygen Builder 6** is installed and active
-
-### Manual Installation
-
-```bash
-cd wp-content/plugins/
-git clone https://github.com/kamilskicki/oxygen-html-converter.git
-cd oxygen-html-converter
-```
-
-## Usage
-
-### Method 1: Admin Page
-1. Go to **Tools → Oxygen HTML Converter**
-2. Paste your HTML into the editor
-3. Choose a preset: **Balanced**, **Safe Import**, **Max Fidelity**, or **Custom**
-4. Optional: enable **Safe mode** to strip scripts/event handlers/external head assets
-5. Optional: toggle CSS/style strategy (include CSS element, apply inline/class styles)
-6. Click **Convert**
-7. Copy the generated JSON into an Oxygen page
-
-### Method 2: Direct Paste (in Builder)
-1. Open any page in Oxygen Builder 6
-2. Copy HTML from your source
-3. Press `Ctrl+V` — the plugin intercepts and converts automatically
-
-### Method 3: Import Modal (in Builder)
-1. Inside the Oxygen editor, press `Ctrl+Shift+H`
-2. Paste HTML into the modal
-3. Click **Import** — converted JSON is copied to your clipboard, then press `Ctrl+V` in the builder to paste
+- Admin page: `Tools -> Oxygen HTML Converter`
+- Builder paste: `Ctrl+V`
+- Builder import modal: `Ctrl+Shift+H`
 
 ## Requirements
 
-- WordPress 5.0+
-- PHP 7.4+
-- Oxygen Builder 6.x
-- A logged-in user with the `manage_options` capability by default
-- Capability can be customized via the `oxy_html_converter_required_capability` filter
+- WordPress `5.0+`
+- PHP `7.4+`
+- Oxygen Builder `6.x`
+- Logged-in user with `manage_options` by default
 
-## Known Limitations (Beta)
+The required capability can be changed with `oxy_html_converter_required_capability`.
 
-- **Framework attributes** (Alpine.js, HTMX, Stimulus.js) are preserved, but framework behavior is not fully converted to Oxygen equivalents
-- **External stylesheets** are not fetched or parsed — only inline styles are converted
-- **Complex JavaScript** with closures, async patterns, or module imports may need manual adjustment after conversion
-- **Web Components** (`<template>`, `<slot>`) are preserved as HTML Code blocks
-- **SVG sprites** and complex SVG structures are inserted as raw SVG
-- **Class-based styles** — classes are imported by name, but styles from external CSS files are not extracted (use Tailwind/utility-first for best results)
+## Open Core Model
 
-## Roadmap to v1.0
+This repo contains only the public `Core`.
 
-- [ ] External CSS stylesheet fetching & parsing
-- [ ] Batch import UI (multiple pages)
-- [ ] Template library integration
-- [ ] WP Media Library image import
-- [ ] Full test suite
+- Core owns conversion, builder-safe serialization, editability, and baseline parity
+- Pro should extend Core through hooks, not patch Core files
+- Core must not require Pro for the import/editability guarantee
 
-See [ROADMAP.md](ROADMAP.md) for the full development plan.
+More detail:
+- [Open Core Model](docs/OPEN_CORE.md)
 
-## Compatibility
+## Project Docs
 
-- **Oxygen Builder 6.x** (required)
-- **WordPress 5.0+**
-- **PHP 7.4 – 8.3**
-- **Tailwind CSS** — classes preserved, WindPress integration supported
-- **Bootstrap** — classes preserved
-- **Alpine.js, HTMX, Stimulus.js** — attributes detected and preserved
+- [Documentation Index](docs/README.md)
+- [Roadmap](ROADMAP.md)
+- [Contributing](CONTRIBUTING.md)
+- [Release Checklist](docs/RELEASE_CHECKLIST.md)
+- [Changelog](CHANGELOG.md)
 
-## Contributing
+## Installation
 
-This is a beta release. Bug reports, feature requests, and pull requests are welcome.
+1. Download the latest release ZIP.
+2. In WordPress admin, go to `Plugins -> Add New -> Upload Plugin`.
+3. Upload the ZIP and activate it.
+4. Ensure Oxygen Builder 6 is installed and active.
 
-1. Fork the repo
-2. Create your feature branch (`git checkout -b feature/my-feature`)
-3. Commit your changes
-4. Push and open a Pull Request
+## Testing
 
-### Testing
+- PHP unit gate: `composer test`
+- JS tests: `npm run test:js`
+- Combined gate: `npm test`
 
-- Stable unit gate:
-  - `composer test`
-- Frontend behavior tests (no external deps):
-  - `npm run test:js`
-- Combined PHP + JS gate:
-  - `npm test`
-- Live builder source contracts (auto-skip if paths unavailable):
-  - `vendor/bin/phpunit tests/Unit/Compatibility/InstalledBuilderContractsTest.php`
-  - Optional env overrides:
-    - `OXY_HTML_CONVERTER_OXYGEN_DIR=/path/to/oxygen`
-    - `OXY_HTML_CONVERTER_BREAKDANCE_ELEMENTS_DIR=/path/to/breakdance-elements-for-oxygen`
+## Extension Hooks
 
-### Extension Hooks (for add-ons/Pro)
-
-Core provides extension points including:
+Core exposes versioned extension points for add-ons, including Pro:
 
 - `oxy_html_converter_before_boot`
 - `oxy_html_converter_core_init`
@@ -182,11 +103,4 @@ API compatibility is versioned via `OXY_HTML_CONVERTER_API_VERSION`.
 
 ## License
 
-GPL-2.0-or-later — see [LICENSE](LICENSE)
-
-## Author
-
-**[Kamil Skicki](https://kamilskicki.com)** — Growth engineer specializing in WordPress, AI-powered marketing, and conversion optimization.
-
-- 🌐 [kamilskicki.com](https://kamilskicki.com)
-- 🐙 [github.com/kamilskicki](https://github.com/kamilskicki)
+GPL-2.0-or-later. See [LICENSE](LICENSE).

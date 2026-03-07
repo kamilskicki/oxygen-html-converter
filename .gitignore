@@ -7,6 +7,10 @@ composer.lock
 *.log
 artifacts/
 tmp/
+.screens/
+.tmp-*/
+.tmp-*.json
+docs/PRO_*.md
 
 # Local research/scratch files (keep outside canonical source tree)
 KBAI/
