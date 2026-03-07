@@ -3,12 +3,15 @@
 namespace OxyHtmlConverter;
 
 use OxyHtmlConverter\ElementTypes;
+use OxyHtmlConverter\Services\OxygenDocumentTree;
 
 /**
  * Handles AJAX endpoints for HTML conversion
  */
 class Ajax
 {
+    private OxygenDocumentTree $documentTree;
+
     /**
      * Capability required to use converter endpoints.
      */
@@ -51,8 +54,10 @@ class Ajax
         return $defaultMessage;
     }
 
-    public function __construct()
+    public function __construct(?OxygenDocumentTree $documentTree = null)
     {
+        $this->documentTree = $documentTree ?: new OxygenDocumentTree();
+
         add_action('wp_ajax_oxy_html_convert', [$this, 'handleConvert']);
         add_action('wp_ajax_oxy_html_convert_preview', [$this, 'handlePreview']);
         add_action('wp_ajax_oxy_html_convert_batch', [$this, 'handleBatchConvert']);
@@ -250,14 +255,20 @@ class Ajax
                     $rootElement['children'] = array_merge($prependChildren, $existingChildren);
                 }
 
+                $documentTree = $this->documentTree->build($rootElement);
+
                 $payload = [
                     'element' => $rootElement,
+                    'documentTree' => $documentTree,
                     'cssElement' => $result['cssElement'],
                     'extractedCss' => $result['extractedCss'],
                     'customClasses' => $result['customClasses'],
                     'stats' => $result['stats'],
                     'json' => json_encode([
                         'element' => $rootElement,
+                    ], JSON_PRETTY_PRINT),
+                    'documentJson' => json_encode([
+                        'tree_json_string' => wp_json_encode($documentTree),
                     ], JSON_PRETTY_PRINT),
                 ];
 
@@ -388,9 +399,15 @@ class Ajax
                 $result = $builder->convert($html);
 
                 if ($result['success']) {
+                    $documentTree = $this->documentTree->build($result['element']);
+
                     $results[] = [
                         'index' => $index,
                         'element' => $result['element'],
+                        'documentTree' => $documentTree,
+                        'documentJson' => json_encode([
+                            'tree_json_string' => wp_json_encode($documentTree),
+                        ], JSON_PRETTY_PRINT),
                         'stats' => $result['stats']
                     ];
 

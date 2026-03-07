@@ -116,6 +116,13 @@ if (!function_exists('wp_unslash')) {
     }
 }
 
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($value, $flags = 0, $depth = 512)
+    {
+        return json_encode($value, $flags, $depth);
+    }
+}
+
 if (!function_exists('esc_url_raw')) {
     function esc_url_raw($url)
     {

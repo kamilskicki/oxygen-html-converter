@@ -62,7 +62,9 @@ More detail:
 - [Documentation Index](docs/README.md)
 - [Roadmap](ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
 - [Release Checklist](docs/RELEASE_CHECKLIST.md)
+- [Release Notes Draft: 0.9.0-beta](docs/RELEASE_NOTES_0.9.0_BETA.md)
 - [Changelog](CHANGELOG.md)
 
 ## Installation

@@ -123,6 +123,61 @@ class AjaxEndpointBehaviorTest extends TestCase
         $this->assertSame('OxygenElements\\Container', $response['data']['element']['data']['type']);
     }
 
+    public function testConvertResponseIncludesBuilderSafeDocumentTree(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'n',
+            'html' => '<div><span>Hello</span></div>',
+        ];
+
+        $ajax->handleConvert();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertTrue($response['success']);
+        $this->assertIsArray($response['data']['documentTree']);
+        $this->assertArrayHasKey('root', $response['data']['documentTree']);
+        $this->assertArrayHasKey('_nextNodeId', $response['data']['documentTree']);
+        $this->assertArrayHasKey('status', $response['data']['documentTree']);
+        $this->assertSame('exported', $response['data']['documentTree']['status']);
+
+        $documentJson = json_decode((string) $response['data']['documentJson'], true);
+        $this->assertIsArray($documentJson);
+        $this->assertArrayHasKey('tree_json_string', $documentJson);
+
+        $encodedTree = json_decode((string) $documentJson['tree_json_string'], true);
+        $this->assertIsArray($encodedTree);
+        $this->assertSame($response['data']['documentTree'], $encodedTree);
+    }
+
+    public function testBatchResultsIncludeBuilderSafeDocumentTree(): void
+    {
+        $ajax = new Ajax();
+
+        $_POST = [
+            'nonce' => 'n',
+            'batch' => [
+                '<div><span>Hello</span></div>',
+            ],
+        ];
+
+        $ajax->handleBatchConvert();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertTrue($response['success']);
+        $this->assertNotEmpty($response['data']['results']);
+
+        $firstResult = $response['data']['results'][0];
+        $this->assertIsArray($firstResult['documentTree']);
+        $this->assertArrayHasKey('root', $firstResult['documentTree']);
+        $this->assertArrayHasKey('_nextNodeId', $firstResult['documentTree']);
+        $this->assertArrayHasKey('status', $firstResult['documentTree']);
+
+        $documentJson = json_decode((string) $firstResult['documentJson'], true);
+        $this->assertIsArray($documentJson);
+        $this->assertArrayHasKey('tree_json_string', $documentJson);
+    }
+
     private function collectElementTypes(array $element, array &$types): void
     {
         $types[] = $element['data']['type'] ?? '';

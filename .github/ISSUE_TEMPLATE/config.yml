@@ -1,1 +1,8 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Supported Scope
+    url: https://github.com/kamilskicki/oxygen-html-converter/blob/master/docs/SUPPORTED_SCOPE.md
+    about: Check what Core currently supports before filing a bug.
+  - name: Security Policy
+    url: https://github.com/kamilskicki/oxygen-html-converter/blob/master/SECURITY.md
+    about: Report security issues privately instead of opening a public issue.

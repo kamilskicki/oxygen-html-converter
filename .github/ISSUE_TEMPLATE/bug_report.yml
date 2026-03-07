@@ -1,0 +1,96 @@
+name: Bug report
+description: Report a reproducible bug in Core conversion, Builder editability, or frontend parity.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Problem area
+      description: Which part of the plugin is failing?
+      options:
+        - Conversion output
+        - Builder editability
+        - Frontend parity
+        - Admin UI
+        - Builder paste/import flow
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the bug in one short paragraph.
+      placeholder: After importing this HTML, the page opens in Oxygen but saving and reopening triggers a validation error.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide exact steps. If the bug depends on Builder actions, include open, edit, save, and reopen steps.
+      placeholder: |
+        1. Open Tools -> Oxygen HTML Converter
+        2. Paste the attached HTML
+        3. Import into Oxygen Builder
+        4. Save and reopen the page
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: The imported page should remain editable and reopen without validation errors.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: Builder shows IO-TS decoding failed and the page cannot be edited normally.
+    validations:
+      required: true
+  - type: textarea
+    id: html_sample
+    attributes:
+      label: Minimal HTML sample
+      description: Paste the smallest HTML sample that still reproduces the issue.
+      render: html
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Output artifacts
+      description: Include converted JSON, screenshots, console errors, or parity notes if available.
+      placeholder: Paste the relevant JSON fragment, console error, or attach screenshots.
+  - type: input
+    id: plugin_version
+    attributes:
+      label: Plugin version or commit
+      placeholder: 0.8.0-beta.1 or 9095483
+    validations:
+      required: true
+  - type: input
+    id: wordpress_version
+    attributes:
+      label: WordPress version
+      placeholder: 6.8.2
+    validations:
+      required: true
+  - type: input
+    id: oxygen_version
+    attributes:
+      label: Oxygen version
+      placeholder: 6.x
+    validations:
+      required: true
+  - type: input
+    id: php_version
+    attributes:
+      label: PHP version
+      placeholder: 8.2
+    validations:
+      required: true

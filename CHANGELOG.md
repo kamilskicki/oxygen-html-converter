@@ -11,12 +11,17 @@ All notable changes to this project will be documented in this file.
 - API contract version constant `OXY_HTML_CONVERTER_API_VERSION`.
 - Repository `LICENSE` file (GPL-2.0-or-later).
 - GitHub issue templates and release checklist.
+- Builder-safe document tree serializer for Oxygen documents.
+- Public `SECURITY.md` policy.
+- Supported scope documentation in `docs/SUPPORTED_SCOPE.md`.
+- Draft release notes for `0.9.0-beta`.
 
 ### Changed
 - Builder script localization now supports feature flag/filter injection.
 - AJAX responses now pass through extension filters.
 - Core/API documentation now lists all exported extension hooks.
 - Roadmap version naming aligned to current plugin version (`v0.8.0-beta`).
+- AJAX convert and batch responses now expose builder-safe `documentTree` and `documentJson` payloads.
 
 ## [0.8.0-beta] — 2025-02-11
 

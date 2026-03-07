@@ -8,7 +8,8 @@ Recommended reading order:
 2. [Definition of Done: v0.9.0-beta](DOD-0.9.0-BETA.md)
 3. [Open Core Model](OPEN_CORE.md)
 4. [Release Checklist](RELEASE_CHECKLIST.md)
-5. [Roadmap](../ROADMAP.md)
+5. [Release Notes Draft: 0.9.0-beta](RELEASE_NOTES_0.9.0_BETA.md)
+6. [Roadmap](../ROADMAP.md)
 
 ## What Each Document Covers
 
@@ -21,3 +22,5 @@ Recommended reading order:
   - the boundary between Core and Pro
 - `RELEASE_CHECKLIST.md`
   - release hygiene and packaging steps
+- `RELEASE_NOTES_0.9.0_BETA.md`
+  - draft public release summary for the current beta line

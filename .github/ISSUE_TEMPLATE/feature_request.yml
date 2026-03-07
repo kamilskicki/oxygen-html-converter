@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest a product or developer experience improvement for the Core plugin.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user problem or workflow gap is this meant to fix?
+      placeholder: Import works, but there is no clear way to validate Builder reopen/edit/save parity before publishing.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you want.
+      placeholder: Add a post-import validation step that checks Builder-safe metadata before showing success.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List any workarounds or alternatives you considered.
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Expected scope
+      description: Which layer should probably own this?
+      options:
+        - Core
+        - Pro
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add screenshots, examples, references, or comparable tools if helpful.

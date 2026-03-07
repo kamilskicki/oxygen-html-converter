@@ -1,0 +1,52 @@
+name: Builder editability regression
+description: Report imports that fail when opened, edited, saved, or reopened in Oxygen Builder.
+title: "[Builder] "
+labels:
+  - bug
+  - builder
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: What broke in Builder?
+      description: Describe the exact editability failure.
+      placeholder: The page imports and renders, but saving and reopening triggers Validation Error / IO-TS decoding failed.
+    validations:
+      required: true
+  - type: checkboxes
+    id: lifecycle
+    attributes:
+      label: Failure point
+      options:
+        - label: Fails on initial open
+        - label: Fails during edit
+        - label: Fails on save
+        - label: Fails on reopen after save
+        - label: Frontend breaks after Builder save
+    validations:
+      required: true
+  - type: textarea
+    id: html
+    attributes:
+      label: Source HTML
+      description: Paste a reduced but complete sample if possible.
+      render: html
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console or popup message
+      description: Paste the exact Builder error, popup text, or console output.
+  - type: textarea
+    id: json_meta
+    attributes:
+      label: Relevant output or meta
+      description: Include converted JSON or `_oxygen_data` fragments if available.
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: WordPress 6.8.2, Oxygen 6.x, PHP 8.2, plugin commit 9095483
+    validations:
+      required: true
