@@ -34,6 +34,9 @@ Please include:
 - PHP unit tests: `composer test`
 - JS tests: `npm run test:js`
 - Combined gate: `npm test`
+- Optional live visual capture:
+  - `node tests/live/visual-capture.cjs <sourcePath> <frontendUrl> <outSource> <outFrontend>`
+  - requires `playwright` or `OXY_HTML_CONVERTER_PLAYWRIGHT_MODULE`
 
 If your change affects builder serialization, import flows, or frontend parity, include the exact manual verification you performed.
 
