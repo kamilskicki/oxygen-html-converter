@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use OxyHtmlConverter\TreeBuilder;
+use OxyHtmlConverter\Services\OxygenDocumentTree;
 
 // Run inside WP container context
 $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_HOST'] ?? '127.0.0.1';
@@ -588,9 +589,7 @@ function refreshOxygenRenderCacheForPost(int $postId): void
 
 function buildOxygenMetaVariants(array $elementTree): array
 {
-    $documentTree = (isset($elementTree['root']) && is_array($elementTree['root']))
-        ? $elementTree
-        : ['root' => $elementTree];
+    $documentTree = (new OxygenDocumentTree())->build($elementTree);
 
     return [
         'document-root' => $documentTree,
