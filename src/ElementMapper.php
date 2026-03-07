@@ -124,9 +124,20 @@ class ElementMapper
     {
         $tag = strtolower($tag);
 
-        // Map native <button> to EssentialElements Button when explicitly enabled.
-        if ($tag === 'button' && $this->preferEssentialElements) {
-            return ElementTypes::ESSENTIAL_BUTTON;
+        if ($tag === 'button') {
+            if ($node === null) {
+                return ElementTypes::CONTAINER;
+            }
+
+            if ($this->shouldUseEssentialButton($node)) {
+                return ElementTypes::ESSENTIAL_BUTTON;
+            }
+
+            if ($this->buttonHasLinkTarget($node)) {
+                return ElementTypes::CONTAINER_LINK;
+            }
+
+            return ElementTypes::CONTAINER;
         }
 
         // Special handling for links that should become ContainerLink
@@ -187,7 +198,8 @@ class ElementMapper
         // Only native Oxygen buttons need flat text children.
         // EssentialElements Button keeps text in content.content.text.
         if ($tag === 'button') {
-            return !$this->preferEssentialElements;
+            return $this->getElementType($tag, $node) !== ElementTypes::ESSENTIAL_BUTTON
+                && !$this->hasElementChildren($node);
         }
 
         return false;
@@ -709,6 +721,50 @@ class ElementMapper
         }
 
         return '#';
+    }
+
+    private function shouldUseEssentialButton(DOMElement $node): bool
+    {
+        if (!$this->preferEssentialElements) {
+            return false;
+        }
+
+        if (trim($node->getAttribute('class')) !== '') {
+            return false;
+        }
+
+        if ($this->hasElementChildren($node)) {
+            return false;
+        }
+
+        foreach ($node->attributes as $attribute) {
+            if (!($attribute instanceof \DOMAttr)) {
+                continue;
+            }
+
+            $name = strtolower($attribute->name);
+            if (strpos($name, 'data-') === 0 || strpos($name, 'aria-') === 0) {
+                return false;
+            }
+        }
+
+        return trim((string) preg_replace('/\s+/', ' ', $node->textContent)) !== '';
+    }
+
+    private function buttonHasLinkTarget(DOMElement $node): bool
+    {
+        return $this->getLinkUrlForNode($node) !== '#';
+    }
+
+    private function hasElementChildren(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

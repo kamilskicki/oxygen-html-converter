@@ -32,4 +32,26 @@ class TreeBuilderElementMappingTest extends TestCase
         );
         $this->assertEmpty($result['element']['children']);
     }
+
+    public function testTreeBuilderKeepsStyledButtonsAsContainersEvenWhenEssentialElementsPreferred(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setPreferEssentialElements(true);
+        $result = $builder->convert('<button class="bg-[#ff0084] text-white rounded-full">Buy now</button>');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('OxygenElements\\Container', $result['element']['data']['type']);
+        $this->assertNotEmpty($result['element']['children']);
+    }
+
+    public function testTreeBuilderPreservesComplexButtonChildrenWhenEssentialElementsPreferred(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setPreferEssentialElements(true);
+        $result = $builder->convert('<button class="group"><span>Watch</span><i data-lucide="play"></i></button>');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('OxygenElements\\Container', $result['element']['data']['type']);
+        $this->assertCount(2, $result['element']['children']);
+    }
 }

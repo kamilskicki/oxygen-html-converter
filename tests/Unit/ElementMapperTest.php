@@ -206,6 +206,32 @@ class ElementMapperTest extends TestCase
         $this->assertTrue($properties['content']['content']['link']['openInNewTab']);
     }
 
+    public function testStyledButtonFallsBackToContainerWhenEssentialElementsPreferred(): void
+    {
+        $this->mapper->setPreferEssentialElements(true);
+        $button = $this->createElement('button', [
+            'class' => 'bg-[#ff0084] text-white rounded-full',
+        ], 'Buy now');
+
+        $type = $this->mapper->getElementType('button', $button);
+
+        $this->assertSame('OxygenElements\\Container', $type);
+        $this->assertTrue($this->mapper->needsChildTextElement($button));
+    }
+
+    public function testButtonWithChildElementsFallsBackToContainerWhenEssentialElementsPreferred(): void
+    {
+        $this->mapper->setPreferEssentialElements(true);
+
+        $doc = new DOMDocument();
+        @$doc->loadHTML('<button class="group"><span>Watch</span><i data-lucide="play"></i></button>');
+        $button = $doc->getElementsByTagName('button')->item(0);
+
+        $this->assertInstanceOf(DOMElement::class, $button);
+        $this->assertSame('OxygenElements\\Container', $this->mapper->getElementType('button', $button));
+        $this->assertFalse($this->mapper->needsChildTextElement($button));
+    }
+
     public function testEssentialButtonDoesNotNeedChildTextElement(): void
     {
         $this->mapper->setPreferEssentialElements(true);
