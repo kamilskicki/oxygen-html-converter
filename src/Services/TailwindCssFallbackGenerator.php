@@ -90,12 +90,14 @@ class TailwindCssFallbackGenerator
         'text-white' => '#ffffff',
         'text-black' => '#000000',
         'text-transparent' => 'transparent',
+        'text-gray-200' => '#e5e7eb',
         'text-gray-400' => '#9ca3af',
         'text-gray-500' => '#6b7280',
         'text-gray-600' => '#4b5563',
         'text-gray-700' => '#374151',
         'text-gray-800' => '#1f2937',
         'text-gray-900' => '#111827',
+        'text-neutral-200' => '#e5e5e5',
     ];
 
     private const GRADIENT_DIRECTIONS = [
@@ -122,13 +124,13 @@ class TailwindCssFallbackGenerator
                 continue;
             }
 
-            [$breakpoint, $utility] = $this->splitResponsivePrefix($classToken);
+            [$breakpoint, $variant, $utility] = $this->splitUtilityModifiers($classToken);
             $declarations = $this->mapUtilityToDeclarations($utility);
             if ($declarations === []) {
                 continue;
             }
 
-            $selector = '.' . $this->escapeSelector($classToken);
+            $selector = $this->buildSelector($classToken, $variant);
             $rule = $selector . ' { ' . implode(' ', $declarations) . ' }';
             $rulesByBreakpoint[$breakpoint][] = $rule;
         }
@@ -159,15 +161,60 @@ class TailwindCssFallbackGenerator
     }
 
     /**
-     * @return array{0:string,1:string}
+     * @return array{0:string,1:string,2:string}
      */
-    private function splitResponsivePrefix(string $classToken): array
+    private function splitUtilityModifiers(string $classToken): array
     {
-        if (preg_match('/^(sm|md|lg|xl|2xl):(.*)$/', $classToken, $matches)) {
-            return [$matches[1], $matches[2]];
+        $parts = explode(':', $classToken);
+        if ($parts === []) {
+            return ['base', 'base', $classToken];
         }
 
-        return ['base', $classToken];
+        $utility = array_pop($parts);
+        if (!is_string($utility) || $utility === '') {
+            return ['base', 'base', $classToken];
+        }
+
+        $breakpoint = 'base';
+        $variant = 'base';
+
+        foreach ($parts as $part) {
+            if (isset(self::BREAKPOINTS[$part])) {
+                $breakpoint = $part;
+                continue;
+            }
+
+            if (in_array($part, ['hover', 'focus', 'active', 'group-hover'], true)) {
+                $variant = $part;
+                continue;
+            }
+
+            $utility = $part . ':' . $utility;
+        }
+
+        return [$breakpoint, $variant, $utility];
+    }
+
+    private function buildSelector(string $classToken, string $variant): string
+    {
+        $escaped = '.' . $this->escapeSelector($classToken);
+
+        switch ($variant) {
+            case 'hover':
+                return $escaped . ':hover';
+
+            case 'focus':
+                return $escaped . ':focus';
+
+            case 'active':
+                return $escaped . ':active';
+
+            case 'group-hover':
+                return '.group:hover ' . $escaped;
+
+            default:
+                return $escaped;
+        }
     }
 
     /**
@@ -181,6 +228,7 @@ class TailwindCssFallbackGenerator
             [$fontSize, $lineHeight] = self::FONT_SIZES[$utility];
             $declarations[] = 'font-size: ' . $fontSize . ' !important;';
             $declarations[] = 'line-height: ' . $lineHeight . ' !important;';
+            $declarations[] = 'color: inherit !important;';
             return $declarations;
         }
 
@@ -219,6 +267,13 @@ class TailwindCssFallbackGenerator
             return ['color: ' . self::COLORS[$utility] . ' !important;'];
         }
 
+        if (preg_match('/^text-(.+)$/', $utility, $matches)) {
+            $color = $this->resolveUtilityColorValue($matches[1], 'text');
+            if ($color !== null) {
+                return ['color: ' . $color . ' !important;'];
+            }
+        }
+
         if ($utility === 'italic') {
             return ['font-style: italic !important;'];
         }
@@ -232,6 +287,59 @@ class TailwindCssFallbackGenerator
                 'background-clip: text !important;',
                 '-webkit-background-clip: text !important;',
             ];
+        }
+
+        if (preg_match('/^bg-(.+)$/', $utility, $matches)) {
+            $color = $this->resolveUtilityColorValue($matches[1], 'background');
+            if ($color !== null) {
+                return ['background-color: ' . $color . ' !important;'];
+            }
+        }
+
+        if (preg_match('/^border-(.+)$/', $utility, $matches)) {
+            $color = $this->resolveUtilityColorValue($matches[1], 'border');
+            if ($color !== null) {
+                return ['border-color: ' . $color . ' !important;'];
+            }
+        }
+
+        if (preg_match('/^opacity-(\d{1,3})$/', $utility, $matches)) {
+            $value = max(0, min(100, (int) $matches[1])) / 100;
+            return ['opacity: ' . rtrim(rtrim(sprintf('%.2F', $value), '0'), '.') . ' !important;'];
+        }
+
+        if ($utility === 'grayscale-0') {
+            return ['filter: grayscale(0) !important;'];
+        }
+
+        if (preg_match('/^scale-(\d{2,3})$/', $utility, $matches)) {
+            $value = ((int) $matches[1]) / 100;
+            return ['transform: scale(' . rtrim(rtrim(sprintf('%.2F', $value), '0'), '.') . ') !important;'];
+        }
+
+        if (preg_match('/^translate-x-(\d+)$/', $utility, $matches)) {
+            $value = $this->resolveSpacingScale((int) $matches[1]);
+            if ($value !== null) {
+                return ['transform: translateX(' . $value . ') !important;'];
+            }
+        }
+
+        if (preg_match('/^translate-y-(\d+)$/', $utility, $matches)) {
+            $value = $this->resolveSpacingScale((int) $matches[1]);
+            if ($value !== null) {
+                return ['transform: translateY(' . $value . ') !important;'];
+            }
+        }
+
+        if ($utility === 'outline-none') {
+            return [
+                'outline: 2px solid transparent !important;',
+                'outline-offset: 2px !important;',
+            ];
+        }
+
+        if ($utility === 'ring-0') {
+            return ['box-shadow: 0 0 #0000 !important;'];
         }
 
         if (isset(self::GRADIENT_DIRECTIONS[$utility])) {
@@ -277,7 +385,10 @@ class TailwindCssFallbackGenerator
             }
 
             if ($this->looksLikeMeasurement($value)) {
-                return ['font-size: ' . $value . ' !important;'];
+                return [
+                    'font-size: ' . $value . ' !important;',
+                    'color: inherit !important;',
+                ];
             }
         }
 
@@ -286,19 +397,7 @@ class TailwindCssFallbackGenerator
 
     private function resolveGradientColorValue(string $value): ?string
     {
-        $namedColorKey = 'text-' . $value;
-        if (isset(self::COLORS[$namedColorKey])) {
-            return self::COLORS[$namedColorKey];
-        }
-
-        if (preg_match('/^\[(.+)\]$/', $value, $matches)) {
-            $normalized = $this->normalizeArbitraryValue($matches[1]);
-            if ($this->looksLikeColor($normalized)) {
-                return $normalized;
-            }
-        }
-
-        return null;
+        return $this->resolveUtilityColorValue($value, 'text');
     }
 
     private function normalizeArbitraryValue(string $value): string
@@ -314,6 +413,86 @@ class TailwindCssFallbackGenerator
     private function looksLikeMeasurement(string $value): bool
     {
         return (bool) preg_match('/^-?\d*\.?\d+(px|rem|em|vw|vh|%|ch|ex)?$/i', $value);
+    }
+
+    private function resolveUtilityColorValue(string $value, string $context = 'text'): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        $opacity = null;
+        if (preg_match('/^(.+)\/(\d{1,3})$/', $value, $matches)) {
+            $value = trim($matches[1]);
+            $opacity = max(0, min(100, (int) $matches[2])) / 100;
+        }
+
+        $directKey = $context . '-' . $value;
+        if (isset(self::COLORS[$directKey])) {
+            return $this->applyOpacityToColor(self::COLORS[$directKey], $opacity);
+        }
+
+        $namedColorKey = 'text-' . $value;
+        if (isset(self::COLORS[$namedColorKey])) {
+            return $this->applyOpacityToColor(self::COLORS[$namedColorKey], $opacity);
+        }
+
+        if (preg_match('/^\[(.+)\]$/', $value, $matches)) {
+            $normalized = $this->normalizeArbitraryValue($matches[1]);
+            if ($this->looksLikeColor($normalized)) {
+                return $this->applyOpacityToColor($normalized, $opacity);
+            }
+        }
+
+        if ($this->looksLikeColor($value)) {
+            return $this->applyOpacityToColor($value, $opacity);
+        }
+
+        return null;
+    }
+
+    private function applyOpacityToColor(string $color, ?float $opacity): string
+    {
+        if ($opacity === null) {
+            return $color;
+        }
+
+        if (preg_match('/^#([a-f0-9]{6})$/i', $color, $matches)) {
+            $hex = $matches[1];
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+            return sprintf('rgba(%d, %d, %d, %.3F)', $r, $g, $b, $opacity);
+        }
+
+        if (preg_match('/^rgb\(\s*(\d+)\s+(\d+)\s+(\d+)\s*\/\s*([^)]+)\)$/i', $color, $matches)) {
+            return sprintf('rgba(%d, %d, %d, %.3F)', (int) $matches[1], (int) $matches[2], (int) $matches[3], $opacity);
+        }
+
+        if (preg_match('/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i', $color, $matches)) {
+            return sprintf('rgba(%d, %d, %d, %.3F)', (int) $matches[1], (int) $matches[2], (int) $matches[3], $opacity);
+        }
+
+        return $color;
+    }
+
+    private function resolveSpacingScale(int $step): ?string
+    {
+        $scale = [
+            0 => '0px',
+            1 => '0.25rem',
+            2 => '0.5rem',
+            3 => '0.75rem',
+            4 => '1rem',
+            5 => '1.25rem',
+            6 => '1.5rem',
+            8 => '2rem',
+            10 => '2.5rem',
+            12 => '3rem',
+        ];
+
+        return $scale[$step] ?? null;
     }
 
     private function escapeSelector(string $className): string

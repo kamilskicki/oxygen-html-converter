@@ -314,6 +314,7 @@ class TreeBuilder
             if (!empty(trim($content))) {
                 // Apply nav-scrolled CSS rewrite heuristic if enabled
                 $content = $this->heuristics->applyNavScrolledCssRewrite($content);
+                $content = $this->applyOxygenCssCompatibilityFixes($content);
 
                 $css .= "/* Extracted from <style> tag */\n";
                 $css .= trim($content) . "\n\n";
@@ -321,6 +322,44 @@ class TreeBuilder
         }
 
         return $css;
+    }
+
+    private function applyOxygenCssCompatibilityFixes(string $css): string
+    {
+        if (!$this->hasUniversalReset($css)) {
+            return $css;
+        }
+
+        if (strpos($css, 'body h1, body h2, body h3, body h4, body h5, body h6') !== false) {
+            return $css;
+        }
+
+        $shim = <<<'CSS'
+/* Oxygen compatibility: preserve source reset against UA block margins */
+body h1, body h2, body h3, body h4, body h5, body h6,
+body p, body ul, body ol, body li, body blockquote, body figure {
+    margin: 0;
+    padding: 0;
+}
+CSS;
+
+        return rtrim($css) . "\n\n" . $shim;
+    }
+
+    private function hasUniversalReset(string $css): bool
+    {
+        $patterns = [
+            '/\*\s*,\s*\*::before\s*,\s*\*::after\s*\{[^}]*margin\s*:\s*0[^}]*padding\s*:\s*0/is',
+            '/\*\s*,\s*::before\s*,\s*::after\s*\{[^}]*margin\s*:\s*0[^}]*padding\s*:\s*0/is',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $css) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function appendTailwindFallbackCss(\DOMDocument $doc): void

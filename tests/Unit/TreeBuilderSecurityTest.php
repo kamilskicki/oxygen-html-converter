@@ -168,13 +168,13 @@ HTML;
         $this->assertNotNull($result['cssElement']);
 
         $css = (string) ($result['cssElement']['data']['properties']['content']['content']['css_code'] ?? '');
-        $this->assertStringContainsString('.text-6xl { font-size: 3.75rem !important; line-height: 1 !important; }', $css);
+        $this->assertStringContainsString('.text-6xl { font-size: 3.75rem !important; line-height: 1 !important; color: inherit !important; }', $css);
         $this->assertStringContainsString('.text-white { color: #ffffff !important; }', $css);
         $this->assertStringContainsString('.leading-\\[0\\.9\\] { line-height: 0.9 !important; }', $css);
         $this->assertStringContainsString('.tracking-tight { letter-spacing: -0.025em !important; }', $css);
         $this->assertStringContainsString('.uppercase { text-transform: uppercase !important; }', $css);
         $this->assertStringContainsString('@media (min-width: 768px)', $css);
-        $this->assertStringContainsString('.md\\:text-8xl { font-size: 6rem !important; line-height: 1 !important; }', $css);
+        $this->assertStringContainsString('.md\\:text-8xl { font-size: 6rem !important; line-height: 1 !important; color: inherit !important; }', $css);
     }
 
     public function testScrollRevealBaseClassIsPreservedWhenEntranceAnimationIsAdded(): void
@@ -216,5 +216,46 @@ HTML;
         $this->assertSame('OxygenElements\\Text', $result['element']['data']['type']);
         $this->assertSame('84%', trim((string) ($result['element']['data']['properties']['content']['content']['text'] ?? '')));
         $this->assertSame([], $result['element']['children'] ?? []);
+    }
+
+    public function testUniversalResetCssGetsBodyBlockResetCompatibilityShim(): void
+    {
+        $html = <<<HTML
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+.hero-center h1 { margin-bottom: 1.5rem; }
+</style>
+<div class="hero-center"><h1>Hello</h1><p>World</p></div>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+        $this->assertNotNull($result['cssElement']);
+
+        $css = (string) ($result['cssElement']['data']['properties']['content']['content']['css_code'] ?? '');
+        $this->assertStringContainsString('body h1, body h2, body h3, body h4, body h5, body h6,', $css);
+        $this->assertStringContainsString('body p, body ul, body ol, body li, body blockquote, body figure {', $css);
+        $this->assertStringContainsString('margin: 0;', $css);
+    }
+
+    public function testCompatibilityShimIsNotAddedWithoutUniversalReset(): void
+    {
+        $html = <<<HTML
+<style>
+.hero-center h1 { margin-bottom: 1.5rem; }
+</style>
+<div class="hero-center"><h1>Hello</h1></div>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+        $this->assertNotNull($result['cssElement']);
+
+        $css = (string) ($result['cssElement']['data']['properties']['content']['content']['css_code'] ?? '');
+        $this->assertStringNotContainsString('body h1, body h2, body h3, body h4, body h5, body h6,', $css);
     }
 }

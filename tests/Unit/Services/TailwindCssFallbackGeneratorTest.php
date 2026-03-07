@@ -23,17 +23,17 @@ class TailwindCssFallbackGeneratorTest extends TestCase
             'md:flex',
         ]);
 
-        $this->assertStringContainsString('.text-6xl { font-size: 3.75rem !important; line-height: 1 !important; }', $css);
+        $this->assertStringContainsString('.text-6xl { font-size: 3.75rem !important; line-height: 1 !important; color: inherit !important; }', $css);
         $this->assertStringContainsString('.text-white { color: #ffffff !important; }', $css);
         $this->assertStringContainsString('.leading-\[0\.9\] { line-height: 0.9 !important; }', $css);
         $this->assertStringContainsString('.tracking-tight { letter-spacing: -0.025em !important; }', $css);
         $this->assertStringContainsString('.uppercase { text-transform: uppercase !important; }', $css);
         $this->assertStringContainsString('.hidden { display: none !important; }', $css);
         $this->assertStringContainsString('@media (min-width: 768px)', $css);
-        $this->assertStringContainsString('.md\:text-8xl { font-size: 6rem !important; line-height: 1 !important; }', $css);
+        $this->assertStringContainsString('.md\:text-8xl { font-size: 6rem !important; line-height: 1 !important; color: inherit !important; }', $css);
         $this->assertStringContainsString('.md\:flex { display: flex !important; }', $css);
         $this->assertStringContainsString('@media (min-width: 1024px)', $css);
-        $this->assertStringContainsString('.lg\:text-9xl { font-size: 8rem !important; line-height: 1 !important; }', $css);
+        $this->assertStringContainsString('.lg\:text-9xl { font-size: 8rem !important; line-height: 1 !important; color: inherit !important; }', $css);
     }
 
     public function testGeneratesArbitraryTextColorAndSizeRules(): void
@@ -47,8 +47,25 @@ class TailwindCssFallbackGeneratorTest extends TestCase
         ]);
 
         $this->assertStringContainsString('.text-\[\#ff0084\] { color: #ff0084 !important; }', $css);
-        $this->assertStringContainsString('.text-\[10px\] { font-size: 10px !important; }', $css);
+        $this->assertStringContainsString('.text-\[10px\] { font-size: 10px !important; color: inherit !important; }', $css);
         $this->assertStringContainsString('.italic { font-style: italic !important; }', $css);
+    }
+
+    public function testTypographyUtilitiesPreserveInheritedTextColorAgainstBuilderHeadingDefaults(): void
+    {
+        $generator = new TailwindCssFallbackGenerator();
+
+        $css = $generator->generate([
+            'text-6xl',
+            'md:text-7xl',
+            'text-black',
+            'text-white',
+        ]);
+
+        $this->assertStringContainsString('.text-6xl { font-size: 3.75rem !important; line-height: 1 !important; color: inherit !important; }', $css);
+        $this->assertStringContainsString('.md\:text-7xl { font-size: 4.5rem !important; line-height: 1 !important; color: inherit !important; }', $css);
+        $this->assertStringContainsString('.text-black { color: #000000 !important; }', $css);
+        $this->assertStringContainsString('.text-white { color: #ffffff !important; }', $css);
     }
 
     public function testGeneratesGradientTextRules(): void
@@ -70,5 +87,32 @@ class TailwindCssFallbackGeneratorTest extends TestCase
         $this->assertStringContainsString('.from-white { --tw-gradient-from: #ffffff !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(255, 255, 255, 0)) !important; }', $css);
         $this->assertStringContainsString('.via-white { --tw-gradient-stops: var(--tw-gradient-from), #ffffff, var(--tw-gradient-to, rgba(255, 255, 255, 0)) !important; }', $css);
         $this->assertStringContainsString('.to-\[\#ff0084\] { --tw-gradient-to: #ff0084 !important; }', $css);
+    }
+
+    public function testGeneratesHoverAndGroupHoverVariantRules(): void
+    {
+        $generator = new TailwindCssFallbackGenerator();
+
+        $css = $generator->generate([
+            'hover:text-white',
+            'group-hover:text-gray-200',
+            'hover:border-[#ff0084]/50',
+            'group-hover:bg-[#ff0084]/20',
+            'group-hover:opacity-20',
+            'hover:grayscale-0',
+            'group-hover:translate-x-2',
+            'focus:outline-none',
+            'focus:ring-0',
+        ]);
+
+        $this->assertStringContainsString('.hover\:text-white:hover { color: #ffffff !important; }', $css);
+        $this->assertStringContainsString('.group:hover .group-hover\:text-gray-200 { color: #e5e7eb !important; }', $css);
+        $this->assertStringContainsString('.hover\:border-\[\#ff0084\]\/50:hover { border-color: rgba(255, 0, 132, 0.500) !important; }', $css);
+        $this->assertStringContainsString('.group:hover .group-hover\:bg-\[\#ff0084\]\/20 { background-color: rgba(255, 0, 132, 0.200) !important; }', $css);
+        $this->assertStringContainsString('.group:hover .group-hover\:opacity-20 { opacity: 0.2 !important; }', $css);
+        $this->assertStringContainsString('.hover\:grayscale-0:hover { filter: grayscale(0) !important; }', $css);
+        $this->assertStringContainsString('.group:hover .group-hover\:translate-x-2 { transform: translateX(0.5rem) !important; }', $css);
+        $this->assertStringContainsString('.focus\:outline-none:focus { outline: 2px solid transparent !important; outline-offset: 2px !important; }', $css);
+        $this->assertStringContainsString('.focus\:ring-0:focus { box-shadow: 0 0 #0000 !important; }', $css);
     }
 }
