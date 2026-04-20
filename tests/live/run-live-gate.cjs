@@ -25,6 +25,21 @@ function loadPlaywright() {
   return require("playwright");
 }
 
+function resolveDefaultLocalFixtureDir() {
+  const candidates = [
+    path.resolve(process.cwd(), "..", "..", "fixtures", "html"),
+    path.resolve(process.cwd(), "..", "..", "..", "..", "fixtures", "html"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+}
+
 function parseArgs(argv) {
   const options = {
     container: DEFAULT_CONTAINER,
@@ -371,15 +386,7 @@ async function main() {
     );
   }
 
-  const localFixtureDir = path.resolve(
-    process.cwd(),
-    "..",
-    "..",
-    "..",
-    "..",
-    "fixtures",
-    "html"
-  );
+  const localFixtureDir = resolveDefaultLocalFixtureDir();
 
   logStep("Running fixture baseline parity suite");
   const fixtureBaselineResult = JSON.parse(

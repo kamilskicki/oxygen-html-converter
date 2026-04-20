@@ -9,15 +9,23 @@ const DEFAULT_OUTPUT_DIR = path.resolve(
   "artifacts",
   "visual-review"
 );
-const DEFAULT_LOCAL_FIXTURE_DIR = path.resolve(
-  process.cwd(),
-  "..",
-  "..",
-  "..",
-  "..",
-  "fixtures",
-  "html"
-);
+
+function resolveDefaultLocalFixtureDir() {
+  const candidates = [
+    path.resolve(process.cwd(), "..", "..", "fixtures", "html"),
+    path.resolve(process.cwd(), "..", "..", "..", "..", "fixtures", "html"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+}
+
+const DEFAULT_LOCAL_FIXTURE_DIR = resolveDefaultLocalFixtureDir();
 
 function loadPlaywright() {
   const explicitModule = process.env.OXY_HTML_CONVERTER_PLAYWRIGHT_MODULE;

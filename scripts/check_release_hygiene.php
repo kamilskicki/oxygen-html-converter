@@ -73,6 +73,7 @@ try {
         '.phpunit.cache',
         '.phpstan',
         '.worktrees',
+        '.tmp-deploy',
         'artifacts',
         'vendor',
         'node_modules',
