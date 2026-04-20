@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace OxyHtmlConverter;
 
-use OxyHtmlConverter\ElementTypes;
+use OxyHtmlConverter\Services\BatchConvertRequestHandler;
 use OxyHtmlConverter\Services\ConversionAuditBuilder;
+use OxyHtmlConverter\Services\ConvertPayloadBuilder;
+use OxyHtmlConverter\Services\ConvertRequestHandler;
 use OxyHtmlConverter\Services\OxygenDocumentTree;
+use OxyHtmlConverter\Services\PreviewRequestHandler;
+use OxyHtmlConverter\Services\PreviewSummaryBuilder;
 use OxyHtmlConverter\Services\RequestOptions;
+use OxyHtmlConverter\Services\TreeBuilderFactory;
 use OxyHtmlConverter\Validation\OutputValidator;
 
 /**
@@ -15,10 +20,10 @@ use OxyHtmlConverter\Validation\OutputValidator;
  */
 class Ajax
 {
-    private OxygenDocumentTree $documentTree;
     private RequestOptions $requestOptions;
-    private ConversionAuditBuilder $auditBuilder;
-    private OutputValidator $outputValidator;
+    private ConvertRequestHandler $convertHandler;
+    private PreviewRequestHandler $previewHandler;
+    private BatchConvertRequestHandler $batchHandler;
 
     /**
      * Capability required to use converter endpoints.
@@ -63,16 +68,35 @@ class Ajax
     }
 
     public function __construct(
-        ?OxygenDocumentTree $documentTree = null,
         ?RequestOptions $requestOptions = null,
         ?ConversionAuditBuilder $auditBuilder = null,
-        ?OutputValidator $outputValidator = null
+        ?OutputValidator $outputValidator = null,
+        ?TreeBuilderFactory $treeBuilderFactory = null,
+        ?ConvertRequestHandler $convertHandler = null,
+        ?PreviewRequestHandler $previewHandler = null,
+        ?BatchConvertRequestHandler $batchHandler = null
     )
     {
-        $this->documentTree = $documentTree ?: new OxygenDocumentTree();
         $this->requestOptions = $requestOptions ?: new RequestOptions();
-        $this->auditBuilder = $auditBuilder ?: new ConversionAuditBuilder();
-        $this->outputValidator = $outputValidator ?: new OutputValidator();
+        $auditBuilder = $auditBuilder ?: new ConversionAuditBuilder();
+        $outputValidator = $outputValidator ?: new OutputValidator();
+        $treeBuilderFactory = $treeBuilderFactory ?: new TreeBuilderFactory();
+
+        $this->convertHandler = $convertHandler ?: new ConvertRequestHandler(
+            $treeBuilderFactory,
+            new ConvertPayloadBuilder(new OxygenDocumentTree(), $auditBuilder, $outputValidator)
+        );
+        $this->previewHandler = $previewHandler ?: new PreviewRequestHandler(
+            $treeBuilderFactory,
+            new PreviewSummaryBuilder(),
+            $auditBuilder
+        );
+        $this->batchHandler = $batchHandler ?: new BatchConvertRequestHandler(
+            $treeBuilderFactory,
+            new OxygenDocumentTree(),
+            $auditBuilder,
+            $outputValidator
+        );
 
         add_action('wp_ajax_oxy_html_convert', [$this, 'handleConvert']);
         add_action('wp_ajax_oxy_html_convert_preview', [$this, 'handlePreview']);
@@ -120,141 +144,14 @@ class Ajax
         }
 
         try {
-            $builder = apply_filters('oxy_html_converter_tree_builder', new TreeBuilder(), $options, $html);
-            if (!($builder instanceof TreeBuilder)) {
-                $builder = new TreeBuilder();
+            $response = $this->convertHandler->handle($html, $options);
+
+            if ($response['success']) {
+                wp_send_json_success($response['data']);
+                return;
             }
 
-            // Set starting node ID if provided
-            if ($options['startingNodeId'] > 1) {
-                $builder->setStartingNodeId($options['startingNodeId']);
-            }
-
-            // Configure builder options
-            $builder->setInlineStyles($options['inlineStyles']);
-            $builder->setSafeMode($options['safeMode']);
-            $builder->setDebugMode($options['debugMode']);
-            $builder->enableValidation();
-
-            $result = $builder->convert($html);
-
-            if ($result['success']) {
-                $rootElement = $result['element'];
-
-                // Optionally wrap in container
-                if ($options['wrapInContainer']) {
-                    $rootElement = [
-                        'id' => $options['startingNodeId'],
-                        'data' => [
-                            'type' => ElementTypes::CONTAINER,
-                            'properties' => [],
-                        ],
-                        'children' => [$rootElement],
-                    ];
-                }
-
-                // Optionally include CSS element as first child
-                if ($options['includeCssElement'] && !empty($result['cssElement'])) {
-                    // If we wrapped in container, add CSS element as first child
-                    if ($options['wrapInContainer']) {
-                        array_unshift($rootElement['children'], $result['cssElement']);
-                    } else {
-                        // Otherwise, wrap both in a container
-                        $rootElement = [
-                            'id' => $options['startingNodeId'],
-                            'data' => [
-                                'type' => ElementTypes::CONTAINER,
-                                'properties' => [],
-                            ],
-                            'children' => [$result['cssElement'], $rootElement],
-                        ];
-                    }
-                }
-
-                $prependChildren = [];
-
-                if (!empty($result['headLinkElements']) && is_array($result['headLinkElements'])) {
-                    foreach ($result['headLinkElements'] as $linkElement) {
-                        if (is_array($linkElement)) {
-                            $prependChildren[] = $linkElement;
-                        }
-                    }
-                }
-
-                if (!empty($result['headScriptElements']) && is_array($result['headScriptElements'])) {
-                    foreach ($result['headScriptElements'] as $scriptElement) {
-                        if (is_array($scriptElement)) {
-                            $prependChildren[] = $scriptElement;
-                        }
-                    }
-                }
-
-                if (!empty($result['iconScriptElements']) && is_array($result['iconScriptElements'])) {
-                    foreach ($result['iconScriptElements'] as $iconElement) {
-                        if (is_array($iconElement)) {
-                            $prependChildren[] = $iconElement;
-                        }
-                    }
-                }
-
-                if ($prependChildren) {
-                    $existingChildren = isset($rootElement['children']) && is_array($rootElement['children'])
-                        ? $rootElement['children']
-                        : [];
-                    $rootElement['children'] = array_merge($prependChildren, $existingChildren);
-                }
-
-                $validationErrors = $this->validateResponsePayload([
-                    'success' => true,
-                    'element' => $rootElement,
-                    'cssElement' => $result['cssElement'],
-                    'headLinkElements' => $result['headLinkElements'],
-                    'headScriptElements' => $result['headScriptElements'],
-                    'iconScriptElements' => $result['iconScriptElements'],
-                    'stats' => $result['stats'],
-                ]);
-
-                if ($validationErrors) {
-                    $audit = $this->auditBuilder->build(
-                        array_merge($result, ['validationErrors' => $validationErrors]),
-                        $options
-                    );
-
-                    wp_send_json_error([
-                        'message' => __('Converted output failed builder validation. Try Safe Mode or a different preset.', 'oxygen-html-converter'),
-                        'errors' => $validationErrors,
-                        'audit' => $audit,
-                    ], 422);
-                    return;
-                }
-
-                $documentTree = $this->documentTree->build($rootElement);
-                $audit = $this->auditBuilder->build($result, $options);
-
-                $payload = [
-                    'element' => $rootElement,
-                    'documentTree' => $documentTree,
-                    'cssElement' => $result['cssElement'],
-                    'extractedCss' => $result['extractedCss'],
-                    'customClasses' => $result['customClasses'],
-                    'stats' => $result['stats'],
-                    'json' => json_encode([
-                        'element' => $rootElement,
-                    ], JSON_PRETTY_PRINT),
-                    'documentJson' => json_encode([
-                        'tree_json_string' => wp_json_encode($documentTree),
-                    ], JSON_PRETTY_PRINT),
-                    'audit' => $audit,
-                ];
-
-                $payload = apply_filters('oxy_html_converter_convert_response', $payload, $result, $options, $html);
-                wp_send_json_success($payload);
-            } else {
-                wp_send_json_error([
-                    'message' => $result['error'] ?? 'Conversion failed',
-                    'errors' => $result['errors'] ?? [],
-                ], 400);
-            }
+            wp_send_json_error($response['data'], $response['status']);
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_conversion_exception', $e, $options);
             if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
@@ -349,106 +246,15 @@ class Ajax
             $totalSize += $itemSize;
         }
 
-        $results = [];
-        $builder = new TreeBuilder();
         $options = $this->requestOptions->normalizeBatch($_POST);
         $filteredOptions = apply_filters('oxy_html_converter_batch_options', $options, $_POST);
         if (is_array($filteredOptions)) {
             $options = $this->requestOptions->normalizeBatch(array_merge($options, $filteredOptions));
         }
 
-        $builder->setInlineStyles($options['inlineStyles']);
-        $builder->setSafeMode($options['safeMode']);
-        $builder->setDebugMode($options['debugMode']);
-        $builder->enableValidation();
-        $totalStats = [
-            'elements' => 0,
-            'tailwindClasses' => 0,
-            'customClasses' => 0,
-            'warnings' => [],
-            'errors' => [],
-            'info' => [],
-        ];
-
         try {
-            foreach ($batch as $batchItem) {
-                $index = (int) $batchItem['index'];
-                $html = wp_unslash((string) $batchItem['html']);
-                $result = $builder->convert($html);
-
-                if ($result['success']) {
-                    $validationErrors = $this->validateResponsePayload([
-                        'success' => true,
-                        'element' => $result['element'],
-                        'cssElement' => $result['cssElement'],
-                        'headLinkElements' => $result['headLinkElements'],
-                        'headScriptElements' => $result['headScriptElements'],
-                        'iconScriptElements' => $result['iconScriptElements'],
-                        'stats' => $result['stats'],
-                    ]);
-
-                    if ($validationErrors) {
-                        $results[] = [
-                            'index' => $index,
-                            'success' => false,
-                            'message' => __('Converted output failed builder validation.', 'oxygen-html-converter'),
-                            'errors' => $validationErrors,
-                            'audit' => $this->auditBuilder->build(
-                                array_merge($result, ['validationErrors' => $validationErrors]),
-                                $options
-                            ),
-                        ];
-                        $totalStats['warnings'][] = 'Item ' . $index . ' failed builder validation.';
-                        $totalStats['errors'] = array_merge($totalStats['errors'], $validationErrors);
-                        continue;
-                    }
-
-                    $documentTree = $this->documentTree->build($result['element']);
-
-                    $results[] = [
-                        'index' => $index,
-                        'success' => true,
-                        'element' => $result['element'],
-                        'documentTree' => $documentTree,
-                        'documentJson' => json_encode([
-                            'tree_json_string' => wp_json_encode($documentTree),
-                        ], JSON_PRETTY_PRINT),
-                        'stats' => $result['stats'],
-                        'audit' => $this->auditBuilder->build($result, $options),
-                    ];
-
-                    // Aggregate stats
-                    $totalStats['elements'] += $result['stats']['elements'];
-                    $totalStats['tailwindClasses'] += $result['stats']['tailwindClasses'];
-                    $totalStats['customClasses'] += $result['stats']['customClasses'];
-                    $totalStats['warnings'] = array_merge($totalStats['warnings'], $result['stats']['warnings']);
-                    $totalStats['errors'] = array_merge($totalStats['errors'], $result['stats']['errors'] ?? []);
-                    $totalStats['info'] = array_merge($totalStats['info'], $result['stats']['info']);
-                } else {
-                    $results[] = [
-                        'index' => $index,
-                        'success' => false,
-                        'message' => $result['error'] ?? __('Batch conversion failed.', 'oxygen-html-converter'),
-                        'errors' => $result['errors'] ?? [],
-                        'audit' => $this->auditBuilder->build($result, $options),
-                    ];
-                    $totalStats['errors'] = array_merge($totalStats['errors'], $result['errors'] ?? []);
-                }
-            }
-
-            $response = [
-                'results' => $results,
-                'totalStats' => $totalStats,
-            ];
-
-            // Include skipped count if any items were skipped
-            if ($skipped > 0) {
-                $response['skippedItems'] = $skipped;
-                $response['warning'] = "{$skipped} item(s) were skipped due to invalid type or size limits.";
-            }
-
-            $response = apply_filters('oxy_html_converter_batch_response', $response, $results, $totalStats);
-            wp_send_json_success($response);
+            $response = $this->batchHandler->handle($batch, $options, $skipped);
+            wp_send_json_success($response['data']);
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_batch_exception', $e);
             wp_send_json_error([
@@ -497,36 +303,14 @@ class Ajax
         }
 
         try {
-            $builder = new TreeBuilder();
-            $builder->setInlineStyles($options['inlineStyles']);
-            $builder->setSafeMode($options['safeMode']);
-            $builder->setDebugMode($options['debugMode']);
-            $builder->enableValidation();
-            $result = $builder->convert($html);
+            $response = $this->previewHandler->handle($html, $options);
 
-            if ($result['success']) {
-                // Generate preview summary
-                $summary = $this->generatePreviewSummary($result['element']);
-
-                $payload = [
-                    'summary' => $summary,
-                    'elementCount' => $result['stats']['elements'],
-                    'tailwindClassCount' => $result['stats']['tailwindClasses'],
-                    'customClassCount' => $result['stats']['customClasses'],
-                    'customClasses' => $result['customClasses'],
-                    'hasExtractedCss' => !empty($result['extractedCss']),
-                    'warnings' => $result['stats']['warnings'],
-                    'errors' => $result['stats']['errors'] ?? [],
-                    'audit' => $this->auditBuilder->build($result, $options),
-                ];
-
-                $payload = apply_filters('oxy_html_converter_preview_response', $payload, $result, $html);
-                wp_send_json_success($payload);
-            } else {
-                wp_send_json_error([
-                    'message' => $result['error'] ?? 'Preview failed',
-                ], 400);
+            if ($response['success']) {
+                wp_send_json_success($response['data']);
+                return;
             }
+
+            wp_send_json_error($response['data'], $response['status']);
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_preview_exception', $e);
             if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
@@ -538,51 +322,4 @@ class Ajax
         }
     }
 
-    /**
-     * Generate preview summary from element tree
-     */
-    private function generatePreviewSummary(array $element, array &$counts = null): array
-    {
-        if ($counts === null) {
-            $counts = [
-                'total' => 0,
-                'byType' => [],
-            ];
-        }
-
-        $counts['total']++;
-
-        // Extract type name
-        $type = $element['data']['type'] ?? 'Unknown';
-        $typeName = substr($type, strrpos($type, '\\') + 1);
-
-        if (!isset($counts['byType'][$typeName])) {
-            $counts['byType'][$typeName] = 0;
-        }
-        $counts['byType'][$typeName]++;
-
-        // Process children
-        if (!empty($element['children'])) {
-            foreach ($element['children'] as $child) {
-                $this->generatePreviewSummary($child, $counts);
-            }
-        }
-
-        return $counts;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     * @return array<int, string>
-     */
-    private function validateResponsePayload(array $payload): array
-    {
-        $this->outputValidator->reset();
-
-        if ($this->outputValidator->validateConversionResult($payload)) {
-            return [];
-        }
-
-        return $this->outputValidator->getErrors();
-    }
 }

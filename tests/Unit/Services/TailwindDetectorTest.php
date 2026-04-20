@@ -3,6 +3,7 @@
 namespace OxyHtmlConverter\Tests\Unit\Services;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use OxyHtmlConverter\Services\TailwindDetector;
 
 class TailwindDetectorTest extends TestCase
@@ -15,9 +16,7 @@ class TailwindDetectorTest extends TestCase
         $this->detector = new TailwindDetector();
     }
 
-    /**
-     * @dataProvider tailwindClassesProvider
-     */
+    #[DataProvider('tailwindClassesProvider')]
     public function testIsTailwindClass(string $className, bool $expected): void
     {
         $this->assertSame(

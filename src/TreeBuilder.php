@@ -15,7 +15,11 @@ use OxyHtmlConverter\Services\FrameworkDetector;
 use OxyHtmlConverter\Services\CssParser;
 use OxyHtmlConverter\Services\AnimationDetector;
 use OxyHtmlConverter\Services\ComponentDetector;
+use OxyHtmlConverter\Services\DocumentCssExtractor;
 use OxyHtmlConverter\Services\HeuristicsService;
+use OxyHtmlConverter\Services\HeadAssetExtractor;
+use OxyHtmlConverter\Services\HtmlCodeSanitizer;
+use OxyHtmlConverter\Services\SelectorMatcher;
 use OxyHtmlConverter\Validation\OutputValidator;
 use OxyHtmlConverter\ElementTypes;
 use DOMElement;
@@ -43,6 +47,10 @@ class TreeBuilder
     private AnimationDetector $animationDetector;
     private ComponentDetector $componentDetector;
     private HeuristicsService $heuristics;
+    private DocumentCssExtractor $documentCssExtractor;
+    private HeadAssetExtractor $headAssetExtractor;
+    private SelectorMatcher $selectorMatcher;
+    private HtmlCodeSanitizer $htmlCodeSanitizer;
     private OutputValidator $validator;
     private ConversionReport $report;
 
@@ -128,6 +136,17 @@ class TreeBuilder
         $this->animationDetector = new AnimationDetector();
         $this->componentDetector = new ComponentDetector($this->report);
         $this->heuristics = new HeuristicsService();
+        $this->documentCssExtractor = new DocumentCssExtractor(
+            $this->heuristics,
+            $this->tailwindDetector,
+            $this->tailwindPropertyMapper,
+            $this->tailwindFallbackGenerator
+        );
+        $this->headAssetExtractor = new HeadAssetExtractor(function (): int {
+            return $this->generateNodeId();
+        });
+        $this->selectorMatcher = new SelectorMatcher();
+        $this->htmlCodeSanitizer = new HtmlCodeSanitizer();
         $this->validator = new OutputValidator();
     }
 
@@ -191,7 +210,6 @@ class TreeBuilder
 
         // Extract custom CSS from <style> tags
         $this->extractedCss = $this->extractStyleTags($this->parser->getDom());
-        $this->appendTailwindFallbackCss($this->parser->getDom());
 
         // Parse extracted CSS rules
         $this->cssRules = $this->cssParser->parse($this->extractedCss);
@@ -310,25 +328,7 @@ class TreeBuilder
      */
     private function extractStyleTags(\DOMDocument $doc): string
     {
-        $css = '';
-        $styleTags = $doc->getElementsByTagName('style');
-
-        foreach ($styleTags as $styleTag) {
-            $content = $styleTag->textContent;
-            // Fix invalid CSS (fontFamily -> font-family)
-            $content = str_replace('fontFamily', 'font-family', $content);
-
-            if (!empty(trim($content))) {
-                // Apply nav-scrolled CSS rewrite heuristic if enabled
-                $content = $this->heuristics->applyNavScrolledCssRewrite($content);
-                $content = $this->applyOxygenCssCompatibilityFixes($content);
-
-                $css .= "/* Extracted from <style> tag */\n";
-                $css .= trim($content) . "\n\n";
-            }
-        }
-
-        return $css;
+        return $this->documentCssExtractor->extract($doc);
     }
 
     private function applyOxygenCssCompatibilityFixes(string $css): string
@@ -413,47 +413,7 @@ CSS;
      */
     private function extractHeadLinks(\DOMDocument $doc): array
     {
-        $elements = [];
-        $seenSignatures = [];
-        $linkTags = $doc->getElementsByTagName('link');
-
-        foreach ($linkTags as $linkTag) {
-            $rel = strtolower($linkTag->getAttribute('rel'));
-
-            // Only extract stylesheet and preconnect links
-            if (!in_array($rel, ['stylesheet', 'preconnect'])) {
-                continue;
-            }
-
-            $html = $doc->saveHTML($linkTag);
-            if (empty(trim($html))) {
-                continue;
-            }
-
-            $signature = strtolower($rel) . '|' . trim((string) $linkTag->getAttribute('href')) . '|' . trim((string) $linkTag->getAttribute('as'));
-            if ($signature === '|' || isset($seenSignatures[$signature])) {
-                continue;
-            }
-
-            $seenSignatures[$signature] = true;
-
-            $elements[] = [
-                'id' => $this->generateNodeId(),
-                'data' => [
-                    'type' => ElementTypes::HTML_CODE,
-                    'properties' => [
-                        'content' => [
-                            'content' => [
-                                'html_code' => $html,
-                            ],
-                        ],
-                    ],
-                ],
-                'children' => [],
-            ];
-        }
-
-        return $elements;
+        return $this->headAssetExtractor->extractLinks($doc);
     }
 
     /**
@@ -464,63 +424,7 @@ CSS;
      */
     private function extractHeadScripts(\DOMDocument $doc, array $detectedIconLibraries = []): array
     {
-        $elements = [];
-        $iconCdns = [];
-        $seenSignatures = [];
-
-        foreach ($detectedIconLibraries as $library) {
-            $cdn = trim((string) ($library['cdn'] ?? ''));
-            if ($cdn !== '') {
-                $iconCdns[] = $cdn;
-            }
-        }
-
-        $xpath = new \DOMXPath($doc);
-        $scriptTags = $xpath->query('//head//script');
-
-        if ($scriptTags === false) {
-            return $elements;
-        }
-
-        foreach ($scriptTags as $scriptTag) {
-            if (!($scriptTag instanceof DOMElement)) {
-                continue;
-            }
-
-            $src = trim((string) $scriptTag->getAttribute('src'));
-            if ($src !== '' && in_array($src, $iconCdns, true)) {
-                continue;
-            }
-
-            $html = $doc->saveHTML($scriptTag);
-            if (empty(trim((string) $html))) {
-                continue;
-            }
-
-            $signature = $src !== '' ? 'src|' . $src : 'inline|' . md5(trim((string) $html));
-            if (isset($seenSignatures[$signature])) {
-                continue;
-            }
-
-            $seenSignatures[$signature] = true;
-
-            $elements[] = [
-                'id' => $this->generateNodeId(),
-                'data' => [
-                    'type' => ElementTypes::HTML_CODE,
-                    'properties' => [
-                        'content' => [
-                            'content' => [
-                                'html_code' => $html,
-                            ],
-                        ],
-                    ],
-                ],
-                'children' => [],
-            ];
-        }
-
-        return $elements;
+        return $this->headAssetExtractor->extractScripts($doc, $detectedIconLibraries);
     }
 
     /**
@@ -1054,53 +958,7 @@ CSS;
         array $element
     ): bool
     {
-        // Remove pseudo-classes and pseudo-elements (:hover, ::before, etc.)
-        $selector = trim($selector);
-        $selector = preg_replace('/::?[a-z-]+(\([^)]*\))?/i', '', $selector);
-        $selector = trim($selector);
-
-        if ($selector === '') {
-            return false;
-        }
-
-        // Fast path for simple class selectors to keep performance predictable.
-        if (strpos($selector, '.') === 0 &&
-            strpos($selector, ' ') === false &&
-            strpos($selector, '>') === false &&
-            strpos($selector, '+') === false &&
-            strpos($selector, '~') === false &&
-            strpos($selector, '[') === false &&
-            strpos($selector, '#') === false) {
-            preg_match_all('/\.([a-zA-Z0-9_\-\\\\:]+)/', $selector, $matches);
-            $selectorClasses = $matches[1] ?? [];
-
-            if (empty($selectorClasses)) {
-                return false;
-            }
-
-            foreach ($selectorClasses as $class) {
-                $class = str_replace('\\', '', $class);
-                if (!in_array($class, $elementClasses, true)) {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        // Fast path for exact ID selector.
-        if ($elementId && $selector === '#' . $elementId) {
-            return true;
-        }
-
-        // Fast path for plain tag selector.
-        if (preg_match('/^[a-z][a-z0-9-]*$/i', $selector)) {
-            $tagName = $this->getTagNameFromElement($element);
-            return $tagName !== null && strtolower($selector) === strtolower($tagName);
-        }
-
-        // Fallback for descendant/compound selectors.
-        return $this->selectorMatchesDomPath($selector, $node);
+        return $this->selectorMatcher->matchesElement($selector, $elementClasses, $elementId, $node, $element);
     }
 
     /**
@@ -1464,9 +1322,7 @@ CSS;
      */
     private function selectorContainsPseudo(string $selector): bool
     {
-        // Ignore attribute selectors when looking for pseudo markers.
-        $withoutAttributes = preg_replace('/\[[^\]]*\]/', '', $selector);
-        return (bool) preg_match('/::?[a-z-]+(\([^)]*\))?/i', (string) $withoutAttributes);
+        return $this->selectorMatcher->containsPseudo($selector);
     }
 
     /**
@@ -1570,18 +1426,11 @@ CSS;
      */
     private function sanitizeHtmlCodeElement(array &$element): bool
     {
-        $html = $element['data']['properties']['content']['content']['html_code'] ?? null;
-        if (!is_string($html) || trim($html) === '') {
-            return true;
-        }
-
-        $sanitized = $this->sanitizeHtmlCodeFragment($html);
-        if ($sanitized === '') {
+        if (!$this->htmlCodeSanitizer->sanitizeElement($element)) {
             $this->report->addWarning('Safe mode removed an HtmlCode block because no safe markup remained.');
             return false;
         }
 
-        $element['data']['properties']['content']['content']['html_code'] = $sanitized;
         return true;
     }
 

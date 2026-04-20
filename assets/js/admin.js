@@ -6,8 +6,10 @@
   const ui = config.ui || {};
   const presetUtils = window.OxyHtmlConverterPresets || null;
   const optionUtils = window.OxyHtmlConverterOptions || null;
-
-  let lastConvertedJson = null;
+  const requestClientUtils = window.OxyHtmlConverterAdminClient || null;
+  const rendererUtils = window.OxyHtmlConverterAdminRenderers || null;
+  const stateUtils = window.OxyHtmlConverterAdminState || null;
+  const state = stateUtils ? stateUtils.createAdminState() : null;
   let isApplyingPreset = false;
 
   const $htmlInput = $("#oxy-html-input");
@@ -57,24 +59,24 @@
     };
   }
 
-  function buildRequestFields() {
-    return optionUtils
-      ? optionUtils.buildConvertRequestFields(getCurrentOptions())
-      : {
-          wrapInContainer: $wrapContainer.is(":checked"),
-          includeCssElement: $includeCss.is(":checked"),
-          inlineStyles: $inlineStyles.is(":checked"),
-          safeMode: $safeMode.is(":checked"),
-          debugMode: false,
-        };
-  }
+  const requestClient =
+    requestClientUtils && typeof requestClientUtils.createRequestClient === "function"
+      ? requestClientUtils.createRequestClient({
+          $: $,
+          ajaxUrl: config.ajaxUrl,
+          nonce: config.nonce,
+          optionUtils: optionUtils,
+        })
+      : null;
 
   function clearResults() {
     setPanelHidden($previewResult, true);
     setPanelHidden($jsonResult, true);
     setPanelHidden($errorResult, true);
     $copyBtn.prop("disabled", true);
-    lastConvertedJson = null;
+    if (state) {
+      state.clearLastConvertedJson();
+    }
     $jsonStatus.text("");
   }
 
@@ -93,85 +95,26 @@
   }
 
   function renderAudit(audit) {
-    if (!audit || typeof audit !== "object") {
-      setAuditList($auditPreserved, []);
-      setAuditList($auditTransformed, []);
-      setAuditList($auditStripped, []);
-      setAuditList($auditFollowUp, []);
-      return;
-    }
+    const lists =
+      rendererUtils && typeof rendererUtils.buildAuditLists === "function"
+        ? rendererUtils.buildAuditLists(audit)
+        : { preserved: [], transformed: [], stripped: [], followUp: [] };
 
-    const preserved = [];
-    const transformed = [];
-
-    const preservedData = audit.preserved || {};
-    const summary = audit.summary || {};
-    const transformedData = audit.transformed || {};
-
-    if (Array.isArray(preservedData.customClasses) && preservedData.customClasses.length) {
-      preserved.push(
-        preservedData.customClasses.length + " custom class token(s) preserved."
-      );
-    }
-
-    if (Array.isArray(preservedData.iconLibraries) && preservedData.iconLibraries.length) {
-      preserved.push("Icon libraries detected: " + preservedData.iconLibraries.join(", "));
-    }
-
-    if (summary.hasExtractedCss) {
-      preserved.push("Extracted CSS will be available to the import flow.");
-    }
-
-    preserved.push(
-      "Head assets preserved: " +
-        [
-          (preservedData.headAssets?.links || 0) + " link(s)",
-          (preservedData.headAssets?.scripts || 0) + " script(s)",
-          (preservedData.headAssets?.iconScripts || 0) + " icon script(s)",
-        ].join(", ")
-    );
-
-    transformed.push("Elements converted: " + String(summary.elements || 0));
-    transformed.push(
-      (transformedData.wrapInContainer ? "Wrapped" : "Did not wrap") +
-        " root output in a container."
-    );
-    transformed.push(
-      (transformedData.includeCssElement ? "Included" : "Skipped") +
-        " extracted CSS element."
-    );
-    transformed.push(
-      (transformedData.inlineStyles ? "Mapped" : "Did not map") +
-        " supported inline/class styles to Oxygen properties."
-    );
-
-    if (Array.isArray(transformedData.info) && transformedData.info.length) {
-      transformed.push(...transformedData.info);
-    }
-
-    setAuditList($auditPreserved, preserved);
-    setAuditList($auditTransformed, transformed);
-    setAuditList($auditStripped, audit.stripped || []);
-    setAuditList($auditFollowUp, audit.followUp || []);
+    setAuditList($auditPreserved, lists.preserved);
+    setAuditList($auditTransformed, lists.transformed);
+    setAuditList($auditStripped, lists.stripped);
+    setAuditList($auditFollowUp, lists.followUp);
   }
 
   function formatError(responseData) {
-    const parts = [];
-    const message = responseData?.message || strings.requestFailed || "Request failed.";
-
-    parts.push(String(message));
-
-    const errors = Array.isArray(responseData?.errors) ? responseData.errors : [];
-    if (errors.length) {
-      parts.push("Details: " + errors.join(" | "));
+    if (rendererUtils && typeof rendererUtils.formatErrorMessage === "function") {
+      return rendererUtils.formatErrorMessage(
+        responseData || {},
+        strings.requestFailed || "Request failed."
+      );
     }
 
-    const followUp = responseData?.audit?.followUp || [];
-    if (Array.isArray(followUp) && followUp.length) {
-      parts.push("Next steps: " + followUp.join(" | "));
-    }
-
-    return parts.join("\n\n");
+    return String((responseData && responseData.message) || strings.requestFailed || "Request failed.");
   }
 
   function showError(responseData) {
@@ -218,7 +161,9 @@
 
   function renderConversion(responseData) {
     const data = responseData || {};
-    lastConvertedJson = data.json || null;
+    if (state) {
+      state.setLastConvertedJson(data.json || null);
+    }
 
     if (data.json) {
       const prettyJson = JSON.stringify(JSON.parse(data.json), null, 2);
@@ -251,12 +196,13 @@
       $reportSummary.prop("hidden", false);
     }
 
-    const classCount = Array.isArray(data.customClasses) ? data.customClasses.length : 0;
     $jsonStatus.text(
-      (data.audit?.summary?.elements || 0) + " elements, " + classCount + " custom classes"
+      rendererUtils && typeof rendererUtils.buildJsonStatus === "function"
+        ? rendererUtils.buildJsonStatus(data)
+        : "0 elements, 0 custom classes"
     );
     setPanelHidden($jsonResult, false);
-    $copyBtn.prop("disabled", !lastConvertedJson);
+    $copyBtn.prop("disabled", !(state && state.hasLastConvertedJson()));
     renderAudit(data.audit);
   }
 
@@ -275,18 +221,9 @@
     clearResults();
     showLoading($button);
 
-    $.ajax({
-      url: config.ajaxUrl,
-      type: "POST",
-      data: Object.assign(
-        {
-          action: action,
-          nonce: config.nonce,
-          html: html,
-        },
-        buildRequestFields()
-      ),
-      success: function (response) {
+    requestClient
+      .request(action, html, getCurrentOptions())
+      .then(function (response) {
         hideLoading($button);
 
         if (response.success) {
@@ -295,8 +232,8 @@
         }
 
         showError(response.data || { message: "Request failed." });
-      },
-      error: function (xhr) {
+      })
+      .catch(function (xhr) {
         hideLoading($button);
         showError(
           xhr.responseJSON?.data || {
@@ -306,8 +243,7 @@
               (xhr.responseJSON?.data?.message || "Unknown error"),
           }
         );
-      },
-    });
+      });
   }
 
   function previewHtml() {
@@ -319,13 +255,13 @@
   }
 
   function copyToClipboard() {
-    if (!lastConvertedJson) {
+    if (!(state && state.hasLastConvertedJson())) {
       showError({ message: "Nothing to copy. Convert HTML first." });
       return;
     }
 
     navigator.clipboard
-      .writeText(lastConvertedJson)
+      .writeText(state.getLastConvertedJson())
       .then(function () {
         const originalText = $copyBtn.text();
         $copyBtn.text(strings.copied || "Copied");
@@ -336,7 +272,7 @@
       .catch(function () {
         const $temp = $("<textarea>");
         $("body").append($temp);
-        $temp.val(lastConvertedJson).trigger("select");
+        $temp.val(state.getLastConvertedJson()).trigger("select");
         document.execCommand("copy");
         $temp.remove();
       });
@@ -361,7 +297,7 @@
   }
 
   function markOutputOutdated() {
-    if (!lastConvertedJson) {
+    if (!(state && state.hasLastConvertedJson())) {
       return;
     }
 

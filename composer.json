@@ -30,7 +30,7 @@
     "wp-coding-standards/wpcs": "^3.1"
   },
   "scripts": {
-    "test": "phpunit --testsuite Unit",
+    "test": "phpunit --fail-on-phpunit-deprecation --testsuite Unit",
     "test:legacy": "phpunit --configuration phpunit.legacy.xml",
     "test:contracts": "phpunit tests/Unit/Compatibility/InstalledBuilderContractsTest.php",
     "lint:phpcs": "phpcs --runtime-set ignore_warnings_on_exit 1 --standard=phpcs.xml.dist",

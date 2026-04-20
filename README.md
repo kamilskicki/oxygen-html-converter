@@ -76,9 +76,12 @@ More detail:
 
 ## Testing
 
+- Fast gate: `npm run check`
 - PHP unit gate: `composer test`
 - JS tests: `npm run test:js`
-- Combined gate: `npm test`
+- Local live gate: `npm run test:live`
+- Release verification: `npm run release:verify`
+- Build release ZIP: `npm run build:zip`
 
 ## Extension Hooks
 

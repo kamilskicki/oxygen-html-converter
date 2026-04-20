@@ -3,6 +3,7 @@
 namespace OxyHtmlConverter\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use OxyHtmlConverter\ElementMapper;
 use DOMDocument;
 use DOMElement;
@@ -31,9 +32,7 @@ class ElementMapperTest extends TestCase
         return $element;
     }
 
-    /**
-     * @dataProvider tagToTypeProvider
-     */
+    #[DataProvider('tagToTypeProvider')]
     public function testGetElementType(string $tag, string $expectedType): void
     {
         $type = $this->mapper->getElementType($tag);

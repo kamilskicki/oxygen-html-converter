@@ -3,6 +3,7 @@
 namespace OxyHtmlConverter\Tests\Unit\Services;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use OxyHtmlConverter\Services\IconDetector;
 use DOMDocument;
 
@@ -16,20 +17,18 @@ class IconDetectorTest extends TestCase
         $this->detector = new IconDetector();
     }
 
-    /**
-     * @dataProvider iconLibraryDetectionProvider
-     */
+    #[DataProvider('iconLibraryDetectionProvider')]
     public function testDetectIconLibraries(string $html, array $expectedLibraries): void
     {
         $doc = new DOMDocument();
         @$doc->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
-        
+
         $detected = $this->detector->detectIconLibraries($doc);
-        
+
         foreach ($expectedLibraries as $key) {
             $this->assertArrayHasKey($key, $detected, "Should detect {$key} icons");
         }
-        
+
         $this->assertCount(
             count($expectedLibraries),
             $detected,
@@ -101,12 +100,12 @@ class IconDetectorTest extends TestCase
         $elements = $this->detector->createIconLibraryElements($libraries, $idGenerator);
 
         $this->assertCount(1, $elements);
-        
+
         $element = $elements[0];
         $this->assertEquals(100, $element['id']);
         $this->assertEquals('OxygenElements\\HtmlCode', $element['data']['type']);
         $this->assertArrayHasKey('html_code', $element['data']['properties']['content']['content']);
-        
+
         $htmlCode = $element['data']['properties']['content']['content']['html_code'];
         $this->assertStringContainsString('Lucide Icons', $htmlCode);
         $this->assertStringContainsString('https://unpkg.com/lucide@latest', $htmlCode);
@@ -127,7 +126,7 @@ class IconDetectorTest extends TestCase
         $elements = $this->detector->createIconLibraryElements($libraries, $idGenerator);
 
         $this->assertCount(1, $elements);
-        
+
         $htmlCode = $elements[0]['data']['properties']['content']['content']['html_code'];
         $this->assertStringContainsString('<link rel="stylesheet"', $htmlCode);
         $this->assertStringContainsString('font-awesome', $htmlCode);
