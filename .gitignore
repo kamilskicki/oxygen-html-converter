@@ -1,4 +1,5 @@
 vendor/
+.worktrees/
 .phpunit.cache/
 .phpstan/
 *.zip
