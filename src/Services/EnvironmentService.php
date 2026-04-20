@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OxyHtmlConverter\Services;
 
 /**
@@ -37,15 +39,21 @@ class EnvironmentService
 
     /**
      * Get the current class handling mode
-     * 
-     * Currently returns 'auto' by default. This is a placeholder for future admin settings.
      *
-     * @return string 'auto', 'windpress', or 'oxygen'
+     * Currently returns 'auto' by default.
+     *
+     * @return string 'auto', 'windpress', or 'native'
      */
     public function getClassHandlingMode(): string
     {
         if (function_exists('get_option')) {
-            return get_option('oxy_html_converter_class_mode', 'auto');
+            $mode = (string) get_option('oxy_html_converter_class_mode', 'auto');
+            if ($mode === 'oxygen') {
+                return 'native';
+            }
+            if (in_array($mode, ['auto', 'windpress', 'native'], true)) {
+                return $mode;
+            }
         }
         return 'auto';
     }
@@ -144,7 +152,7 @@ class EnvironmentService
     /**
      * Get detailed status for the EssentialElements Button contract.
      *
-     * @return array{compatible:bool,class:string,issues:array,details:array}
+     * @return array{compatible?:bool,class?:string,issues?:array,details?:array}
      */
     public function getEssentialButtonContractStatus(): array
     {
@@ -163,7 +171,8 @@ class EnvironmentService
     {
         $status = $this->getEssentialButtonContractStatus();
         $issues = $status['issues'] ?? [];
-        return is_array($issues) ? $issues : [];
+
+        return $issues;
     }
 
     private function getBuilderContractService(): BuilderContractService

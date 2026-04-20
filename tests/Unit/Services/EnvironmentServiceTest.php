@@ -20,6 +20,7 @@ class EnvironmentServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        unset($GLOBALS['__wp_options']['oxy_html_converter_class_mode']);
         $this->service = new EnvironmentService();
     }
 
@@ -47,10 +48,10 @@ class EnvironmentServiceTest extends TestCase
     /**
      * @test
      */
-    public function it_should_not_use_windpress_mode_if_mode_is_oxygen()
+    public function it_should_not_use_windpress_mode_if_mode_is_native()
     {
         $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
-        $mockService->shouldReceive('getClassHandlingMode')->andReturn('oxygen');
+        $mockService->shouldReceive('getClassHandlingMode')->andReturn('native');
 
         $this->assertFalse($mockService->shouldUseWindPressMode());
     }

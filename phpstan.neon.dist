@@ -1,0 +1,12 @@
+parameters:
+  level: 5
+  paths:
+    - src/AdminPage.php
+    - src/Ajax.php
+    - src/Plugin.php
+    - src/Services/ConversionAuditBuilder.php
+    - src/Services/EnvironmentService.php
+    - src/Services/RequestOptions.php
+  bootstrapFiles:
+    - tests/bootstrap.php
+  tmpDir: .phpstan

@@ -5,7 +5,7 @@ namespace OxyHtmlConverter\Tests\Unit\Services;
 use OxyHtmlConverter\Services\JavaScriptTransformer;
 use PHPUnit\Framework\TestCase;
 
-class JavaScriptTransformerWindowExportTest extends TestCase
+class JavaScriptTransformerTest extends TestCase
 {
     public function testSingleParameterFunctionKeepsDirectCallFallback(): void
     {

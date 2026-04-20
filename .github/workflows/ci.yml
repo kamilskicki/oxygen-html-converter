@@ -1,0 +1,47 @@
+name: Core CI
+
+on:
+  push:
+    paths-ignore:
+      - "docs/PRO_*.md"
+      - "*.zip"
+      - ".tmp-*"
+  pull_request:
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.2", "8.3"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: PHP unit tests
+        run: composer test
+
+      - name: JS tests
+        run: npm run test:js
+
+      - name: PHPCS
+        run: composer lint:phpcs
+
+      - name: PHPStan
+        run: composer lint:phpstan

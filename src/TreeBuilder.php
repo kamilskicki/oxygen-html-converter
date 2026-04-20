@@ -10,6 +10,7 @@ use OxyHtmlConverter\Services\IconDetector;
 use OxyHtmlConverter\Services\InteractionDetector;
 use OxyHtmlConverter\Services\TailwindDetector;
 use OxyHtmlConverter\Services\TailwindCssFallbackGenerator;
+use OxyHtmlConverter\Services\TailwindPropertyMapper;
 use OxyHtmlConverter\Services\FrameworkDetector;
 use OxyHtmlConverter\Services\CssParser;
 use OxyHtmlConverter\Services\AnimationDetector;
@@ -36,6 +37,7 @@ class TreeBuilder
     private InteractionDetector $interactionDetector;
     private TailwindDetector $tailwindDetector;
     private TailwindCssFallbackGenerator $tailwindFallbackGenerator;
+    private TailwindPropertyMapper $tailwindPropertyMapper;
     private FrameworkDetector $frameworkDetector;
     private CssParser $cssParser;
     private AnimationDetector $animationDetector;
@@ -112,7 +114,13 @@ class TreeBuilder
         $this->environment = new EnvironmentService();
         $this->tailwindDetector = new TailwindDetector();
         $this->tailwindFallbackGenerator = new TailwindCssFallbackGenerator();
-        $this->classStrategy = new ClassStrategyService($this->environment, $this->report, $this->tailwindDetector);
+        $this->tailwindPropertyMapper = new TailwindPropertyMapper();
+        $this->classStrategy = new ClassStrategyService(
+            $this->environment,
+            $this->report,
+            $this->tailwindDetector,
+            $this->tailwindPropertyMapper
+        );
         $this->iconDetector = new IconDetector();
         $this->frameworkDetector = new FrameworkDetector($this->report);
         $this->interactionDetector = new InteractionDetector($this->frameworkDetector);
@@ -234,10 +242,9 @@ class TreeBuilder
             ];
         }
 
-        // Clean up CSS rules that were converted to native Oxygen features
-        // NOTE: We keep all CSS in the CSS Code element as fallback
-        // $this->extractedCss = $this->animationDetector->cleanupConvertedCss($this->extractedCss);
-        // $this->extractedCss = $this->cleanupConsumedCssRules($this->extractedCss);
+        // Keep stateful/animation CSS as fallback, but prune rules that were
+        // fully materialized into native Oxygen properties.
+        $this->extractedCss = $this->cleanupConsumedCssRules($this->extractedCss);
 
         // Create CSS Code element if we have extracted CSS
         $cssElement = null;
@@ -379,7 +386,11 @@ CSS;
 
             foreach (preg_split('/\s+/', $classAttr) ?: [] as $token) {
                 $token = trim((string) $token);
-                if ($token !== '' && $this->tailwindDetector->isTailwindClass($token)) {
+                if (
+                    $token !== ''
+                    && $this->tailwindDetector->isTailwindClass($token)
+                    && !$this->tailwindPropertyMapper->canMapClass($token)
+                ) {
                     $classTokens[] = $token;
                 }
             }
@@ -403,6 +414,7 @@ CSS;
     private function extractHeadLinks(\DOMDocument $doc): array
     {
         $elements = [];
+        $seenSignatures = [];
         $linkTags = $doc->getElementsByTagName('link');
 
         foreach ($linkTags as $linkTag) {
@@ -417,6 +429,13 @@ CSS;
             if (empty(trim($html))) {
                 continue;
             }
+
+            $signature = strtolower($rel) . '|' . trim((string) $linkTag->getAttribute('href')) . '|' . trim((string) $linkTag->getAttribute('as'));
+            if ($signature === '|' || isset($seenSignatures[$signature])) {
+                continue;
+            }
+
+            $seenSignatures[$signature] = true;
 
             $elements[] = [
                 'id' => $this->generateNodeId(),
@@ -447,6 +466,7 @@ CSS;
     {
         $elements = [];
         $iconCdns = [];
+        $seenSignatures = [];
 
         foreach ($detectedIconLibraries as $library) {
             $cdn = trim((string) ($library['cdn'] ?? ''));
@@ -476,6 +496,13 @@ CSS;
             if (empty(trim((string) $html))) {
                 continue;
             }
+
+            $signature = $src !== '' ? 'src|' . $src : 'inline|' . md5(trim((string) $html));
+            if (isset($seenSignatures[$signature])) {
+                continue;
+            }
+
+            $seenSignatures[$signature] = true;
 
             $elements[] = [
                 'id' => $this->generateNodeId(),
@@ -986,7 +1013,12 @@ CSS;
 
             if ($matched) {
                 $expandedDeclarations = $this->expandShorthandProperties($rule['declarations']);
-                $convertedStyles = $this->styleExtractor->toOxygenProperties($expandedDeclarations);
+                $materializedDeclarations = $this->filterNeutralFallbackDeclarations($expandedDeclarations);
+                $convertedStyles = $this->styleExtractor->toOxygenProperties($materializedDeclarations);
+
+                if ($convertedStyles === []) {
+                    continue;
+                }
 
                 $this->logDebug(sprintf(
                     'Applying styles: %s',
@@ -996,7 +1028,9 @@ CSS;
                 $element['data']['properties'] = $this->mergeProperties(
                     $element['data']['properties'], ['design' => $convertedStyles]
                 );
-                $this->consumedCssSelectors[$selector] = true;
+                if ($this->styleExtractor->supportsDeclarationsFully($materializedDeclarations)) {
+                    $this->consumedCssSelectors[$selector] = true;
+                }
                 $matchedCount++;
             }
         }
@@ -1267,6 +1301,25 @@ CSS;
         }
 
         return $css;
+    }
+
+    /**
+     * Skip neutral fallback declarations that are useful in CSS utility rules
+     * but should not be materialized into native Oxygen properties.
+     */
+    private function filterNeutralFallbackDeclarations(array $declarations): array
+    {
+        $filtered = [];
+
+        foreach ($declarations as $property => $value) {
+            if ($property === 'color' && trim((string) $value) === 'inherit') {
+                continue;
+            }
+
+            $filtered[$property] = $value;
+        }
+
+        return $filtered;
     }
 
     /**

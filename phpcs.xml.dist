@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<ruleset name="oxygen-html-converter-core">
+    <description>Focused PHPCS gate for hardened Core entrypoints.</description>
+
+    <rule ref="WordPress.Security.EscapeOutput"/>
+    <rule ref="WordPress.Security.NonceVerification"/>
+    <rule ref="WordPress.Security.ValidatedSanitizedInput"/>
+    <rule ref="WordPress.WP.I18n"/>
+    <rule ref="WordPress.PHP.StrictInArray"/>
+
+    <config name="minimum_supported_wp_version" value="6.5"/>
+    <arg name="basepath" value="."/>
+    <arg name="colors"/>
+    <arg name="parallel" value="4"/>
+
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <exclude-pattern>node_modules/*</exclude-pattern>
+    <exclude name="Generic.Files.LineEndings"/>
+
+    <file>oxygen-html-converter.php</file>
+    <file>src/AdminPage.php</file>
+    <file>src/Ajax.php</file>
+    <file>src/Plugin.php</file>
+    <file>src/Services/ConversionAuditBuilder.php</file>
+    <file>src/Services/EnvironmentService.php</file>
+    <file>src/Services/RequestOptions.php</file>
+</ruleset>

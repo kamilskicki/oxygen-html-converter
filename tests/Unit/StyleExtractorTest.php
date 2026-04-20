@@ -290,4 +290,20 @@ class StyleExtractorTest extends TestCase
         $this->assertEquals('16px', $properties['border']['border-bottom-right-radius']);
         $this->assertEquals('2px solid blue', $properties['border']['outline']);
     }
+
+    public function testSupportsDeclarationsFullyReturnsTrueForFullyMappableStyles(): void
+    {
+        $this->assertTrue($this->extractor->supportsDeclarationsFully([
+            'display' => 'flex',
+            'justify-content' => 'center',
+        ]));
+    }
+
+    public function testSupportsDeclarationsFullyReturnsFalseForPartiallyUnsupportedStyles(): void
+    {
+        $this->assertFalse($this->extractor->supportsDeclarationsFully([
+            'display' => 'flex',
+            'clip-path' => 'circle(50%)',
+        ]));
+    }
 }

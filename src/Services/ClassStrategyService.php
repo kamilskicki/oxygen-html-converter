@@ -12,12 +12,19 @@ class ClassStrategyService
     private EnvironmentService $environment;
     private ConversionReport $report;
     private TailwindDetector $tailwindDetector;
+    private TailwindPropertyMapper $tailwindPropertyMapper;
 
-    public function __construct(EnvironmentService $environment, ConversionReport $report, TailwindDetector $tailwindDetector)
+    public function __construct(
+        EnvironmentService $environment,
+        ConversionReport $report,
+        TailwindDetector $tailwindDetector,
+        TailwindPropertyMapper $tailwindPropertyMapper
+    )
     {
         $this->environment = $environment;
         $this->report = $report;
         $this->tailwindDetector = $tailwindDetector;
+        $this->tailwindPropertyMapper = $tailwindPropertyMapper;
     }
 
     /**
@@ -60,25 +67,40 @@ class ClassStrategyService
      */
     private function processOxygenNativeMode(array $classes, array &$element): void
     {
-        $tailwindClasses = [];
         $customClasses = [];
+        $preservedTailwindClasses = [];
+        $mappedProperties = [];
+        $preservedUnsupportedTailwind = false;
 
         foreach ($classes as $className) {
             if ($this->tailwindDetector->isTailwindClass($className)) {
-                $tailwindClasses[] = $className;
                 $this->report->incrementTailwindClassCount();
+                $mappedClassProperties = $this->tailwindPropertyMapper->mapClass($className);
+                if ($mappedClassProperties !== []) {
+                    $mappedProperties = $this->mergeAssociativeProperties($mappedProperties, $mappedClassProperties);
+                    continue;
+                }
+
+                $preservedTailwindClasses[] = $className;
+                $preservedUnsupportedTailwind = true;
             } else {
                 $customClasses[] = $className;
                 $this->report->incrementCustomClassCount();
             }
         }
 
-        if (!empty($tailwindClasses)) {
-            $this->report->addWarning("Oxygen Native Mode: Tailwind class conversion to properties not yet implemented. Classes preserved as-is for now.");
+        if ($mappedProperties !== []) {
+            $element['data']['properties'] = $this->mergeAssociativeProperties(
+                $element['data']['properties'] ?? [],
+                ['design' => $mappedProperties]
+            );
         }
 
-        // Preserve all for now (matching current behavior but with clear separation)
-        $this->setElementClasses($element, array_merge($customClasses, $tailwindClasses));
+        if ($preservedUnsupportedTailwind) {
+            $this->report->addWarning('Native mode preserved unsupported Tailwind utilities as classes to maintain parity.');
+        }
+
+        $this->setElementClasses($element, array_merge($customClasses, $preservedTailwindClasses));
     }
 
     /**
@@ -86,13 +108,50 @@ class ClassStrategyService
      */
     private function setElementClasses(array &$element, array $classes): void
     {
+        $classes = array_values(array_unique(array_filter($classes, static fn ($className): bool => is_string($className) && trim($className) !== '')));
+
         if (!isset($element['data']['properties']['settings'])) {
             $element['data']['properties']['settings'] = [];
         }
         if (!isset($element['data']['properties']['settings']['advanced'])) {
             $element['data']['properties']['settings']['advanced'] = [];
         }
-        $element['data']['properties']['settings']['advanced']['classes'] = array_values($classes);
+
+        if ($classes === []) {
+            unset($element['data']['properties']['settings']['advanced']['classes']);
+            return;
+        }
+
+        $element['data']['properties']['settings']['advanced']['classes'] = $classes;
     }
 
+    private function mergeAssociativeProperties(array $base, array $override): array
+    {
+        $merged = $base;
+
+        foreach ($override as $key => $value) {
+            if (
+                array_key_exists($key, $merged)
+                && is_array($merged[$key])
+                && is_array($value)
+                && $this->isAssocArray($merged[$key])
+                && $this->isAssocArray($value)
+            ) {
+                $merged[$key] = $this->mergeAssociativeProperties($merged[$key], $value);
+            } else {
+                $merged[$key] = $value;
+            }
+        }
+
+        return $merged;
+    }
+
+    private function isAssocArray(array $array): bool
+    {
+        if ($array === []) {
+            return false;
+        }
+
+        return array_keys($array) !== range(0, count($array) - 1);
+    }
 }

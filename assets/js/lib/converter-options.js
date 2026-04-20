@@ -33,15 +33,24 @@
   }
 
   function buildConvertRequestFields(options) {
-    const safeMode = coerceBoolean(options && options.safeMode, false);
     const wrapInContainer = coerceBoolean(
       options && options.wrapInContainer,
       true
     );
+    const includeCssElement = coerceBoolean(
+      options && options.includeCssElement,
+      true
+    );
+    const inlineStyles = coerceBoolean(options && options.inlineStyles, true);
+    const safeMode = coerceBoolean(options && options.safeMode, false);
+    const debugMode = coerceBoolean(options && options.debugMode, false);
 
     return {
-      safeMode: safeMode ? "true" : "false",
       wrapInContainer: wrapInContainer ? "true" : "false",
+      includeCssElement: includeCssElement ? "true" : "false",
+      inlineStyles: inlineStyles ? "true" : "false",
+      safeMode: safeMode ? "true" : "false",
+      debugMode: debugMode ? "true" : "false",
     };
   }
 

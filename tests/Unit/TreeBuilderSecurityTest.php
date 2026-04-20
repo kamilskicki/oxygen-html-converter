@@ -168,13 +168,16 @@ HTML;
         $this->assertNotNull($result['cssElement']);
 
         $css = (string) ($result['cssElement']['data']['properties']['content']['content']['css_code'] ?? '');
-        $this->assertStringContainsString('.text-6xl { font-size: 3.75rem !important; line-height: 1 !important; color: inherit !important; }', $css);
-        $this->assertStringContainsString('.text-white { color: #ffffff !important; }', $css);
         $this->assertStringContainsString('.leading-\\[0\\.9\\] { line-height: 0.9 !important; }', $css);
-        $this->assertStringContainsString('.tracking-tight { letter-spacing: -0.025em !important; }', $css);
-        $this->assertStringContainsString('.uppercase { text-transform: uppercase !important; }', $css);
         $this->assertStringContainsString('@media (min-width: 768px)', $css);
         $this->assertStringContainsString('.md\\:text-8xl { font-size: 6rem !important; line-height: 1 !important; color: inherit !important; }', $css);
+
+        $typography = $result['element']['data']['properties']['design']['typography'] ?? [];
+        $this->assertSame('#ffffff', $typography['color'] ?? null);
+        $this->assertSame('uppercase', $typography['text-transform'] ?? null);
+        $this->assertSame('3.75rem', $typography['font-size'] ?? null);
+        $this->assertSame('1', $typography['line-height'] ?? null);
+        $this->assertSame('-0.025em', $typography['letter-spacing'] ?? null);
     }
 
     public function testScrollRevealBaseClassIsPreservedWhenEntranceAnimationIsAdded(): void

@@ -1,252 +1,458 @@
 .oxy-html-converter-wrap {
-    max-width: 1400px;
+    --oxy-surface: #ffffff;
+    --oxy-surface-alt: #f6f8fb;
+    --oxy-border: #d7dee7;
+    --oxy-text: #112033;
+    --oxy-text-muted: #506174;
+    --oxy-accent: #1263d1;
+    --oxy-accent-soft: #eaf2ff;
+    --oxy-success: #0d7a52;
+    --oxy-danger: #b42318;
+    --oxy-warning: #b54708;
+    --oxy-shadow: 0 16px 40px rgba(17, 32, 51, 0.08);
+    max-width: 1480px;
+    color: var(--oxy-text);
 }
 
-.oxy-converter-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+.oxy-hero-card,
+.oxy-banner-card,
+.oxy-card {
+    background: var(--oxy-surface);
+    border: 1px solid var(--oxy-border);
+    border-radius: 16px;
+    box-shadow: var(--oxy-shadow);
+}
+
+.oxy-hero-card {
+    display: flex;
+    justify-content: space-between;
     gap: 20px;
-    margin: 20px 0;
+    padding: 28px;
+    margin: 24px 0 18px;
+    background:
+        radial-gradient(circle at top right, rgba(18, 99, 209, 0.12), transparent 30%),
+        linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
 }
 
-@media (max-width: 1200px) {
-    .oxy-converter-container {
-        grid-template-columns: 1fr;
-    }
+.oxy-eyebrow {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--oxy-accent);
 }
 
-.oxy-converter-input,
-.oxy-converter-output {
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    padding: 20px;
+.oxy-hero-copy h1,
+.oxy-section-header h2,
+.oxy-card h2 {
+    margin: 0;
+    color: var(--oxy-text);
 }
 
-.oxy-converter-input h2,
-.oxy-converter-output h2 {
-    margin-top: 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+.oxy-hero-description,
+.oxy-section-header p,
+.oxy-banner-card p,
+.oxy-audit-header p {
+    margin: 8px 0 0;
+    color: var(--oxy-text-muted);
+}
+
+.oxy-hero-links,
+.oxy-banner-actions,
+.oxy-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.oxy-banner-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    padding: 18px 24px;
+    margin-bottom: 20px;
+}
+
+.oxy-shortcut-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: var(--oxy-accent-soft);
+    color: var(--oxy-accent);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.oxy-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.85fr);
+    gap: 20px;
+}
+
+.oxy-main-column,
+.oxy-sidebar-column {
+    display: grid;
+    gap: 20px;
+}
+
+.oxy-card {
+    padding: 24px;
+}
+
+.oxy-section-header {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 18px;
+}
+
+.oxy-step-number {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--oxy-accent-soft);
+    color: var(--oxy-accent);
+    font-weight: 700;
+}
+
+#oxy-html-input,
+#oxy-json-output {
+    width: 100%;
+    min-height: 360px;
+    padding: 14px 16px;
+    border: 1px solid var(--oxy-border);
+    border-radius: 12px;
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.6;
 }
 
 #oxy-html-input {
-    width: 100%;
-    height: 400px;
-    font-family: monospace;
-    font-size: 13px;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    resize: vertical;
+    background: #fbfdff;
+    color: var(--oxy-text);
 }
 
-#oxy-html-input:focus {
-    border-color: #007cba;
-    box-shadow: 0 0 0 1px #007cba;
+#oxy-html-input:focus,
+#oxy-json-output:focus,
+.oxy-settings-form select:focus {
+    border-color: var(--oxy-accent);
+    box-shadow: 0 0 0 3px rgba(18, 99, 209, 0.12);
     outline: none;
 }
 
-.oxy-converter-options {
-    margin: 15px 0;
+.oxy-options-grid {
     display: grid;
-    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    margin: 18px 0 0;
 }
 
-.oxy-converter-options label {
+.oxy-option-row-preset {
+    grid-column: 1 / -1;
     display: flex;
     align-items: center;
-    gap: 8px;
-    cursor: pointer;
+    gap: 14px;
 }
 
-.oxy-converter-preset {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.oxy-option-row-preset select,
+.oxy-settings-form select {
+    min-width: 240px;
+    max-width: 100%;
 }
 
-.oxy-converter-preset label {
-    font-weight: 600;
-    cursor: default;
-}
-
-.oxy-converter-preset select {
-    min-width: 220px;
-}
-
-.oxy-converter-actions {
+.oxy-toggle {
     display: flex;
     gap: 10px;
-    margin-top: 15px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    border: 1px solid var(--oxy-border);
+    border-radius: 12px;
+    background: var(--oxy-surface-alt);
 }
 
-.oxy-converter-actions .button {
-    padding: 6px 16px;
-    height: auto;
+.oxy-toggle input {
+    margin-top: 2px;
 }
 
-/* Preview Box */
-.oxy-preview-box {
-    background: #f8f9fa;
-    border: 1px solid #e2e4e7;
-    border-radius: 4px;
-    padding: 15px;
-    margin-bottom: 15px;
+.oxy-action-bar {
+    margin-top: 18px;
 }
 
-.oxy-preview-box h3 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    font-size: 14px;
+.oxy-preview-box,
+.oxy-audit-box,
+.oxy-report-summary,
+.oxy-error-box {
+    border-radius: 14px;
+    padding: 18px;
+}
+
+.oxy-preview-box,
+.oxy-audit-box,
+.oxy-report-summary {
+    background: var(--oxy-surface-alt);
+    border: 1px solid var(--oxy-border);
 }
 
 #oxy-preview-content {
-    font-size: 13px;
+    display: grid;
+    gap: 10px;
 }
 
 #oxy-preview-content .preview-stat {
     display: flex;
     justify-content: space-between;
-    padding: 5px 0;
-    border-bottom: 1px solid #eee;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--oxy-border);
 }
 
 #oxy-preview-content .preview-stat:last-child {
     border-bottom: none;
 }
 
-#oxy-preview-content .preview-stat strong {
-    color: #1e1e1e;
-}
-
 #oxy-preview-content .preview-types {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #ddd;
-}
-
-#oxy-preview-content .preview-type {
-    display: inline-block;
-    background: #e7f3ff;
-    color: #0073aa;
-    padding: 3px 8px;
-    border-radius: 3px;
-    margin: 3px;
-    font-size: 12px;
-}
-
-/* JSON Output */
-.oxy-json-box {
-    background: #1e1e1e;
-    border-radius: 4px;
-    padding: 15px;
-}
-
-.oxy-json-box h3 {
-    margin-top: 0;
-    color: #fff;
-    font-size: 14px;
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
     align-items: center;
 }
 
-.oxy-json-status {
+#oxy-preview-content .preview-type {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--oxy-accent-soft);
+    color: var(--oxy-accent);
     font-size: 12px;
-    font-weight: normal;
-    color: #7ec699;
+}
+
+.oxy-audit-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.oxy-audit-section {
+    padding: 14px;
+    border: 1px solid var(--oxy-border);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.oxy-audit-section h4 {
+    margin: 0 0 10px;
+}
+
+.oxy-audit-list,
+.oxy-plain-list,
+.oxy-callout ul,
+.oxy-report-panel ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.oxy-audit-list li,
+.oxy-plain-list li,
+.oxy-callout li,
+.oxy-report-panel li {
+    margin: 0 0 8px;
+}
+
+.oxy-json-box {
+    background: #0f172a;
+    color: #f8fafc;
+}
+
+.oxy-json-box h3 {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    color: inherit;
+    margin-top: 0;
+}
+
+.oxy-json-status {
+    color: #93c5fd;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 #oxy-json-output {
-    width: 100%;
-    height: 350px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 12px;
-    background: #2d2d2d;
-    color: #f8f8f2;
-    border: none;
-    border-radius: 4px;
-    padding: 12px;
-    resize: vertical;
+    background: rgba(15, 23, 42, 0.55);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.25);
 }
 
-/* Error Box */
-.oxy-error-box {
-    background: #fef7f7;
-    border: 1px solid #f5c6cb;
-    border-radius: 4px;
-    padding: 15px;
+.oxy-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
 }
 
-.oxy-error-box h3 {
-    margin-top: 0;
-    color: #721c24;
-}
-
-#oxy-error-content {
-    color: #721c24;
-    font-size: 13px;
-}
-
-/* Instructions */
-.oxy-converter-instructions {
+.oxy-stat-item {
+    display: grid;
+    gap: 6px;
+    padding: 14px;
+    border-radius: 12px;
     background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    padding: 20px;
-    margin-top: 20px;
+    color: var(--oxy-text);
 }
 
-.oxy-converter-instructions h2 {
-    margin-top: 0;
+.oxy-stat-item span {
+    font-size: 22px;
+    font-weight: 700;
 }
 
-.oxy-converter-instructions ol {
-    line-height: 1.8;
+.oxy-report-panel {
+    margin-top: 14px;
+    background: #fff;
+    color: var(--oxy-text);
+    border: 1px solid var(--oxy-border);
 }
 
-.oxy-converter-instructions kbd {
-    background: #f7f7f7;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    padding: 2px 6px;
-    font-family: monospace;
-    font-size: 12px;
+.oxy-error-box {
+    background: #fff4f2;
+    border: 1px solid rgba(180, 35, 24, 0.22);
+    color: var(--oxy-danger);
 }
 
-.oxy-converter-instructions table {
-    margin-top: 15px;
+.oxy-settings-form {
+    display: grid;
+    gap: 10px;
 }
 
-.oxy-converter-instructions table code {
-    background: #f0f0f1;
-    padding: 2px 5px;
-    border-radius: 3px;
+.oxy-settings-form label {
+    font-weight: 600;
 }
 
-/* Loading state */
+.oxy-health-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+}
+
+.oxy-health-list div {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--oxy-border);
+}
+
+.oxy-health-list div:last-child {
+    border-bottom: none;
+}
+
+.oxy-health-list dt {
+    margin: 0 0 4px;
+    font-weight: 600;
+}
+
+.oxy-health-list dd {
+    margin: 0;
+}
+
+.oxy-callout {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+}
+
+.oxy-callout.is-success {
+    background: #f1fcf7;
+    border-color: rgba(13, 122, 82, 0.2);
+    color: var(--oxy-success);
+}
+
+.oxy-callout.is-danger {
+    background: #fff4f2;
+    border-color: rgba(180, 35, 24, 0.2);
+    color: var(--oxy-danger);
+}
+
+.is-success {
+    color: var(--oxy-success);
+}
+
+.is-danger {
+    color: var(--oxy-danger);
+}
+
+.is-neutral {
+    color: var(--oxy-text-muted);
+}
+
 .oxy-loading {
     position: relative;
     pointer-events: none;
-    opacity: 0.7;
+    opacity: 0.72;
 }
 
 .oxy-loading::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 20px;
-    height: 20px;
-    margin: -10px 0 0 -10px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #0073aa;
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+    border: 2px solid rgba(18, 99, 209, 0.18);
+    border-top-color: var(--oxy-accent);
     border-radius: 50%;
     animation: oxy-spin 0.8s linear infinite;
 }
 
+.screen-reader-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
 @keyframes oxy-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 1280px) {
+    .oxy-workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 782px) {
+    .oxy-hero-card,
+    .oxy-banner-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .oxy-options-grid,
+    .oxy-audit-grid,
+    .oxy-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .oxy-option-row-preset {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .oxy-action-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }

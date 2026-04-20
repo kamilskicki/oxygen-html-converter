@@ -5,17 +5,26 @@ const converterOptions = require("../../assets/js/lib/converter-options.js");
 module.exports = function runConverterOptionsTests() {
   assert.deepEqual(converterOptions.buildConvertRequestFields({}), {
     wrapInContainer: "true",
+    includeCssElement: "true",
+    inlineStyles: "true",
     safeMode: "false",
+    debugMode: "false",
   });
 
   assert.deepEqual(
     converterOptions.buildConvertRequestFields({
       wrapInContainer: 0,
+      includeCssElement: "no",
+      inlineStyles: "yes",
       safeMode: "yes",
+      debugMode: 1,
     }),
     {
       wrapInContainer: "false",
+      includeCssElement: "false",
+      inlineStyles: "true",
       safeMode: "true",
+      debugMode: "true",
     }
   );
 

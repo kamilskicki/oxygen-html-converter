@@ -2,14 +2,14 @@
 /**
  * Plugin Name: Oxygen HTML Converter
  * Description: Convert HTML to native Oxygen Builder elements. Paste entire HTML pages and edit them natively in Oxygen 6.
- * Version: 0.8.0-beta
+ * Version: 0.9.0-beta
  * Author: Kamil Skicki
  * Author URI: https://kamilskicki.com
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: oxygen-html-converter
- * Requires at least: 5.0
- * Requires PHP: 7.4
+ * Requires at least: 6.5
+ * Requires PHP: 8.2
  */
 
 // Exit if accessed directly
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('OXY_HTML_CONVERTER_VERSION', '0.8.0-beta');
+define('OXY_HTML_CONVERTER_VERSION', '0.9.0-beta');
 define('OXY_HTML_CONVERTER_PATH', plugin_dir_path(__FILE__));
 define('OXY_HTML_CONVERTER_URL', plugin_dir_url(__FILE__));
 define('OXY_HTML_CONVERTER_IS_CORE', true);

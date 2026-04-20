@@ -178,6 +178,73 @@ class AjaxEndpointBehaviorTest extends TestCase
         $this->assertArrayHasKey('tree_json_string', $documentJson);
     }
 
+    public function testConvertResponseIncludesStructuredAuditPayload(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'n',
+            'html' => '<div class="hero"><span>Hello</span></div>',
+        ];
+
+        $ajax->handleConvert();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertTrue($response['success']);
+        $this->assertArrayHasKey('audit', $response['data']);
+        $this->assertArrayHasKey('summary', $response['data']['audit']);
+        $this->assertArrayHasKey('preserved', $response['data']['audit']);
+        $this->assertArrayHasKey('followUp', $response['data']['audit']);
+    }
+
+    public function testConvertRejectsInvalidBuilderPayloadsBeforeReturningSuccess(): void
+    {
+        add_filter('oxy_html_converter_tree_builder', static function () {
+            return new class extends \OxyHtmlConverter\TreeBuilder {
+                public function convert(string $html): array
+                {
+                    return [
+                        'success' => true,
+                        'element' => [
+                            'data' => [
+                                'type' => 'OxygenElements\\Container',
+                                'properties' => [],
+                            ],
+                            'children' => [],
+                        ],
+                        'cssElement' => null,
+                        'headLinkElements' => [],
+                        'headScriptElements' => [],
+                        'iconScriptElements' => [],
+                        'detectedIconLibraries' => [],
+                        'extractedCss' => '',
+                        'customClasses' => [],
+                        'stats' => [
+                            'elements' => 1,
+                            'tailwindClasses' => 0,
+                            'customClasses' => 0,
+                            'warnings' => [],
+                            'errors' => [],
+                            'info' => [],
+                        ],
+                    ];
+                }
+            };
+        });
+
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'n',
+            'html' => '<div>Hello</div>',
+        ];
+
+        $ajax->handleConvert();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(422, $response['status_code']);
+        $this->assertArrayHasKey('audit', $response['data']);
+    }
+
     private function collectElementTypes(array $element, array &$types): void
     {
         $types[] = $element['data']['type'] ?? '';

@@ -1,26 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OxyHtmlConverter;
 
 use OxyHtmlConverter\Services\EnvironmentService;
 
 /**
- * Admin page for HTML conversion
+ * Admin page for HTML conversion.
  */
 class AdminPage
 {
-    /**
-     * Capability required to access converter UI and actions.
-     */
     private function getRequiredCapability(): string
     {
         $capability = 'manage_options';
 
-        /**
-         * Filter required capability for the converter.
-         *
-         * @param string $capability Default capability (`manage_options`).
-         */
         return (string) apply_filters('oxy_html_converter_required_capability', $capability);
     }
 
@@ -31,14 +25,11 @@ class AdminPage
         add_action('admin_init', [$this, 'registerSettings']);
     }
 
-    /**
-     * Register plugin settings
-     */
     public function registerSettings(): void
     {
         register_setting('oxy_html_converter_options', 'oxy_html_converter_class_mode', [
             'type' => 'string',
-            'sanitize_callback' => 'sanitize_text_field',
+            'sanitize_callback' => [$this, 'sanitizeClassHandlingMode'],
             'default' => 'auto',
         ]);
 
@@ -50,12 +41,16 @@ class AdminPage
     }
 
     /**
-     * Sanitize element mapping mode option.
+     * @param mixed $value
      */
-    public function sanitizeElementMappingMode($value): string
+    public function sanitizeClassHandlingMode($value): string
     {
-        $value = sanitize_text_field($value);
-        if (!in_array($value, ['auto', 'oxygen', 'essential'], true)) {
+        $value = sanitize_text_field((string) $value);
+        if ($value === 'oxygen') {
+            return 'native';
+        }
+
+        if (!in_array($value, ['auto', 'windpress', 'native'], true)) {
             return 'auto';
         }
 
@@ -63,39 +58,45 @@ class AdminPage
     }
 
     /**
-     * Add admin menu page
+     * @param mixed $value
      */
+    public function sanitizeElementMappingMode($value): string
+    {
+        $value = sanitize_text_field((string) $value);
+        if (!in_array($value, ['auto', 'oxygen', 'essential'], true)) {
+            return 'auto';
+        }
+
+        return $value;
+    }
+
     public function addMenuPage(): void
     {
         $capability = $this->getRequiredCapability();
 
         add_submenu_page(
-            'oxygen', // Oxygen 6 parent slug
-            'HTML Converter',
-            'HTML Converter',
+            'oxygen',
+            __('HTML Converter', 'oxygen-html-converter'),
+            __('HTML Converter', 'oxygen-html-converter'),
             $capability,
             'oxy-html-converter',
             [$this, 'renderPage']
         );
 
-        // Also add under Tools menu as fallback
         add_management_page(
-            'Oxygen HTML Converter',
-            'Oxygen HTML Converter',
+            __('Oxygen HTML Converter', 'oxygen-html-converter'),
+            __('Oxygen HTML Converter', 'oxygen-html-converter'),
             $capability,
             'oxy-html-converter-tool',
             [$this, 'renderPage']
         );
     }
 
-    /**
-     * Enqueue admin assets
-     */
     public function enqueueAdminAssets(string $hook): void
     {
         if (!in_array($hook, [
             'oxygen_page_oxy-html-converter',
-            'oxygen_admin_page_oxy-html-converter', // legacy compatibility
+            'oxygen_admin_page_oxy-html-converter',
             'tools_page_oxy-html-converter-tool',
         ], true)) {
             return;
@@ -117,9 +118,17 @@ class AdminPage
         );
 
         wp_enqueue_script(
+            'oxy-html-converter-options',
+            OXY_HTML_CONVERTER_URL . 'assets/js/lib/converter-options.js',
+            [],
+            OXY_HTML_CONVERTER_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'oxy-html-converter-admin',
             OXY_HTML_CONVERTER_URL . 'assets/js/admin.js',
-            ['jquery', 'oxy-html-converter-presets'],
+            ['jquery', 'oxy-html-converter-presets', 'oxy-html-converter-options'],
             OXY_HTML_CONVERTER_VERSION,
             true
         );
@@ -127,229 +136,288 @@ class AdminPage
         wp_localize_script('oxy-html-converter-admin', 'oxyHtmlConverterAdmin', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('oxy_html_converter'),
+            'ui' => $this->getUiConfig(),
+            'strings' => [
+                'previewCta' => __('Preview', 'oxygen-html-converter'),
+                'convertCta' => __('Convert', 'oxygen-html-converter'),
+                'copyCta' => __('Copy JSON', 'oxygen-html-converter'),
+                'copied' => __('Copied', 'oxygen-html-converter'),
+                'emptyPreview' => __('Paste HTML before previewing.', 'oxygen-html-converter'),
+                'emptyConvert' => __('Paste HTML before converting.', 'oxygen-html-converter'),
+                'requestFailed' => __('Request failed:', 'oxygen-html-converter'),
+                'outdated' => __('Output is outdated', 'oxygen-html-converter'),
+                'analysisTitle' => __('Conversion audit', 'oxygen-html-converter'),
+                'analysisEmpty' => __('Run preview or convert to inspect the conversion audit.', 'oxygen-html-converter'),
+                'sampleLoaded' => __('Sample HTML loaded.', 'oxygen-html-converter'),
+                'stepsPreview' => __('Preview summary', 'oxygen-html-converter'),
+                'stepsOutput' => __('Import output', 'oxygen-html-converter'),
+            ],
         ]);
     }
 
-    /**
-     * Render admin page
-     */
     public function renderPage(): void
     {
         if (!current_user_can($this->getRequiredCapability())) {
             wp_die(esc_html__('You do not have permission to access this page.', 'oxygen-html-converter'));
         }
 
-        $classMode = get_option('oxy_html_converter_class_mode', 'auto');
-        $elementMappingMode = get_option('oxy_html_converter_element_mapping_mode', 'auto');
+        $classMode = $this->sanitizeClassHandlingMode(get_option('oxy_html_converter_class_mode', 'auto'));
+        $elementMappingMode = $this->sanitizeElementMappingMode(get_option('oxy_html_converter_element_mapping_mode', 'auto'));
         $environment = new EnvironmentService();
+        $ui = $this->getUiConfig();
 
         $isEssentialPluginActive = $environment->isBreakdanceElementsForOxygenActive();
         $isEssentialContractCompatible = $environment->isEssentialButtonContractCompatible();
         $effectiveButtonMapping = $environment->shouldPreferEssentialElements() ? 'essential' : 'oxygen';
         $contractIssues = $isEssentialPluginActive ? $environment->getEssentialButtonContractIssues() : [];
 
-        $contractStatusText = 'Not checked';
-        $contractStatusColor = '#6c757d';
+        $contractStatusText = __('Not checked', 'oxygen-html-converter');
+        $contractStatusClass = 'is-neutral';
+
         if ($isEssentialPluginActive) {
             if ($isEssentialContractCompatible) {
-                $contractStatusText = 'Compatible';
-                $contractStatusColor = '#2e7d32';
+                $contractStatusText = __('Compatible', 'oxygen-html-converter');
+                $contractStatusClass = 'is-success';
             } else {
-                $contractStatusText = 'Incompatible';
-                $contractStatusColor = '#c62828';
+                $contractStatusText = __('Incompatible', 'oxygen-html-converter');
+                $contractStatusClass = 'is-danger';
             }
         }
         ?>
         <div class="wrap oxy-html-converter-wrap">
-            <h1>Oxygen HTML Converter</h1>
-            <p class="description">Convert HTML to native Oxygen Builder elements. Paste your HTML below and click Convert.</p>
+            <section class="oxy-hero-card">
+                <div class="oxy-hero-copy">
+                    <p class="oxy-eyebrow"><?php echo esc_html__('v1.0 hardening workflow', 'oxygen-html-converter'); ?></p>
+                    <h1><?php echo esc_html__('Oxygen HTML Converter', 'oxygen-html-converter'); ?></h1>
+                    <p class="oxy-hero-description">
+                        <?php echo esc_html__('Paste supported HTML, inspect the conversion audit, and import builder-safe Oxygen output without manual JSON surgery.', 'oxygen-html-converter'); ?>
+                    </p>
+                </div>
+                <div class="oxy-hero-links">
+                    <a class="button button-secondary" href="<?php echo esc_url($ui['docs']['supportedScope']); ?>" target="_blank" rel="noreferrer noopener"><?php echo esc_html__('Supported scope', 'oxygen-html-converter'); ?></a>
+                    <a class="button button-secondary" href="<?php echo esc_url($ui['docs']['readme']); ?>" target="_blank" rel="noreferrer noopener"><?php echo esc_html__('Readme', 'oxygen-html-converter'); ?></a>
+                    <a class="button button-secondary" href="<?php echo esc_url($ui['docs']['releaseChecklist']); ?>" target="_blank" rel="noreferrer noopener"><?php echo esc_html__('Release checklist', 'oxygen-html-converter'); ?></a>
+                </div>
+            </section>
 
-            <div class="oxy-settings-bar" style="margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ccd0d4; border-radius: 4px;">
-                <form method="post" action="options.php" style="display: flex; align-items: center; gap: 20px;">
-                    <?php settings_fields('oxy_html_converter_options'); ?>
-                    
-                    <div class="setting-field">
-                        <label for="oxy_html_converter_class_mode" style="font-weight: 600; margin-right: 10px;">Class Handling Mode:</label>
-                        <select name="oxy_html_converter_class_mode" id="oxy_html_converter_class_mode">
-                            <option value="auto" <?php selected($classMode, 'auto'); ?>>Auto-detect (WindPress if available, otherwise Native)</option>
-                            <option value="windpress" <?php selected($classMode, 'windpress'); ?>>Force WindPress Mode (Keep all classes)</option>
-                            <option value="native" <?php selected($classMode, 'native'); ?>>Force Oxygen Native Mode (Convert Tailwind to properties)</option>
-                        </select>
-                    </div>
+            <section class="oxy-banner-card">
+                <div>
+                    <strong><?php echo esc_html__('First import?', 'oxygen-html-converter'); ?></strong>
+                    <p><?php echo esc_html__('Start with the sample hero snippet, run Preview, then Convert. Use Safe Mode when you want the most defensive import path.', 'oxygen-html-converter'); ?></p>
+                </div>
+                <div class="oxy-banner-actions">
+                    <button type="button" id="oxy-load-example-btn" class="button button-primary"><?php echo esc_html__('Load sample HTML', 'oxygen-html-converter'); ?></button>
+                    <span class="oxy-shortcut-pill"><?php echo esc_html__('Shortcut: Ctrl/Cmd + Enter to convert', 'oxygen-html-converter'); ?></span>
+                </div>
+            </section>
 
-                    <div class="setting-field">
-                        <label for="oxy_html_converter_element_mapping_mode" style="font-weight: 600; margin-right: 10px;">Button Mapping Mode:</label>
-                        <select name="oxy_html_converter_element_mapping_mode" id="oxy_html_converter_element_mapping_mode">
-                            <option value="auto" <?php selected($elementMappingMode, 'auto'); ?>>Auto-detect (Use Essential button when available)</option>
-                            <option value="oxygen" <?php selected($elementMappingMode, 'oxygen'); ?>>Force Oxygen Button Mapping</option>
-                            <option value="essential" <?php selected($elementMappingMode, 'essential'); ?>>Force EssentialElements Button Mapping</option>
-                        </select>
-                    </div>
+            <div class="oxy-workspace">
+                <div class="oxy-main-column">
+                    <section class="oxy-card oxy-step-card">
+                        <div class="oxy-section-header">
+                            <span class="oxy-step-number">1</span>
+                            <div>
+                                <h2><?php echo esc_html__('Input', 'oxygen-html-converter'); ?></h2>
+                                <p><?php echo esc_html__('Paste full sections, landing pages, or builder-safe fragments. Preview first if the source includes scripts, utility classes, or extracted CSS.', 'oxygen-html-converter'); ?></p>
+                            </div>
+                        </div>
 
-                    <?php submit_button('Save Settings', 'secondary', 'submit', false); ?>
-                </form>
-            </div>
+                        <label class="screen-reader-text" for="oxy-html-input"><?php echo esc_html__('HTML input', 'oxygen-html-converter'); ?></label>
+                        <textarea id="oxy-html-input" placeholder="<?php echo esc_attr__('Paste your HTML here…', 'oxygen-html-converter'); ?>"></textarea>
 
-            <div class="oxy-contract-health" style="margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ccd0d4; border-radius: 4px;">
-                <h2 style="margin-top: 0;">Contract Health</h2>
-                <p class="description" style="margin-top: 0;">
-                    Compatibility status for builder element contracts used by the converter.
-                </p>
+                        <div class="oxy-options-grid">
+                            <div class="oxy-option-row oxy-option-row-preset">
+                                <label for="oxy-convert-preset"><?php echo esc_html__('Conversion preset', 'oxygen-html-converter'); ?></label>
+                                <select id="oxy-convert-preset">
+                                    <option value="balanced" selected><?php echo esc_html__('Balanced (recommended)', 'oxygen-html-converter'); ?></option>
+                                    <option value="safe"><?php echo esc_html__('Safe import', 'oxygen-html-converter'); ?></option>
+                                    <option value="fidelity"><?php echo esc_html__('Max fidelity', 'oxygen-html-converter'); ?></option>
+                                    <option value="custom"><?php echo esc_html__('Custom', 'oxygen-html-converter'); ?></option>
+                                </select>
+                            </div>
+                            <label class="oxy-toggle">
+                                <input type="checkbox" id="oxy-wrap-container" checked>
+                                <span><?php echo esc_html__('Wrap output in a container element', 'oxygen-html-converter'); ?></span>
+                            </label>
+                            <label class="oxy-toggle">
+                                <input type="checkbox" id="oxy-include-css" checked>
+                                <span><?php echo esc_html__('Include extracted CSS as a code element', 'oxygen-html-converter'); ?></span>
+                            </label>
+                            <label class="oxy-toggle">
+                                <input type="checkbox" id="oxy-inline-styles" checked>
+                                <span><?php echo esc_html__('Map inline and supported class styles into Oxygen design properties', 'oxygen-html-converter'); ?></span>
+                            </label>
+                            <label class="oxy-toggle">
+                                <input type="checkbox" id="oxy-safe-mode">
+                                <span><?php echo esc_html__('Safe mode: remove scripts, event handlers, and external head assets', 'oxygen-html-converter'); ?></span>
+                            </label>
+                        </div>
 
-                <table class="widefat striped" style="max-width: 960px;">
-                    <tbody>
-                        <tr>
-                            <td style="width: 280px;"><strong>Configured Button Mode</strong></td>
-                            <td><code><?php echo esc_html($elementMappingMode); ?></code></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Effective Button Mapping</strong></td>
-                            <td>
-                                <code><?php echo esc_html($effectiveButtonMapping); ?></code>
-                                <?php if ($effectiveButtonMapping !== $elementMappingMode && $elementMappingMode !== 'auto'): ?>
-                                    <span style="margin-left: 8px; color: #c62828;">(fallback applied)</span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong>Breakdance Elements for Oxygen</strong></td>
-                            <td style="color: <?php echo $isEssentialPluginActive ? '#2e7d32' : '#c62828'; ?>;">
-                                <?php echo $isEssentialPluginActive ? 'Detected' : 'Not detected'; ?>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong>Essential Button Contract</strong></td>
-                            <td style="color: <?php echo esc_attr($contractStatusColor); ?>;">
-                                <?php echo esc_html($contractStatusText); ?>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                        <div class="oxy-action-bar">
+                            <button type="button" id="oxy-preview-btn" class="button"><?php echo esc_html__('Preview', 'oxygen-html-converter'); ?></button>
+                            <button type="button" id="oxy-convert-btn" class="button button-primary"><?php echo esc_html__('Convert', 'oxygen-html-converter'); ?></button>
+                            <button type="button" id="oxy-copy-btn" class="button" disabled><?php echo esc_html__('Copy JSON', 'oxygen-html-converter'); ?></button>
+                        </div>
+                    </section>
 
-                <?php if (!empty($contractIssues)): ?>
-                    <div style="margin-top: 12px; padding: 12px; border: 1px solid #f3b3b3; background: #fff5f5; border-radius: 4px;">
-                        <strong>Contract Issues</strong>
-                        <ul style="margin: 8px 0 0 18px;">
-                            <?php foreach ($contractIssues as $issue): ?>
-                                <li><?php echo esc_html($issue); ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                <?php elseif ($isEssentialPluginActive && $isEssentialContractCompatible): ?>
-                    <div style="margin-top: 12px; padding: 12px; border: 1px solid #b8e6be; background: #f2fff4; border-radius: 4px;">
-                        <strong>All required Essential button contract checks passed.</strong>
-                    </div>
-                <?php endif; ?>
-            </div>
+                    <section class="oxy-card oxy-step-card">
+                        <div class="oxy-section-header">
+                            <span class="oxy-step-number">2</span>
+                            <div>
+                                <h2><?php echo esc_html__('Analysis', 'oxygen-html-converter'); ?></h2>
+                                <p><?php echo esc_html__('Use Preview and Convert to inspect the builder impact before importing. The audit below highlights preserved assets, transformations, stripped constructs, and follow-up work.', 'oxygen-html-converter'); ?></p>
+                            </div>
+                        </div>
 
-            <div class="oxy-converter-container">
-                <div class="oxy-converter-input">
-                    <h2>HTML Input</h2>
-                    <textarea id="oxy-html-input" placeholder="Paste your HTML here..."></textarea>
+                        <div id="oxy-preview-result" class="oxy-preview-box" hidden>
+                            <h3><?php echo esc_html__('Preview summary', 'oxygen-html-converter'); ?></h3>
+                            <div id="oxy-preview-content"></div>
+                        </div>
 
-                    <div class="oxy-converter-options">
-                        <div class="oxy-converter-preset">
-                            <label for="oxy-convert-preset">Conversion Preset</label>
-                            <select id="oxy-convert-preset">
-                                <option value="balanced" selected>Balanced (Recommended)</option>
-                                <option value="safe">Safe Import</option>
-                                <option value="fidelity">Max Fidelity</option>
-                                <option value="custom">Custom</option>
+                        <div id="oxy-audit-summary" class="oxy-audit-box">
+                            <div class="oxy-audit-header">
+                                <h3><?php echo esc_html__('Conversion audit', 'oxygen-html-converter'); ?></h3>
+                                <p><?php echo esc_html__('Run preview or convert to populate the audit.', 'oxygen-html-converter'); ?></p>
+                            </div>
+                            <div class="oxy-audit-grid">
+                                <section class="oxy-audit-section">
+                                    <h4><?php echo esc_html__('Preserved', 'oxygen-html-converter'); ?></h4>
+                                    <ul id="oxy-audit-preserved" class="oxy-audit-list"><li><?php echo esc_html__('No audit data yet.', 'oxygen-html-converter'); ?></li></ul>
+                                </section>
+                                <section class="oxy-audit-section">
+                                    <h4><?php echo esc_html__('Transformed', 'oxygen-html-converter'); ?></h4>
+                                    <ul id="oxy-audit-transformed" class="oxy-audit-list"><li><?php echo esc_html__('No audit data yet.', 'oxygen-html-converter'); ?></li></ul>
+                                </section>
+                                <section class="oxy-audit-section">
+                                    <h4><?php echo esc_html__('Stripped', 'oxygen-html-converter'); ?></h4>
+                                    <ul id="oxy-audit-stripped" class="oxy-audit-list"><li><?php echo esc_html__('No audit data yet.', 'oxygen-html-converter'); ?></li></ul>
+                                </section>
+                                <section class="oxy-audit-section">
+                                    <h4><?php echo esc_html__('Manual follow-up', 'oxygen-html-converter'); ?></h4>
+                                    <ul id="oxy-audit-follow-up" class="oxy-audit-list"><li><?php echo esc_html__('No audit data yet.', 'oxygen-html-converter'); ?></li></ul>
+                                </section>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="oxy-card oxy-step-card">
+                        <div class="oxy-section-header">
+                            <span class="oxy-step-number">3</span>
+                            <div>
+                                <h2><?php echo esc_html__('Import output', 'oxygen-html-converter'); ?></h2>
+                                <p><?php echo esc_html__('Copy the builder-safe JSON into Oxygen, or use the builder import flow directly from inside the editor with Ctrl+Shift+H.', 'oxygen-html-converter'); ?></p>
+                            </div>
+                        </div>
+
+                        <div id="oxy-json-result" class="oxy-json-box" hidden>
+                            <h3><?php echo esc_html__('Oxygen JSON', 'oxygen-html-converter'); ?> <span class="oxy-json-status"></span></h3>
+                            <div id="oxy-report-summary" class="oxy-report-summary" hidden>
+                                <div class="oxy-stat-grid">
+                                    <div class="oxy-stat-item"><strong><?php echo esc_html__('Elements', 'oxygen-html-converter'); ?></strong><span id="report-elements">0</span></div>
+                                    <div class="oxy-stat-item"><strong><?php echo esc_html__('Tailwind', 'oxygen-html-converter'); ?></strong><span id="report-tailwind">0</span></div>
+                                    <div class="oxy-stat-item"><strong><?php echo esc_html__('Custom classes', 'oxygen-html-converter'); ?></strong><span id="report-custom">0</span></div>
+                                </div>
+                                <div id="report-warnings" class="oxy-report-panel" hidden>
+                                    <strong><?php echo esc_html__('Warnings', 'oxygen-html-converter'); ?></strong>
+                                    <ul></ul>
+                                </div>
+                                <div id="report-info" class="oxy-report-panel" hidden>
+                                    <strong><?php echo esc_html__('Optimizations', 'oxygen-html-converter'); ?></strong>
+                                    <ul></ul>
+                                </div>
+                            </div>
+                            <label class="screen-reader-text" for="oxy-json-output"><?php echo esc_html__('Converted Oxygen JSON', 'oxygen-html-converter'); ?></label>
+                            <textarea id="oxy-json-output" readonly></textarea>
+                        </div>
+
+                        <div id="oxy-error-result" class="oxy-error-box" hidden>
+                            <h3><?php echo esc_html__('Action required', 'oxygen-html-converter'); ?></h3>
+                            <div id="oxy-error-content"></div>
+                        </div>
+                    </section>
+                </div>
+
+                <aside class="oxy-sidebar-column">
+                    <section class="oxy-card">
+                        <h2><?php echo esc_html__('Import settings', 'oxygen-html-converter'); ?></h2>
+                        <form method="post" action="options.php" class="oxy-settings-form">
+                            <?php settings_fields('oxy_html_converter_options'); ?>
+                            <label for="oxy_html_converter_class_mode"><?php echo esc_html__('Class handling mode', 'oxygen-html-converter'); ?></label>
+                            <select name="oxy_html_converter_class_mode" id="oxy_html_converter_class_mode">
+                                <option value="auto" <?php selected($classMode, 'auto'); ?>><?php echo esc_html__('Auto-detect (WindPress if available)', 'oxygen-html-converter'); ?></option>
+                                <option value="windpress" <?php selected($classMode, 'windpress'); ?>><?php echo esc_html__('Force WindPress mode', 'oxygen-html-converter'); ?></option>
+                                <option value="native" <?php selected($classMode, 'native'); ?>><?php echo esc_html__('Force native Oxygen mode', 'oxygen-html-converter'); ?></option>
                             </select>
-                        </div>
-                        <label>
-                            <input type="checkbox" id="oxy-wrap-container" checked>
-                            Wrap in container element
-                        </label>
-                        <label>
-                            <input type="checkbox" id="oxy-include-css" checked>
-                            Include extracted CSS Code element
-                        </label>
-                        <label>
-                            <input type="checkbox" id="oxy-inline-styles" checked>
-                            Apply inline/class styles to Oxygen design properties
-                        </label>
-                        <label>
-                            <input type="checkbox" id="oxy-safe-mode">
-                            Safe mode (strip scripts, event handlers, and external head assets)
-                        </label>
-                    </div>
 
-                    <div class="oxy-converter-actions">
-                        <button type="button" id="oxy-preview-btn" class="button">Preview</button>
-                        <button type="button" id="oxy-convert-btn" class="button button-primary">Convert</button>
-                        <button type="button" id="oxy-copy-btn" class="button" disabled>Copy to Clipboard</button>
-                    </div>
-                </div>
+                            <label for="oxy_html_converter_element_mapping_mode"><?php echo esc_html__('Button mapping mode', 'oxygen-html-converter'); ?></label>
+                            <select name="oxy_html_converter_element_mapping_mode" id="oxy_html_converter_element_mapping_mode">
+                                <option value="auto" <?php selected($elementMappingMode, 'auto'); ?>><?php echo esc_html__('Auto-detect', 'oxygen-html-converter'); ?></option>
+                                <option value="oxygen" <?php selected($elementMappingMode, 'oxygen'); ?>><?php echo esc_html__('Force Oxygen button', 'oxygen-html-converter'); ?></option>
+                                <option value="essential" <?php selected($elementMappingMode, 'essential'); ?>><?php echo esc_html__('Force Essential button', 'oxygen-html-converter'); ?></option>
+                            </select>
 
-                <div class="oxy-converter-output">
-                    <h2>Output</h2>
+                            <?php submit_button(__('Save settings', 'oxygen-html-converter'), 'secondary', 'submit', false); ?>
+                        </form>
+                    </section>
 
-                    <div id="oxy-preview-result" class="oxy-preview-box" style="display: none;">
-                        <h3>Preview Summary</h3>
-                        <div id="oxy-preview-content"></div>
-                    </div>
+                    <section class="oxy-card">
+                        <h2><?php echo esc_html__('Contract health', 'oxygen-html-converter'); ?></h2>
+                        <dl class="oxy-health-list">
+                            <div><dt><?php echo esc_html__('Configured button mode', 'oxygen-html-converter'); ?></dt><dd><code><?php echo esc_html($elementMappingMode); ?></code></dd></div>
+                            <div><dt><?php echo esc_html__('Effective button mapping', 'oxygen-html-converter'); ?></dt><dd><code><?php echo esc_html($effectiveButtonMapping); ?></code></dd></div>
+                            <div><dt><?php echo esc_html__('Breakdance Elements for Oxygen', 'oxygen-html-converter'); ?></dt><dd class="<?php echo $isEssentialPluginActive ? 'is-success' : 'is-danger'; ?>"><?php echo esc_html($isEssentialPluginActive ? __('Detected', 'oxygen-html-converter') : __('Not detected', 'oxygen-html-converter')); ?></dd></div>
+                            <div><dt><?php echo esc_html__('Essential button contract', 'oxygen-html-converter'); ?></dt><dd class="<?php echo esc_attr($contractStatusClass); ?>"><?php echo esc_html($contractStatusText); ?></dd></div>
+                        </dl>
 
-                    <div id="oxy-json-result" class="oxy-json-box" style="display: none;">
-                        <h3>Oxygen JSON <span class="oxy-json-status"></span></h3>
-                        
-                        <div id="oxy-report-summary" class="oxy-report-summary" style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; display: none;">
-                            <h4>Conversion Report</h4>
-                            <div class="report-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px;">
-                                <div class="stat-item"><strong>Elements:</strong> <span id="report-elements">0</span></div>
-                                <div class="stat-item"><strong>Tailwind:</strong> <span id="report-tailwind">0</span></div>
-                                <div class="stat-item"><strong>Custom Classes:</strong> <span id="report-custom">0</span></div>
+                        <?php if (!empty($contractIssues)): ?>
+                            <div class="oxy-callout is-danger">
+                                <strong><?php echo esc_html__('Contract issues', 'oxygen-html-converter'); ?></strong>
+                                <ul>
+                                    <?php foreach ($contractIssues as $issue): ?>
+                                        <li><?php echo esc_html($issue); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
                             </div>
-                            <div id="report-warnings" class="report-section" style="margin-bottom: 10px;">
-                                <strong>Warnings:</strong>
-                                <ul style="margin: 5px 0; color: #d9534f; font-size: 13px;"></ul>
+                        <?php elseif ($isEssentialPluginActive && $isEssentialContractCompatible): ?>
+                            <div class="oxy-callout is-success">
+                                <strong><?php echo esc_html__('All required Essential button contract checks passed.', 'oxygen-html-converter'); ?></strong>
                             </div>
-                            <div id="report-info" class="report-section">
-                                <strong>Optimizations:</strong>
-                                <ul style="margin: 5px 0; color: #5bc0de; font-size: 13px;"></ul>
-                            </div>
-                        </div>
+                        <?php endif; ?>
+                    </section>
 
-                        <textarea id="oxy-json-output" readonly></textarea>
-                    </div>
-
-                    <div id="oxy-error-result" class="oxy-error-box" style="display: none;">
-                        <h3>Error</h3>
-                        <div id="oxy-error-content"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="oxy-converter-instructions">
-                <h2>How to Use</h2>
-                <ol>
-                    <li>Paste your HTML code in the input area</li>
-                    <li>Click "Preview" to see what will be converted</li>
-                    <li>Click "Convert" to generate Oxygen JSON</li>
-                    <li>Click "Copy to Clipboard" to copy the result</li>
-                    <li>In Oxygen Builder, press <kbd>Ctrl</kbd>+<kbd>V</kbd> (or <kbd>Cmd</kbd>+<kbd>V</kbd>) to paste</li>
-                </ol>
-
-                <h3>Supported Elements</h3>
-                <table class="widefat">
-                    <thead>
-                        <tr>
-                            <th>HTML Element</th>
-                            <th>Oxygen Element</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td><code>&lt;div&gt;</code>, <code>&lt;section&gt;</code>, <code>&lt;article&gt;</code>, etc.</td><td>Container</td></tr>
-                        <tr><td><code>&lt;p&gt;</code>, <code>&lt;h1&gt;</code>-<code>&lt;h6&gt;</code>, <code>&lt;span&gt;</code></td><td>Text</td></tr>
-                        <tr><td><code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, <code>&lt;table&gt;</code></td><td>Rich Text</td></tr>
-                        <tr><td><code>&lt;a&gt;</code></td><td>Text Link</td></tr>
-                        <tr><td><code>&lt;button&gt;</code></td><td>Container or Essential Button (mode-dependent)</td></tr>
-                        <tr><td><code>&lt;img&gt;</code></td><td>Image</td></tr>
-                        <tr><td><code>&lt;iframe&gt;</code>, <code>&lt;svg&gt;</code>, <code>&lt;form&gt;</code></td><td>HTML Code</td></tr>
-                    </tbody>
-                </table>
+                    <section class="oxy-card">
+                        <h2><?php echo esc_html__('Supported scope', 'oxygen-html-converter'); ?></h2>
+                        <ul class="oxy-plain-list">
+                            <li><?php echo esc_html__('Single-page marketing and landing-page HTML', 'oxygen-html-converter'); ?></li>
+                            <li><?php echo esc_html__('Inline styles and utility-first CSS markup', 'oxygen-html-converter'); ?></li>
+                            <li><?php echo esc_html__('Common interactions such as nav toggles, anchor scroll, reveal-on-scroll, and counters', 'oxygen-html-converter'); ?></li>
+                            <li><?php echo esc_html__('Builder-safe editability and save/reopen integrity are the release bar', 'oxygen-html-converter'); ?></li>
+                        </ul>
+                    </section>
+                </aside>
             </div>
         </div>
         <?php
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function getUiConfig(): array
+    {
+        $baseDocsUrl = 'https://github.com/kamilskicki/oxygen-html-converter';
+
+        $config = [
+            'docs' => [
+                'readme' => $baseDocsUrl . '#readme',
+                'supportedScope' => $baseDocsUrl . '/blob/master/docs/SUPPORTED_SCOPE.md',
+                'releaseChecklist' => $baseDocsUrl . '/blob/master/docs/RELEASE_CHECKLIST.md',
+            ],
+            'examples' => [
+                'hero' => "<section class=\"hero\">\n  <h1>Build native Oxygen pages from HTML</h1>\n  <p>Paste full landing-page sections and keep them editable.</p>\n  <a href=\"#cta\" class=\"btn btn-primary\">Start importing</a>\n</section>",
+            ],
+        ];
+
+        return (array) apply_filters('oxy_html_converter_ui_config', $config);
     }
 }

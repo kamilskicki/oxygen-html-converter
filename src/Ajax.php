@@ -1,9 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OxyHtmlConverter;
 
 use OxyHtmlConverter\ElementTypes;
+use OxyHtmlConverter\Services\ConversionAuditBuilder;
 use OxyHtmlConverter\Services\OxygenDocumentTree;
+use OxyHtmlConverter\Services\RequestOptions;
+use OxyHtmlConverter\Validation\OutputValidator;
 
 /**
  * Handles AJAX endpoints for HTML conversion
@@ -11,6 +16,9 @@ use OxyHtmlConverter\Services\OxygenDocumentTree;
 class Ajax
 {
     private OxygenDocumentTree $documentTree;
+    private RequestOptions $requestOptions;
+    private ConversionAuditBuilder $auditBuilder;
+    private OutputValidator $outputValidator;
 
     /**
      * Capability required to use converter endpoints.
@@ -54,82 +62,21 @@ class Ajax
         return $defaultMessage;
     }
 
-    public function __construct(?OxygenDocumentTree $documentTree = null)
+    public function __construct(
+        ?OxygenDocumentTree $documentTree = null,
+        ?RequestOptions $requestOptions = null,
+        ?ConversionAuditBuilder $auditBuilder = null,
+        ?OutputValidator $outputValidator = null
+    )
     {
         $this->documentTree = $documentTree ?: new OxygenDocumentTree();
+        $this->requestOptions = $requestOptions ?: new RequestOptions();
+        $this->auditBuilder = $auditBuilder ?: new ConversionAuditBuilder();
+        $this->outputValidator = $outputValidator ?: new OutputValidator();
 
         add_action('wp_ajax_oxy_html_convert', [$this, 'handleConvert']);
         add_action('wp_ajax_oxy_html_convert_preview', [$this, 'handlePreview']);
         add_action('wp_ajax_oxy_html_convert_batch', [$this, 'handleBatchConvert']);
-    }
-
-    /**
-     * Parse a boolean-ish value from request/filter payloads.
-     */
-    private function parseBool($value, bool $default = false): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-
-        if ($value === null) {
-            return $default;
-        }
-
-        if (is_int($value)) {
-            return $value !== 0;
-        }
-
-        $parsed = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-        if ($parsed === null) {
-            return $default;
-        }
-
-        return (bool) $parsed;
-    }
-
-    /**
-     * Normalize convert options.
-     */
-    private function normalizeConvertOptions(array $input): array
-    {
-        $startingNodeId = isset($input['startingNodeId']) ? intval($input['startingNodeId']) : 1;
-        if ($startingNodeId < 1) {
-            $startingNodeId = 1;
-        }
-
-        return [
-            'startingNodeId' => $startingNodeId,
-            'wrapInContainer' => $this->parseBool($input['wrapInContainer'] ?? false, false),
-            'includeCssElement' => $this->parseBool($input['includeCssElement'] ?? true, true),
-            'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
-            'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
-        ];
-    }
-
-    /**
-     * Normalize batch options.
-     */
-    private function normalizeBatchOptions(array $input): array
-    {
-        return [
-            'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
-            'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
-        ];
-    }
-
-    /**
-     * Normalize preview options.
-     */
-    private function normalizePreviewOptions(array $input): array
-    {
-        return [
-            'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
-            'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
-        ];
     }
 
     /**
@@ -150,6 +97,7 @@ class Ajax
         }
 
         // Get HTML input
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw HTML must remain intact for conversion.
         $html = isset($_POST['html']) ? wp_unslash($_POST['html']) : '';
         if (empty($html)) {
             wp_send_json_error(['message' => 'No HTML provided'], 400);
@@ -165,10 +113,10 @@ class Ajax
         }
 
         // Get options
-        $options = $this->normalizeConvertOptions($_POST);
+        $options = $this->requestOptions->normalizeConvert($_POST);
         $filteredOptions = apply_filters('oxy_html_converter_convert_options', $options, $_POST);
         if (is_array($filteredOptions)) {
-            $options = $this->normalizeConvertOptions(array_merge($options, $filteredOptions));
+            $options = $this->requestOptions->normalizeConvert(array_merge($options, $filteredOptions));
         }
 
         try {
@@ -186,6 +134,7 @@ class Ajax
             $builder->setInlineStyles($options['inlineStyles']);
             $builder->setSafeMode($options['safeMode']);
             $builder->setDebugMode($options['debugMode']);
+            $builder->enableValidation();
 
             $result = $builder->convert($html);
 
@@ -255,7 +204,32 @@ class Ajax
                     $rootElement['children'] = array_merge($prependChildren, $existingChildren);
                 }
 
+                $validationErrors = $this->validateResponsePayload([
+                    'success' => true,
+                    'element' => $rootElement,
+                    'cssElement' => $result['cssElement'],
+                    'headLinkElements' => $result['headLinkElements'],
+                    'headScriptElements' => $result['headScriptElements'],
+                    'iconScriptElements' => $result['iconScriptElements'],
+                    'stats' => $result['stats'],
+                ]);
+
+                if ($validationErrors) {
+                    $audit = $this->auditBuilder->build(
+                        array_merge($result, ['validationErrors' => $validationErrors]),
+                        $options
+                    );
+
+                    wp_send_json_error([
+                        'message' => __('Converted output failed builder validation. Try Safe Mode or a different preset.', 'oxygen-html-converter'),
+                        'errors' => $validationErrors,
+                        'audit' => $audit,
+                    ], 422);
+                    return;
+                }
+
                 $documentTree = $this->documentTree->build($rootElement);
+                $audit = $this->auditBuilder->build($result, $options);
 
                 $payload = [
                     'element' => $rootElement,
@@ -270,6 +244,7 @@ class Ajax
                     'documentJson' => json_encode([
                         'tree_json_string' => wp_json_encode($documentTree),
                     ], JSON_PRETTY_PRINT),
+                    'audit' => $audit,
                 ];
 
                 $payload = apply_filters('oxy_html_converter_convert_response', $payload, $result, $options, $html);
@@ -324,7 +299,8 @@ class Ajax
         }
 
         // Get HTML inputs (expecting an array of HTML strings)
-        $rawBatch = isset($_POST['batch']) ? $_POST['batch'] : [];
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw HTML arrays must remain intact for conversion.
+        $rawBatch = isset($_POST['batch']) ? wp_unslash($_POST['batch']) : [];
         if (empty($rawBatch) || !is_array($rawBatch)) {
             wp_send_json_error(['message' => 'No HTML batch provided'], 400);
             return;
@@ -375,20 +351,22 @@ class Ajax
 
         $results = [];
         $builder = new TreeBuilder();
-        $options = $this->normalizeBatchOptions($_POST);
+        $options = $this->requestOptions->normalizeBatch($_POST);
         $filteredOptions = apply_filters('oxy_html_converter_batch_options', $options, $_POST);
         if (is_array($filteredOptions)) {
-            $options = $this->normalizeBatchOptions(array_merge($options, $filteredOptions));
+            $options = $this->requestOptions->normalizeBatch(array_merge($options, $filteredOptions));
         }
 
         $builder->setInlineStyles($options['inlineStyles']);
         $builder->setSafeMode($options['safeMode']);
         $builder->setDebugMode($options['debugMode']);
+        $builder->enableValidation();
         $totalStats = [
             'elements' => 0,
             'tailwindClasses' => 0,
             'customClasses' => 0,
             'warnings' => [],
+            'errors' => [],
             'info' => [],
         ];
 
@@ -399,16 +377,44 @@ class Ajax
                 $result = $builder->convert($html);
 
                 if ($result['success']) {
+                    $validationErrors = $this->validateResponsePayload([
+                        'success' => true,
+                        'element' => $result['element'],
+                        'cssElement' => $result['cssElement'],
+                        'headLinkElements' => $result['headLinkElements'],
+                        'headScriptElements' => $result['headScriptElements'],
+                        'iconScriptElements' => $result['iconScriptElements'],
+                        'stats' => $result['stats'],
+                    ]);
+
+                    if ($validationErrors) {
+                        $results[] = [
+                            'index' => $index,
+                            'success' => false,
+                            'message' => __('Converted output failed builder validation.', 'oxygen-html-converter'),
+                            'errors' => $validationErrors,
+                            'audit' => $this->auditBuilder->build(
+                                array_merge($result, ['validationErrors' => $validationErrors]),
+                                $options
+                            ),
+                        ];
+                        $totalStats['warnings'][] = 'Item ' . $index . ' failed builder validation.';
+                        $totalStats['errors'] = array_merge($totalStats['errors'], $validationErrors);
+                        continue;
+                    }
+
                     $documentTree = $this->documentTree->build($result['element']);
 
                     $results[] = [
                         'index' => $index,
+                        'success' => true,
                         'element' => $result['element'],
                         'documentTree' => $documentTree,
                         'documentJson' => json_encode([
                             'tree_json_string' => wp_json_encode($documentTree),
                         ], JSON_PRETTY_PRINT),
-                        'stats' => $result['stats']
+                        'stats' => $result['stats'],
+                        'audit' => $this->auditBuilder->build($result, $options),
                     ];
 
                     // Aggregate stats
@@ -416,7 +422,17 @@ class Ajax
                     $totalStats['tailwindClasses'] += $result['stats']['tailwindClasses'];
                     $totalStats['customClasses'] += $result['stats']['customClasses'];
                     $totalStats['warnings'] = array_merge($totalStats['warnings'], $result['stats']['warnings']);
+                    $totalStats['errors'] = array_merge($totalStats['errors'], $result['stats']['errors'] ?? []);
                     $totalStats['info'] = array_merge($totalStats['info'], $result['stats']['info']);
+                } else {
+                    $results[] = [
+                        'index' => $index,
+                        'success' => false,
+                        'message' => $result['error'] ?? __('Batch conversion failed.', 'oxygen-html-converter'),
+                        'errors' => $result['errors'] ?? [],
+                        'audit' => $this->auditBuilder->build($result, $options),
+                    ];
+                    $totalStats['errors'] = array_merge($totalStats['errors'], $result['errors'] ?? []);
                 }
             }
 
@@ -459,6 +475,7 @@ class Ajax
         }
 
         // Get HTML input
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw HTML must remain intact for conversion.
         $html = isset($_POST['html']) ? wp_unslash($_POST['html']) : '';
         if (empty($html)) {
             wp_send_json_error(['message' => 'No HTML provided'], 400);
@@ -473,10 +490,10 @@ class Ajax
             return;
         }
 
-        $options = $this->normalizePreviewOptions($_POST);
+        $options = $this->requestOptions->normalizePreview($_POST);
         $filteredOptions = apply_filters('oxy_html_converter_preview_options', $options, $_POST);
         if (is_array($filteredOptions)) {
-            $options = $this->normalizePreviewOptions(array_merge($options, $filteredOptions));
+            $options = $this->requestOptions->normalizePreview(array_merge($options, $filteredOptions));
         }
 
         try {
@@ -484,6 +501,7 @@ class Ajax
             $builder->setInlineStyles($options['inlineStyles']);
             $builder->setSafeMode($options['safeMode']);
             $builder->setDebugMode($options['debugMode']);
+            $builder->enableValidation();
             $result = $builder->convert($html);
 
             if ($result['success']) {
@@ -498,6 +516,8 @@ class Ajax
                     'customClasses' => $result['customClasses'],
                     'hasExtractedCss' => !empty($result['extractedCss']),
                     'warnings' => $result['stats']['warnings'],
+                    'errors' => $result['stats']['errors'] ?? [],
+                    'audit' => $this->auditBuilder->build($result, $options),
                 ];
 
                 $payload = apply_filters('oxy_html_converter_preview_response', $payload, $result, $html);
@@ -549,5 +569,20 @@ class Ajax
         }
 
         return $counts;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<int, string>
+     */
+    private function validateResponsePayload(array $payload): array
+    {
+        $this->outputValidator->reset();
+
+        if ($this->outputValidator->validateConversionResult($payload)) {
+            return [];
+        }
+
+        return $this->outputValidator->getErrors();
     }
 }

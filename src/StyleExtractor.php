@@ -186,6 +186,28 @@ class StyleExtractor
     }
 
     /**
+     * Check whether every non-internal declaration can be represented
+     * natively in the current Oxygen property map.
+     */
+    public function supportsDeclarationsFully(array $styles): bool
+    {
+        $supportedDeclarationCount = 0;
+
+        foreach ($styles as $cssProp => $value) {
+            if (strpos($cssProp, '_') === 0) {
+                continue;
+            }
+
+            $supportedDeclarationCount++;
+            if (!isset(self::STYLE_MAP[$cssProp])) {
+                return false;
+            }
+        }
+
+        return $supportedDeclarationCount > 0;
+    }
+
+    /**
      * Set a nested array value by path
      */
     private function setNestedValue(array &$array, array $path, $value): void

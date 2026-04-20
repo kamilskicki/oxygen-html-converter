@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use OxyHtmlConverter\Services\ClassStrategyService;
 use OxyHtmlConverter\Services\EnvironmentService;
 use OxyHtmlConverter\Services\TailwindDetector;
+use OxyHtmlConverter\Services\TailwindPropertyMapper;
 use OxyHtmlConverter\Report\ConversionReport;
 
 class ClassStrategyServiceTest extends TestCase
@@ -30,7 +31,8 @@ class ClassStrategyServiceTest extends TestCase
         return new ClassStrategyService(
             $environment,
             $this->report,
-            new TailwindDetector()
+            new TailwindDetector(),
+            new TailwindPropertyMapper()
         );
     }
 
@@ -59,23 +61,19 @@ class ClassStrategyServiceTest extends TestCase
         $this->assertEquals($classes, $storedClasses);
     }
 
-    public function testOxygenNativeModePreservesAllClassesForNow(): void
+    public function testOxygenNativeModeMapsSupportedTailwindUtilitiesAndPreservesCustomClasses(): void
     {
-        // Current implementation preserves all classes even in native mode
-        // (Tailwind-to-properties conversion not yet implemented)
         $service = $this->createServiceWithWindPressMode(false);
         $element = ['data' => ['properties' => []]];
         
         $classes = ['flex', 'items-center', 'my-custom-class'];
         $service->processClasses($classes, $element);
         
-        $storedClasses = $element['data']['properties']['settings']['advanced']['classes'];
-        
-        // In native mode, classes are reordered: custom first, then tailwind
-        $this->assertCount(3, $storedClasses);
-        $this->assertContains('flex', $storedClasses);
-        $this->assertContains('items-center', $storedClasses);
-        $this->assertContains('my-custom-class', $storedClasses);
+        $storedClasses = $element['data']['properties']['settings']['advanced']['classes'] ?? [];
+
+        $this->assertSame(['my-custom-class'], $storedClasses);
+        $this->assertSame('flex', $element['data']['properties']['design']['layout']['display']);
+        $this->assertSame('center', $element['data']['properties']['design']['layout']['align-items']);
     }
 
     public function testReportTracksClassCounts(): void
@@ -99,15 +97,15 @@ class ClassStrategyServiceTest extends TestCase
         $service = $this->createServiceWithWindPressMode(false);
         $element = ['data' => ['properties' => []]];
         
-        // Include Tailwind classes to trigger warning
-        $classes = ['flex', 'items-center'];
+        // Include an unsupported Tailwind class to trigger parity-preservation warning.
+        $classes = ['container'];
         $service->processClasses($classes, $element);
         
         $stats = $this->report->toArray();
         
         $this->assertNotEmpty($stats['warnings']);
         $this->assertStringContainsString(
-            'Tailwind class conversion to properties not yet implemented',
+            'preserved unsupported Tailwind utilities',
             $stats['warnings'][0]
         );
     }

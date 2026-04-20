@@ -1,6 +1,7 @@
 const tests = [
   ["presets", require("./presets.test.cjs")],
   ["converter-options", require("./converter-options.test.cjs")],
+  ["clipboard-utils", require("./clipboard-utils.test.cjs")],
 ];
 
 let passed = 0;

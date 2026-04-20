@@ -39,8 +39,8 @@ Detailed scope:
 
 ## Requirements
 
-- WordPress `5.0+`
-- PHP `7.4+`
+- WordPress `6.5+`
+- PHP `8.2+`
 - Oxygen Builder `6.x`
 - Logged-in user with `manage_options` by default
 
