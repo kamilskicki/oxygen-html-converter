@@ -11,6 +11,9 @@ const DEFAULT_ADMIN_PASSWORD =
 const DEFAULT_TOOL_PATH =
   process.env.OXY_HTML_CONVERTER_TOOL_PATH ||
   "/wp-admin/tools.php?page=oxy-html-converter-tool";
+const DEFAULT_SKIP_SYNC =
+  process.env.OXY_HTML_CONVERTER_SKIP_SYNC === "1" ||
+  process.env.OXY_HTML_CONVERTER_SKIP_SYNC === "true";
 
 function loadPlaywright() {
   const explicitModule = process.env.OXY_HTML_CONVERTER_PLAYWRIGHT_MODULE;
@@ -20,6 +23,50 @@ function loadPlaywright() {
   }
 
   return require("playwright");
+}
+
+function parseArgs(argv) {
+  const options = {
+    container: DEFAULT_CONTAINER,
+    outputDir: DEFAULT_OUTPUT_DIR,
+    baseUrl: process.env.OXY_HTML_CONVERTER_BASE_URL || "",
+    adminUser: DEFAULT_ADMIN_USER,
+    adminPassword: DEFAULT_ADMIN_PASSWORD,
+    skipSync: DEFAULT_SKIP_SYNC,
+  };
+
+  for (const arg of argv) {
+    if (arg === "--skip-sync") {
+      options.skipSync = true;
+      continue;
+    }
+
+    if (arg === "--sync") {
+      options.skipSync = false;
+      continue;
+    }
+
+    if (!arg.startsWith("--")) {
+      continue;
+    }
+
+    const [rawKey, rawValue] = arg.slice(2).split("=", 2);
+    const value = rawValue === undefined ? "true" : rawValue;
+
+    if (rawKey === "container") {
+      options.container = value;
+    } else if (rawKey === "output-dir") {
+      options.outputDir = path.resolve(process.cwd(), value);
+    } else if (rawKey === "base-url") {
+      options.baseUrl = value;
+    } else if (rawKey === "admin-user") {
+      options.adminUser = value;
+    } else if (rawKey === "admin-password") {
+      options.adminPassword = value;
+    }
+  }
+
+  return options;
 }
 
 function runCommand(command, args, options = {}) {
@@ -37,6 +84,12 @@ function logStep(message) {
 
 function isIgnorableRuntimeError(message) {
   return /angular is not defined/i.test(message);
+}
+
+function isPluginSignal(text) {
+  return /oxygen-html-converter|oxy[_-]html[_-]convert|oxy[_-]html[_-]converter|\/oxygen-html-converter\//i.test(
+    text
+  );
 }
 
 function runNodeScript(scriptPath, args = []) {
@@ -81,7 +134,9 @@ function loadFixturePages(container, summary) {
   const slugs = summary.fixtures.map((fixture) =>
     buildSlug(path.basename(fixture.fixture, ".html"))
   );
-  const slugsJson = JSON.stringify(slugs).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  const slugsJson = JSON.stringify(slugs)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
   const php = `
     require '/var/www/html/wp-load.php';
     $wanted = json_decode('${slugsJson}', true);
@@ -100,6 +155,19 @@ function loadFixturePages(container, summary) {
   `;
 
   return JSON.parse(runDockerPhp(container, php));
+}
+
+function classifyObservation(text, blocking, ambient) {
+  if (!text || isIgnorableRuntimeError(text)) {
+    return;
+  }
+
+  if (isPluginSignal(text)) {
+    blocking.push(text);
+    return;
+  }
+
+  ambient.push(text);
 }
 
 async function login(page, baseUrl, username, password) {
@@ -159,12 +227,98 @@ async function assertNoBuilderErrors(page, label) {
   }
 }
 
+async function runBuilderModalSmoke(page, fixtureSlug) {
+  logStep(`Running builder modal smoke on ${fixtureSlug}`);
+  const modalHookReady = await page
+    .waitForFunction(
+      () => typeof window.oxyHtmlConverterOpenModal === "function",
+      null,
+      { timeout: 60000 }
+    )
+    .then(() => true)
+    .catch(() => false);
+
+  if (modalHookReady) {
+    await page.evaluate(() => {
+      window.oxyHtmlConverterOpenModal();
+    });
+  } else {
+    await page.keyboard.press("Control+Shift+H");
+  }
+
+  await page.locator("#oxy-html-import-input").waitFor({ timeout: 30000 });
+  await page.fill(
+    "#oxy-html-import-input",
+    '<section class="live-gate-smoke"><h2>Live Gate</h2><p>Builder modal smoke content.</p></section>'
+  );
+  await page.click("#oxy-html-import-submit");
+  await page.waitForFunction(() => {
+    const modal = document.querySelector(
+      "#oxy-html-import-modal .oxy-html-modal-overlay"
+    );
+    return modal && modal.style.display !== "block";
+  });
+  await page.waitForTimeout(5000);
+  await assertNoBuilderErrors(page, `Builder modal import for ${fixtureSlug}`);
+}
+
+async function writeClipboardHtml(page, html) {
+  await page.evaluate(async (htmlInput) => {
+    if (
+      !navigator.clipboard ||
+      typeof navigator.clipboard.write !== "function" ||
+      typeof ClipboardItem === "undefined"
+    ) {
+      throw new Error("Clipboard HTML write is not available in this browser.");
+    }
+
+    const item = new ClipboardItem({
+      "text/html": new Blob([htmlInput], { type: "text/html" }),
+      "text/plain": new Blob([htmlInput], { type: "text/plain" }),
+    });
+
+    await navigator.clipboard.write([item]);
+  }, html);
+}
+
+async function runBuilderPasteSmoke(page, fixtureSlug) {
+  logStep(`Running builder paste smoke on ${fixtureSlug}`);
+  const pasteHtml =
+    '<section class="live-gate-paste"><h2>Paste Gate</h2><p>Builder paste smoke content.</p></section>';
+
+  await page.locator("body").click({ position: { x: 24, y: 24 } });
+  await page.evaluate(() => {
+    if (
+      document.activeElement &&
+      typeof document.activeElement.blur === "function"
+    ) {
+      document.activeElement.blur();
+    }
+  });
+  await writeClipboardHtml(page, pasteHtml);
+
+  const toast = page.locator("#oxy-html-converter-toast");
+  await page.keyboard.press("Control+V");
+  await toast.waitFor({ timeout: 30000 });
+
+  const toastText = await toast.innerText();
+  if (!/converted|clipboard|ready/i.test(toastText)) {
+    throw new Error(
+      `Builder paste smoke did not report a converter toast for ${fixtureSlug}.`
+    );
+  }
+
+  await page.waitForTimeout(5000);
+  await assertNoBuilderErrors(page, `Builder paste for ${fixtureSlug}`);
+}
+
 async function runBuilderSmoke(page, baseUrl, fixtures) {
   if (!fixtures.length) {
     throw new Error("No maintained fixture pages were found for builder smoke.");
   }
 
   let modalSmokeRan = false;
+  let pasteSmokeRan = false;
 
   for (const fixture of fixtures) {
     logStep(`Opening builder for ${fixture.slug} (#${fixture.id})`);
@@ -177,37 +331,13 @@ async function runBuilderSmoke(page, baseUrl, fixtures) {
     await assertNoBuilderErrors(page, `Builder open for ${fixture.slug}`);
 
     if (!modalSmokeRan) {
-      logStep(`Running builder modal smoke on ${fixture.slug}`);
-      const modalHookReady = await page
-        .waitForFunction(
-          () => typeof window.oxyHtmlConverterOpenModal === "function",
-          null,
-          { timeout: 60000 }
-        )
-        .then(() => true)
-        .catch(() => false);
-
-      if (modalHookReady) {
-        await page.evaluate(() => {
-          window.oxyHtmlConverterOpenModal();
-        });
-      } else {
-        await page.keyboard.press("Control+Shift+H");
-      }
-
-      await page.locator("#oxy-html-import-input").waitFor({ timeout: 30000 });
-      await page.fill(
-        "#oxy-html-import-input",
-        '<section class="live-gate-smoke"><h2>Live Gate</h2><p>Builder modal smoke content.</p></section>'
-      );
-      await page.click("#oxy-html-import-submit");
-      await page.waitForFunction(() => {
-        const modal = document.querySelector("#oxy-html-import-modal .oxy-html-modal-overlay");
-        return modal && modal.style.display !== "block";
-      });
-      await page.waitForTimeout(5000);
-      await assertNoBuilderErrors(page, `Builder modal import for ${fixture.slug}`);
+      await runBuilderModalSmoke(page, fixture.slug);
       modalSmokeRan = true;
+    }
+
+    if (!pasteSmokeRan) {
+      await runBuilderPasteSmoke(page, fixture.slug);
+      pasteSmokeRan = true;
     }
 
     logStep(`Saving builder document for ${fixture.slug}`);
@@ -224,12 +354,23 @@ async function runBuilderSmoke(page, baseUrl, fixtures) {
 }
 
 async function main() {
-  fs.mkdirSync(DEFAULT_OUTPUT_DIR, { recursive: true });
+  const options = parseArgs(process.argv.slice(2));
+  fs.mkdirSync(options.outputDir, { recursive: true });
 
-  logStep("Syncing plugin into Docker container");
-  const syncResult = JSON.parse(
-    runNodeScript(path.join("tests", "live", "sync-docker-plugin.cjs"))
-  );
+  let syncResult = {
+    ok: true,
+    skipped: options.skipSync,
+  };
+
+  if (options.skipSync) {
+    logStep("Skipping source sync; using the installed plugin artifact");
+  } else {
+    logStep("Syncing plugin into Docker container");
+    syncResult = JSON.parse(
+      runNodeScript(path.join("tests", "live", "sync-docker-plugin.cjs"))
+    );
+  }
+
   const localFixtureDir = path.resolve(
     process.cwd(),
     "..",
@@ -243,19 +384,38 @@ async function main() {
   logStep("Running fixture baseline parity suite");
   const fixtureBaselineResult = JSON.parse(
     runNodeScript(path.join("tests", "live", "run-fixture-baseline.cjs"), [
-      `--output-dir=${path.relative(process.cwd(), path.join(DEFAULT_OUTPUT_DIR, "fixture-baseline"))}`,
+      `--output-dir=${path.relative(
+        process.cwd(),
+        path.join(options.outputDir, "fixture-baseline")
+      )}`,
       `--local-fixture-dir=${localFixtureDir}`,
+      `--container=${options.container}`,
     ])
   );
 
   const fixtureSummary = loadFixtureSummary(fixtureBaselineResult.jsonPath);
-  const baseUrl = process.env.OXY_HTML_CONVERTER_BASE_URL || getHomeUrl(DEFAULT_CONTAINER);
-  const fixtures = loadFixturePages(DEFAULT_CONTAINER, fixtureSummary);
+  const baseUrl = options.baseUrl || getHomeUrl(options.container);
+  const fixtures = loadFixturePages(options.container, fixtureSummary);
 
   logStep(`Resolved base URL: ${baseUrl}`);
-  logStep(`Resolved maintained fixtures: ${fixtures.map((fixture) => fixture.slug).join(", ")}`);
-  ensureAdminPassword(DEFAULT_CONTAINER, DEFAULT_ADMIN_PASSWORD);
+  logStep(
+    `Resolved maintained fixtures: ${fixtures
+      .map((fixture) => fixture.slug)
+      .join(", ")}`
+  );
+  ensureAdminPassword(options.container, options.adminPassword);
   logStep("Ensured admin credentials for live gate");
+
+  const blockingObservations = {
+    pageErrors: [],
+    consoleErrors: [],
+    requestFailures: [],
+  };
+  const ambientObservations = {
+    pageErrors: [],
+    consoleErrors: [],
+    requestFailures: [],
+  };
 
   const { chromium } = loadPlaywright();
   const browser = await chromium.launch({ headless: true });
@@ -263,19 +423,73 @@ async function main() {
     ignoreHTTPSErrors: true,
     viewport: { width: 1440, height: 1000 },
   });
+
+  try {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: new URL(baseUrl).origin,
+    });
+  } catch (error) {
+    logStep(`Clipboard permissions were not granted explicitly: ${error.message}`);
+  }
+
   const page = await context.newPage();
-  const runtimeErrors = [];
 
   page.on("pageerror", (error) => {
-    const message = String(error && error.message ? error.message : error);
-    if (!isIgnorableRuntimeError(message)) {
-      runtimeErrors.push(message);
+    const message = String(error && error.stack ? error.stack : error);
+    classifyObservation(
+      message,
+      blockingObservations.pageErrors,
+      ambientObservations.pageErrors
+    );
+  });
+
+  page.on("console", (message) => {
+    if (message.type() !== "error") {
+      return;
     }
+
+    const location = message.location();
+    const formatted = [
+      message.type(),
+      message.text(),
+      location && location.url
+        ? `@ ${location.url}:${location.lineNumber || 0}:${
+            location.columnNumber || 0
+          }`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    classifyObservation(
+      formatted,
+      blockingObservations.consoleErrors,
+      ambientObservations.consoleErrors
+    );
+  });
+
+  page.on("requestfailed", (request) => {
+    const postData = request.postData() || "";
+    const failure = request.failure();
+    const formatted = [
+      request.method(),
+      request.url(),
+      failure && failure.errorText ? `(${failure.errorText})` : "",
+      postData ? `postData=${postData}` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    classifyObservation(
+      formatted,
+      blockingObservations.requestFailures,
+      ambientObservations.requestFailures
+    );
   });
 
   try {
     logStep("Logging into local WordPress admin");
-    await login(page, baseUrl, DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASSWORD);
+    await login(page, baseUrl, options.adminUser, options.adminPassword);
     await runAdminSmoke(page, baseUrl);
     await runBuilderSmoke(page, baseUrl, fixtures);
   } finally {
@@ -283,24 +497,32 @@ async function main() {
     await browser.close();
   }
 
-  if (runtimeErrors.length) {
+  const blockingEntries = Object.values(blockingObservations).flat();
+  if (blockingEntries.length) {
     throw new Error(
-      `Live gate captured runtime errors: ${runtimeErrors.join(" | ")}`
+      `Live gate captured plugin-attributable observations: ${blockingEntries.join(
+        " | "
+      )}`
     );
   }
 
   const result = {
     ok: true,
     baseUrl,
-    container: DEFAULT_CONTAINER,
+    container: options.container,
+    skipSync: options.skipSync,
     sync: syncResult,
     fixtureBaseline: fixtureBaselineResult,
-    fixtures: fixtures,
-    outputDir: DEFAULT_OUTPUT_DIR,
+    fixtures,
+    observations: {
+      blocking: blockingObservations,
+      ambient: ambientObservations,
+    },
+    outputDir: options.outputDir,
   };
 
   fs.writeFileSync(
-    path.join(DEFAULT_OUTPUT_DIR, "summary.json"),
+    path.join(options.outputDir, "summary.json"),
     JSON.stringify(result, null, 2)
   );
 

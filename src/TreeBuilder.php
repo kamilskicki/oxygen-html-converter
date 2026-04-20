@@ -539,22 +539,11 @@ CSS;
                     && strpos($scriptContent, 'animate-on-scroll') !== false;
                 $hasSmoothScroll = $this->jsPatterns['smoothScroll']
                     && strpos($scriptContent, 'scrollIntoView') !== false;
-                $toggleIds = [];
-                foreach ($this->jsPatterns['toggles'] as $key => $data) {
-                    if (strpos($key, '__selector__') === 0) {
-                        continue;
-                    }
-                    // Check if this script contains the getElementById for this ID
-                    if (strpos($scriptContent, "'" . $key . "'") !== false || strpos($scriptContent, '"' . $key . '"') !== false) {
-                        $toggleIds[] = $key;
-                    }
-                }
-
                 $transformedJs = $this->jsTransformer->stripConvertedPatterns(
                     $transformedJs,
                     $hasObserver,
                     $hasSmoothScroll,
-                    $toggleIds
+                    []
                 );
 
                 // If JS is empty after cleanup, skip creating the element
@@ -723,16 +712,6 @@ CSS;
             }
         }
 
-        // Apply pre-detected toggle interactions from JS analysis
-        $elementId = $node->getAttribute('id');
-        if ($elementId && isset($this->jsPatterns['toggles'][$elementId])) {
-            $this->interactionDetector->applyDetectedInteraction(
-                $elementId,
-                $this->jsPatterns['toggles'][$elementId]['interaction'],
-                $element
-            );
-        }
-
         // Apply smooth scroll to anchor links
         if ($this->jsPatterns['smoothScroll'] && $tag === 'a') {
             $href = $node->getAttribute('href');
@@ -747,21 +726,6 @@ CSS;
                     ]],
                 ];
                 $this->interactionDetector->applyDetectedInteraction('', $scrollInteraction, $element);
-            }
-        }
-
-        // Apply class-based interactions from querySelectorAll patterns (e.g., .mobile-link)
-        foreach ($this->jsPatterns['toggles'] as $key => $data) {
-            if (strpos($key, '__selector__') !== 0) {
-                continue;
-            }
-            $selector = $data['selector'] ?? '';
-            // Check if selector is a class selector and element has that class
-            if (strpos($selector, '.') === 0) {
-                $selectorClass = substr($selector, 1);
-                if (in_array($selectorClass, $classNames, true)) {
-                    $this->interactionDetector->applyDetectedInteraction('', $data['interaction'], $element);
-                }
             }
         }
 
@@ -862,7 +826,7 @@ CSS;
         $smoothScroll = $this->interactionDetector->detectSmoothScrollPattern($allJs);
 
         if (!empty($toggles)) {
-            $this->report->addInfo('Detected ' . count($toggles) . ' toggle interaction(s) from JavaScript — converted to native Oxygen interactions.');
+            $this->report->addInfo('Detected ' . count($toggles) . ' toggle interaction(s) from JavaScript — preserving original handlers for frontend parity.');
         }
         if ($smoothScroll) {
             $this->report->addInfo('Detected smooth scroll pattern — converted to native Oxygen scroll_to interactions on anchor links.');

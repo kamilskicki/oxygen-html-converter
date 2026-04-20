@@ -80,6 +80,10 @@ More detail:
 - PHP unit gate: `composer test`
 - JS tests: `npm run test:js`
 - Local live gate: `npm run test:live`
+- Install latest ZIP via wp-admin on the local Oxygen stack: `npm run install:zip`
+- Artifact live gate against the installed ZIP: `npm run test:live:artifact`
+- Maintained fixture screenshot pairs and frontend smoke: `npm run test:visual`
+- Full artifact gate after `npm run build:zip`: `npm run test:artifact`
 - Release verification: `npm run release:verify`
 - Build release ZIP: `npm run build:zip`
 

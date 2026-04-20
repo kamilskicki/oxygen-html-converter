@@ -19,11 +19,24 @@
    - admin converter preview/convert smoke
    - builder open -> import/save -> reopen smoke with no `Validation Error` / `IO-TS decoding failed`
 
+## ZIP Artifact Gate
+
+1. Run `npm run build:zip`.
+2. Install the fresh ZIP through wp-admin on the maintained Oxygen stack with `npm run install:zip`.
+3. Run `npm run test:live:artifact`.
+4. Run `npm run test:visual`.
+5. Confirm the artifact gate covers:
+   - real ZIP upload/update through wp-admin
+   - admin preview/convert smoke against the installed artifact
+   - builder `Ctrl+Shift+H` import modal smoke
+   - builder `Ctrl+V` paste smoke
+   - maintained fixture screenshot pairs and targeted frontend interaction smoke
+
 ## Packaging
 
 1. Run `npm run build:zip`.
 2. Verify the ZIP excludes `.distignore` entries.
-3. Verify the ZIP installs and activates on a clean site.
+3. Verify the ZIP installs and activates through wp-admin on the maintained Oxygen stack.
 
 ## Release Verify
 

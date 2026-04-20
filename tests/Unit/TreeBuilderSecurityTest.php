@@ -261,4 +261,77 @@ HTML;
         $css = (string) ($result['cssElement']['data']['properties']['content']['content']['css_code'] ?? '');
         $this->assertStringNotContainsString('body h1, body h2, body h3, body h4, body h5, body h6,', $css);
     }
+
+    public function testToggleHandlersStayInJavascriptCodeForFrontendParity(): void
+    {
+        $html = <<<HTML
+<nav>
+  <ul id="navLinks"><li><a href="#contact">Contact</a></li></ul>
+  <button id="navToggle">Menu</button>
+</nav>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var navToggle = document.getElementById('navToggle');
+    var navLinks = document.getElementById('navLinks');
+
+    navToggle.addEventListener('click', function () {
+        navToggle.classList.toggle('active');
+        navLinks.classList.toggle('open');
+    });
+});
+</script>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $toggleElement = $this->findElementByAdvancedId($result['element'], 'navToggle');
+        $this->assertNotNull($toggleElement);
+
+        $interactions = $toggleElement['data']['properties']['settings']['interactions']['interactions'] ?? [];
+        $this->assertSame([], $interactions);
+
+        $javascriptPayloads = [];
+        $this->collectJavascriptPayloads($result['element'], $javascriptPayloads);
+        $combinedPayload = implode("\n", $javascriptPayloads);
+
+        $this->assertStringContainsString("navToggle.addEventListener('click'", $combinedPayload);
+        $this->assertStringContainsString("navLinks.classList.toggle('open')", $combinedPayload);
+    }
+
+    private function findElementByAdvancedId(array $element, string $advancedId): ?array
+    {
+        $currentId = $element['data']['properties']['settings']['advanced']['id'] ?? null;
+        if ($currentId === $advancedId) {
+            return $element;
+        }
+
+        foreach (($element['children'] ?? []) as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+
+            $match = $this->findElementByAdvancedId($child, $advancedId);
+            if ($match !== null) {
+                return $match;
+            }
+        }
+
+        return null;
+    }
+
+    private function collectJavascriptPayloads(array $element, array &$payloads): void
+    {
+        if (($element['data']['type'] ?? '') === 'OxygenElements\\JavaScriptCode') {
+            $payloads[] = (string) ($element['data']['properties']['content']['content']['javascript_code'] ?? '');
+        }
+
+        foreach (($element['children'] ?? []) as $child) {
+            if (is_array($child)) {
+                $this->collectJavascriptPayloads($child, $payloads);
+            }
+        }
+    }
 }

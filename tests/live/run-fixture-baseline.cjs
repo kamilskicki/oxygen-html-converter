@@ -6,7 +6,23 @@ const DEFAULT_CONTAINER = process.env.OXY_HTML_CONVERTER_DOCKER_CONTAINER || "ox
 const DEFAULT_FIXTURE_DIR = process.env.OXY_HTML_CONVERTER_FIXTURE_DIR || "/var/www/html/Import_Tests";
 const DEFAULT_REMOTE_ARTIFACTS = process.env.OXY_HTML_CONVERTER_REMOTE_ARTIFACTS || "/tmp/oxy-parity-suite";
 const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "artifacts", "fixture-baseline");
-const DEFAULT_LOCAL_FIXTURE_DIR = path.resolve(process.cwd(), "..", "..", "fixtures", "html");
+
+function resolveDefaultLocalFixtureDir() {
+  const candidates = [
+    path.resolve(process.cwd(), "..", "..", "fixtures", "html"),
+    path.resolve(process.cwd(), "..", "..", "..", "..", "fixtures", "html"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+}
+
+const DEFAULT_LOCAL_FIXTURE_DIR = resolveDefaultLocalFixtureDir();
 
 function parseArgs(argv) {
   const options = {
@@ -270,6 +286,10 @@ function buildMarkdown(summary) {
 function main() {
   const options = parseArgs(process.argv.slice(2));
   fs.mkdirSync(options.outputDir, { recursive: true });
+
+  if (!fs.existsSync(options.localFixtureDir)) {
+    throw new Error(`Local fixture directory does not exist: ${options.localFixtureDir}`);
+  }
 
   const originalClassMode = getCurrentClassMode(options);
 
