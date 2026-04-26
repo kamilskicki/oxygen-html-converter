@@ -300,7 +300,7 @@ class HeuristicsService
         }
 
         // Second major element after fixed header: add top padding
-        if ($headerDetected && $firstProcessed) {
+        if ($headerDetected) {
             if ($tag === 'header' || $tag === 'section' || $tag === 'div') {
                 $element['data']['properties']['design'] = $element['data']['properties']['design'] ?? [];
                 $element['data']['properties']['design']['spacing'] = $element['data']['properties']['design']['spacing'] ?? [];

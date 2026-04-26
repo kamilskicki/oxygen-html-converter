@@ -43,7 +43,7 @@ class ConversionReport
      */
     public function addWarning(string $message): void
     {
-        if (!in_array($message, $this->warnings)) {
+        if (!in_array($message, $this->warnings, true)) {
             $this->warnings[] = $message;
         }
     }
@@ -53,7 +53,7 @@ class ConversionReport
      */
     public function addError(string $message): void
     {
-        if (!in_array($message, $this->errors)) {
+        if (!in_array($message, $this->errors, true)) {
             $this->errors[] = $message;
         }
     }
@@ -63,7 +63,7 @@ class ConversionReport
      */
     public function addInfo(string $message): void
     {
-        if (!in_array($message, $this->info)) {
+        if (!in_array($message, $this->info, true)) {
             $this->info[] = $message;
         }
     }

@@ -16,22 +16,19 @@ class TreeBuilderFactory
      */
     public function createForConvert(array $options, string $html): TreeBuilder
     {
-        $builder = apply_filters('oxy_html_converter_tree_builder', new TreeBuilder(), $options, $html);
-        if (!($builder instanceof TreeBuilder)) {
-            $builder = new TreeBuilder();
-        }
-
-        $this->configure($builder, $options);
-
-        return $builder;
+        return $this->create($options, 'convert', $html);
     }
 
     /**
      * @param array<string, mixed> $options
      */
-    public function create(array $options): TreeBuilder
+    public function create(array $options, string $context = 'generic', string $html = ''): TreeBuilder
     {
-        $builder = new TreeBuilder();
+        $builder = apply_filters('oxy_html_converter_tree_builder', new TreeBuilder(), $options, $html, $context);
+        if (!($builder instanceof TreeBuilder)) {
+            $builder = new TreeBuilder();
+        }
+
         $this->configure($builder, $options);
 
         return $builder;

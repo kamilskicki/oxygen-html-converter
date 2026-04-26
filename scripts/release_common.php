@@ -81,7 +81,11 @@ function release_path_matches_pattern(string $relativePath, string $pattern): bo
     }
 
     if (str_contains($pattern, '*') || str_contains($pattern, '?')) {
-        return fnmatch($pattern, $relativePath) || fnmatch($pattern, basename($relativePath));
+        $firstSegment = explode('/', $relativePath, 2)[0];
+
+        return fnmatch($pattern, $relativePath)
+            || fnmatch($pattern, basename($relativePath))
+            || fnmatch($pattern, $firstSegment);
     }
 
     $pattern = rtrim($pattern, '/');
@@ -98,6 +102,32 @@ function release_should_exclude(string $relativePath, array $patterns): bool
     }
 
     return false;
+}
+
+/**
+ * @return array<int, string>
+ */
+function release_distribution_files(string $root, array $patterns): array
+{
+    $trackedFiles = release_run_command(['git', 'ls-files', '-z'], $root);
+    release_require_success($trackedFiles);
+
+    $files = [];
+    foreach (explode("\0", (string) $trackedFiles['stdout']) as $relativePath) {
+        $relativePath = release_normalize_path(trim($relativePath));
+        if ($relativePath === '' || release_should_exclude($relativePath, $patterns)) {
+            continue;
+        }
+
+        $absolutePath = $root . '/' . $relativePath;
+        if (is_file($absolutePath)) {
+            $files[] = $relativePath;
+        }
+    }
+
+    sort($files);
+
+    return $files;
 }
 
 function release_run_command(array $command, ?string $cwd = null): array

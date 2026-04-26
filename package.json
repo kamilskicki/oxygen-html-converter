@@ -15,6 +15,7 @@
     "sync:docker": "node tests/live/sync-docker-plugin.cjs",
     "build:zip": "php scripts/build_zip.php",
     "release:verify": "php scripts/release_verify.php",
+    "release:verify:live": "php scripts/release_verify.php --with-live",
     "lint:phpcs": "composer lint:phpcs",
     "lint:phpstan": "composer lint:phpstan",
     "check": "npm run check:release-hygiene && npm run test:js && composer lint:phpcs && composer lint:phpstan && composer test",

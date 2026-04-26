@@ -61,8 +61,7 @@
         cancelable: true,
       });
 
-      doc.dispatchEvent(pasteEvent);
-      return true;
+      return doc.dispatchEvent(pasteEvent);
     } catch (error) {
       return false;
     }

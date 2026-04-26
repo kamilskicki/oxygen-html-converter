@@ -10,7 +10,7 @@ class OutputValidatorTest extends TestCase
     public function testEssentialButtonContractWarningWhenLinkPathIsMissing(): void
     {
         $validator = new OutputValidator();
-        $validator->validateElement([
+        $valid = $validator->validateElement([
             'id' => 1,
             'data' => [
                 'type' => 'EssentialElements\\Button',
@@ -25,8 +25,9 @@ class OutputValidatorTest extends TestCase
             'children' => [],
         ]);
 
-        $warnings = $validator->getWarnings();
-        $joined = implode("\n", $warnings);
+        $this->assertFalse($valid);
+
+        $joined = implode("\n", $validator->getErrors());
         $this->assertStringContainsString('Missing contract path', $joined);
         $this->assertStringContainsString('content.content.link.url', $joined);
     }
@@ -34,7 +35,7 @@ class OutputValidatorTest extends TestCase
     public function testHtml5VideoContractWarningWhenVideoPathIsMissing(): void
     {
         $validator = new OutputValidator();
-        $validator->validateElement([
+        $valid = $validator->validateElement([
             'id' => 1,
             'data' => [
                 'type' => 'OxygenElements\\Html5Video',
@@ -47,8 +48,9 @@ class OutputValidatorTest extends TestCase
             'children' => [],
         ]);
 
-        $warnings = $validator->getWarnings();
-        $joined = implode("\n", $warnings);
+        $this->assertFalse($valid);
+
+        $joined = implode("\n", $validator->getErrors());
         $this->assertStringContainsString('content.content.video_file_url', $joined);
     }
 
@@ -79,4 +81,3 @@ class OutputValidatorTest extends TestCase
         $this->assertStringNotContainsString('content.content.text', $warnings);
     }
 }
-

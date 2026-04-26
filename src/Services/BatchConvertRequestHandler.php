@@ -28,7 +28,7 @@ class BatchConvertRequestHandler
     public function handle(array $batch, array $options, int $skipped = 0): array
     {
         $results = [];
-        $builder = $this->treeBuilderFactory->create($options);
+        $builder = $this->treeBuilderFactory->create($options, 'batch');
         $totalStats = [
             'elements' => 0,
             'tailwindClasses' => 0,

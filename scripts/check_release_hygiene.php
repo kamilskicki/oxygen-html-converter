@@ -43,6 +43,8 @@ try {
     $forbiddenPatterns = [
         '.phpunit.cache',
         '.phpstan',
+        '.screens',
+        '.tmp-*',
         'artifacts',
         '.worktrees',
         '*.zip',
@@ -70,15 +72,20 @@ try {
     }
 
     $requiredDistignoreEntries = [
+        '.gitattributes',
         '.phpunit.cache',
         '.phpstan',
         '.worktrees',
+        '.screens',
         '.tmp-deploy',
+        '.tmp-*',
+        '.tmp-*/',
         'artifacts',
         'vendor',
         'node_modules',
         'tests',
         'docs',
+        'release-audit.md',
         'scripts',
         '*.zip',
         'package-lock.json',

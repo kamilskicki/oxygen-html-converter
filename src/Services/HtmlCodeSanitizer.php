@@ -206,7 +206,7 @@ class HtmlCodeSanitizer
             $parts = explode('/', str_replace('\\', '/', $url));
             $filename = end($parts);
 
-            return is_string($filename) ? $filename : '#';
+            return $filename;
         }
 
         if (preg_match('/^(#|\/|\.\.?\/|\?)/', $url)) {

@@ -54,4 +54,51 @@ module.exports = async function runBuilderPasteTests() {
     true
   );
   assert.deepEqual(clipboardWrites, ['{"element":1}']);
+
+  const originalDataTransfer = global.DataTransfer;
+  const originalClipboardEvent = global.ClipboardEvent;
+  try {
+    global.DataTransfer = class {
+      constructor() {
+        this.data = {};
+      }
+
+      setData(type, value) {
+        this.data[type] = value;
+      }
+    };
+    global.ClipboardEvent = class {
+      constructor(type, options) {
+        this.type = type;
+        this.clipboardData = options.clipboardData;
+      }
+    };
+
+    assert.equal(
+      builderPaste.dispatchConvertedPaste(
+        {
+          dispatchEvent() {
+            return false;
+          },
+        },
+        '{"element":1}'
+      ),
+      false
+    );
+
+    assert.equal(
+      builderPaste.dispatchConvertedPaste(
+        {
+          dispatchEvent() {
+            return true;
+          },
+        },
+        '{"element":1}'
+      ),
+      true
+    );
+  } finally {
+    global.DataTransfer = originalDataTransfer;
+    global.ClipboardEvent = originalClipboardEvent;
+  }
 };

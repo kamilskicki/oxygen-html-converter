@@ -27,9 +27,6 @@ class AnimationDetector
     /** CSS rules indexed by selector */
     private array $cssRulesBySelector = [];
 
-    /** Raw CSS string for cleanup */
-    private string $rawCss = '';
-
     /** Classes consumed by the last detectAnimations() call */
     private array $lastConsumedClasses = [];
 
@@ -42,7 +39,6 @@ class AnimationDetector
      */
     public function analyzeCssRules(array $cssRules, string $rawCss): void
     {
-        $this->rawCss = $rawCss;
         $this->cssRulesBySelector = [];
         $this->consumedCssSelectors = [];
 

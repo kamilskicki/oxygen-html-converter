@@ -29,29 +29,11 @@ try {
         throw new RuntimeException('Failed to create ZIP: ' . $zipPath);
     }
 
-    $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
-    );
-
     $fileCount = 0;
-    foreach ($iterator as $item) {
-        $absolutePath = release_normalize_path($item->getPathname());
-        $relativePath = ltrim(substr($absolutePath, strlen(release_normalize_path($root))), '/');
-        if ($relativePath === '') {
-            continue;
-        }
-
-        if (release_should_exclude($relativePath, $patterns)) {
-            continue;
-        }
-
-        if ($item->isDir()) {
-            continue;
-        }
-
+    foreach (release_distribution_files($root, $patterns) as $relativePath) {
+        $absolutePath = $root . '/' . $relativePath;
         $zipEntry = $slug . '/' . $relativePath;
-        if (!$zip->addFile($item->getPathname(), $zipEntry)) {
+        if (!$zip->addFile($absolutePath, $zipEntry)) {
             throw new RuntimeException('Failed to add file to ZIP: ' . $relativePath);
         }
 

@@ -129,7 +129,9 @@ class OutputValidator
             } else {
                 // Validate properties structure
                 $this->validateProperties($element['data']['properties'], "$path.data.properties");
-                $this->validateContractProperties($element['data']['type'] ?? '', $element['data']['properties'], $path);
+                if (!$this->validateContractProperties($element['data']['type'] ?? '', $element['data']['properties'], $path)) {
+                    $valid = false;
+                }
             }
         }
 
@@ -225,27 +227,31 @@ class OutputValidator
     /**
      * Validate required contract property paths for known element types.
      */
-    private function validateContractProperties(string $type, array $properties, string $path): void
+    private function validateContractProperties(string $type, array $properties, string $path): bool
     {
         if ($type === '') {
-            return;
+            return true;
         }
 
         $requiredPaths = ElementContractRegistry::getRequiredPropertyPaths($type);
         if (empty($requiredPaths)) {
-            return;
+            return true;
         }
 
+        $valid = true;
         foreach ($requiredPaths as $requiredPath) {
             if (!$this->hasPath($properties, $requiredPath)) {
-                $this->warnings[] = sprintf(
+                $this->errors[] = sprintf(
                     '[%s] Missing contract path for %s: %s',
                     $path,
                     $type,
                     $requiredPath
                 );
+                $valid = false;
             }
         }
+
+        return $valid;
     }
 
     private function hasPath(array $properties, string $path): bool

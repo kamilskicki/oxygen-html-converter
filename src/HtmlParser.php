@@ -122,7 +122,7 @@ class HtmlParser
         // Skip script and style tags
         if ($node instanceof DOMElement) {
             $tagName = strtolower($node->tagName);
-            if (in_array($tagName, ['meta', 'noscript'])) {
+            if (in_array($tagName, ['meta', 'noscript'], true)) {
                 return true;
             }
         }

@@ -46,7 +46,7 @@ class ComponentDetector
         $tag = strtolower($element->tagName);
         
         // Only look at common container-like elements
-        if (!in_array($tag, ['div', 'section', 'article', 'li', 'a'])) {
+        if (!in_array($tag, ['div', 'section', 'article', 'li', 'a'], true)) {
             return null;
         }
 

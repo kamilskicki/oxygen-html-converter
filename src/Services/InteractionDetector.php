@@ -97,7 +97,7 @@ class InteractionDetector
             $value = $attr->value;
 
             // Skip already-handled attributes
-            if (in_array($name, self::SKIP_ATTRIBUTES)) {
+            if (in_array($name, self::SKIP_ATTRIBUTES, true)) {
                 continue;
             }
 
@@ -162,7 +162,7 @@ class InteractionDetector
             }
 
             // Check against specific names
-            if (!$shouldPreserve && in_array($name, self::PRESERVE_NAMES)) {
+            if (!$shouldPreserve && in_array($name, self::PRESERVE_NAMES, true)) {
                 $shouldPreserve = true;
             }
 
@@ -354,7 +354,7 @@ class InteractionDetector
 
                 // Find the closing brace of this block
                 $blockEnd = $this->findMatchingBrace($jsCode, $blockStart);
-                if ($blockEnd === false) {
+                if ($blockEnd === null) {
                     continue;
                 }
 
@@ -388,7 +388,7 @@ class InteractionDetector
                 // Find the innermost { of the addEventListener callback
                 $innerBracePos = $outerStart + strlen($m[0][0]) - 1;
                 $innerEnd = $this->findMatchingBrace($jsCode, $innerBracePos);
-                if ($innerEnd === false) {
+                if ($innerEnd === null) {
                     continue;
                 }
 
@@ -531,7 +531,7 @@ class InteractionDetector
         $inString = false;
         $stringChar = '';
 
-        while ($pos < $length && $depth > 0) {
+        while ($pos < $length) {
             $char = $code[$pos];
             $prevChar = $pos > 0 ? $code[$pos - 1] : '';
 

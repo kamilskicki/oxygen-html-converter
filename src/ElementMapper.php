@@ -179,7 +179,7 @@ class ElementMapper
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement) {
                 $childTag = strtolower($child->tagName);
-                if (in_array($childTag, ['div', 'img', 'svg', 'i', 'icon'])) {
+                if (in_array($childTag, ['div', 'img', 'svg', 'i', 'icon'], true)) {
                     return true;
                 }
             }
@@ -254,7 +254,7 @@ class ElementMapper
             } elseif ($child instanceof DOMElement) {
                 $tag = strtolower($child->tagName);
                 // Only include inline formatting elements
-                if (in_array($tag, ['strong', 'b', 'em', 'i', 'u', 's', 'mark', 'small', 'sub', 'sup', 'br', 'span'])) {
+                if (in_array($tag, ['strong', 'b', 'em', 'i', 'u', 's', 'mark', 'small', 'sub', 'sup', 'br', 'span'], true)) {
                     $text .= $node->ownerDocument->saveHTML($child);
                 }
             }
@@ -279,7 +279,7 @@ class ElementMapper
      */
     public function shouldKeepInnerHtml(string $tag): bool
     {
-        return in_array(strtolower($tag), self::KEEP_INNER_HTML);
+        return in_array(strtolower($tag), self::KEEP_INNER_HTML, true);
     }
 
     /**
@@ -292,7 +292,7 @@ class ElementMapper
             ElementTypes::TEXT,
             ElementTypes::RICH_TEXT,
             ElementTypes::TEXT_LINK,
-        ]);
+        ], true);
     }
 
     /**
@@ -303,11 +303,11 @@ class ElementMapper
         $tag = strtolower($tag);
         $type = $this->getElementType($tag);
 
-        if ($type === ElementTypes::CONTAINER && in_array($tag, self::CONTAINER_TAG_OPTIONS)) {
+        if ($type === ElementTypes::CONTAINER && in_array($tag, self::CONTAINER_TAG_OPTIONS, true)) {
             return $tag;
         }
 
-        if ($type === ElementTypes::TEXT && in_array($tag, self::TEXT_TAG_OPTIONS)) {
+        if ($type === ElementTypes::TEXT && in_array($tag, self::TEXT_TAG_OPTIONS, true)) {
             return $tag;
         }
 
@@ -573,8 +573,9 @@ class ElementMapper
         // Check for grid and apply all detected properties
         $gridProps = $this->gridDetector->getGridProperties($classAttr);
         if (!empty($gridProps)) {
-            $properties['design'] = $properties['design'] ?? [];
-            $properties['design']['layout'] = array_merge($properties['design']['layout'] ?? [], $gridProps);
+            $properties['design'] = [
+                'layout' => $gridProps,
+            ];
         }
 
         return $properties;
@@ -615,7 +616,7 @@ class ElementMapper
                 }
 
                 // Allow inline formatting elements
-                if (!in_array($tag, ['strong', 'b', 'em', 'i', 'u', 's', 'mark', 'small', 'sub', 'sup', 'br', 'span'])) {
+                if (!in_array($tag, ['strong', 'b', 'em', 'i', 'u', 's', 'mark', 'small', 'sub', 'sup', 'br', 'span'], true)) {
                     return false;
                 }
             }

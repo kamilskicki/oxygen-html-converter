@@ -6,15 +6,21 @@ require __DIR__ . '/release_common.php';
 
 try {
     $root = release_repo_root();
+    $runLiveGate = in_array('--with-live', $argv, true)
+        || in_array(strtolower((string) getenv('OXY_HTML_CONVERTER_RELEASE_LIVE')), ['1', 'true', 'yes', 'on'], true);
 
     $checks = [
         ['php', 'scripts/check_release_hygiene.php'],
         ['npm', 'ci', '--ignore-scripts', '--dry-run'],
         ['composer', 'install', '--no-interaction', '--prefer-dist', '--dry-run'],
         ['npm', 'run', 'check'],
-        ['npm', 'run', 'test:live'],
-        ['php', 'scripts/build_zip.php'],
     ];
+
+    if ($runLiveGate) {
+        $checks[] = ['npm', 'run', 'test:live'];
+    }
+
+    $checks[] = ['php', 'scripts/build_zip.php'];
 
     foreach ($checks as $command) {
         $result = release_run_command($command, $root);
@@ -33,6 +39,8 @@ try {
     }
 
     $forbiddenEntries = [
+        'oxygen-html-converter/.gitattributes',
+        'oxygen-html-converter/release-audit.md',
         'oxygen-html-converter/tests/',
         'oxygen-html-converter/docs/',
         'oxygen-html-converter/scripts/',
@@ -41,6 +49,7 @@ try {
         'oxygen-html-converter/.phpunit.cache/',
         'oxygen-html-converter/.phpstan/',
         'oxygen-html-converter/.worktrees/',
+        'oxygen-html-converter/.screens/',
     ];
 
     foreach ($entries as $entry) {
@@ -49,6 +58,10 @@ try {
                 throw new RuntimeException('Release ZIP contains forbidden entry: ' . $entry);
             }
         }
+
+        if (preg_match('#^oxygen-html-converter/\.tmp(?:-|/)#', $entry) === 1) {
+            throw new RuntimeException('Release ZIP contains forbidden temp entry: ' . $entry);
+        }
     }
 
     echo json_encode([
@@ -56,6 +69,7 @@ try {
         'zipPath' => $zipPath,
         'entryCount' => count($entries),
         'requiredEntry' => $requiredEntry,
+        'liveGate' => $runLiveGate ? 'run' : 'skipped; pass --with-live or set OXY_HTML_CONVERTER_RELEASE_LIVE=1',
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
     exit(0);
 } catch (Throwable $e) {

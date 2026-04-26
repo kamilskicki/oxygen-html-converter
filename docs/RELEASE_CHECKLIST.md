@@ -40,8 +40,9 @@
 
 ## Release Verify
 
-1. Run `npm run release:verify`.
-2. Confirm the generated ZIP layout matches the expected plugin root structure.
+1. Run `npm run release:verify` for the deterministic local gate.
+2. Run `npm run release:verify:live` on the maintained Docker/Oxygen stack before publishing.
+3. Confirm the generated ZIP layout matches the expected plugin root structure.
 
 ## Publish
 

@@ -28,6 +28,7 @@ class ConvertPayloadBuilder
     public function build(array $result, array $options): array
     {
         $rootElement = $this->buildRootElement($result, $options);
+        $this->reindexElementTree($rootElement, (int) ($options['startingNodeId'] ?? 1));
         $validationErrors = $this->validatePayload($rootElement, $result);
 
         if ($validationErrors !== []) {
@@ -48,6 +49,7 @@ class ConvertPayloadBuilder
         }
 
         $documentTree = $this->documentTree->build($rootElement);
+        $cssElement = $this->findFirstElementOfType($rootElement, ElementTypes::CSS_CODE) ?? $result['cssElement'];
         $audit = $this->auditBuilder->build($result, $options);
 
         return [
@@ -56,7 +58,7 @@ class ConvertPayloadBuilder
             'data' => [
                 'element' => $rootElement,
                 'documentTree' => $documentTree,
-                'cssElement' => $result['cssElement'],
+                'cssElement' => $cssElement,
                 'extractedCss' => $result['extractedCss'],
                 'customClasses' => $result['customClasses'],
                 'stats' => $result['stats'],
@@ -127,6 +129,59 @@ class ConvertPayloadBuilder
         }
 
         return $rootElement;
+    }
+
+    /**
+     * @param array<string, mixed> $element
+     */
+    private function reindexElementTree(array &$element, int $nextId): int
+    {
+        if ($nextId < 1) {
+            $nextId = 1;
+        }
+
+        $element['id'] = $nextId++;
+
+        if (empty($element['children']) || !is_array($element['children'])) {
+            return $nextId;
+        }
+
+        foreach ($element['children'] as &$child) {
+            if (is_array($child)) {
+                $nextId = $this->reindexElementTree($child, $nextId);
+            }
+        }
+        unset($child);
+
+        return $nextId;
+    }
+
+    /**
+     * @param array<string, mixed> $element
+     * @return array<string, mixed>|null
+     */
+    private function findFirstElementOfType(array $element, string $type): ?array
+    {
+        if (($element['data']['type'] ?? null) === $type) {
+            return $element;
+        }
+
+        if (empty($element['children']) || !is_array($element['children'])) {
+            return null;
+        }
+
+        foreach ($element['children'] as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+
+            $match = $this->findFirstElementOfType($child, $type);
+            if ($match !== null) {
+                return $match;
+            }
+        }
+
+        return null;
     }
 
     /**

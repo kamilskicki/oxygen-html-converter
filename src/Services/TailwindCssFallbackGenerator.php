@@ -166,10 +166,6 @@ class TailwindCssFallbackGenerator
     private function splitUtilityModifiers(string $classToken): array
     {
         $parts = explode(':', $classToken);
-        if ($parts === []) {
-            return ['base', 'base', $classToken];
-        }
-
         $utility = array_pop($parts);
         if (!is_string($utility) || $utility === '') {
             return ['base', 'base', $classToken];

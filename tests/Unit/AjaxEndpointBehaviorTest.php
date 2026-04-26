@@ -150,6 +150,35 @@ class AjaxEndpointBehaviorTest extends TestCase
         $this->assertSame($response['data']['documentTree'], $encodedTree);
     }
 
+    public function testConvertHonorsPositiveStartingNodeIdForEveryGeneratedNode(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'n',
+            'html' => '<style>.hero{color:red;}</style><section class="hero"><h1>Hello</h1><p>World</p></section>',
+            'startingNodeId' => 50,
+            'wrapInContainer' => 'true',
+        ];
+
+        $ajax->handleConvert();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertTrue($response['success']);
+
+        $ids = [];
+        $this->collectElementIds($response['data']['element'], $ids);
+
+        $this->assertNotEmpty($ids);
+        $this->assertSame($ids, array_values(array_unique($ids)));
+        foreach ($ids as $id) {
+            $this->assertGreaterThanOrEqual(50, $id);
+        }
+
+        $this->assertSame(max($ids) + 1, $response['data']['documentTree']['_nextNodeId']);
+        $this->assertIsArray($response['data']['cssElement']);
+        $this->assertContains($response['data']['cssElement']['id'], $ids);
+    }
+
     public function testBatchResultsIncludeBuilderSafeDocumentTree(): void
     {
         $ajax = new Ajax();
@@ -209,7 +238,7 @@ class AjaxEndpointBehaviorTest extends TestCase
                                 'type' => 'OxygenElements\\Container',
                                 'properties' => [],
                             ],
-                            'children' => [],
+                            'children' => 'invalid',
                         ],
                         'cssElement' => null,
                         'headLinkElements' => [],
@@ -245,6 +274,41 @@ class AjaxEndpointBehaviorTest extends TestCase
         $this->assertArrayHasKey('audit', $response['data']);
     }
 
+    public function testTreeBuilderFilterRunsForConvertPreviewAndBatchFlows(): void
+    {
+        $contexts = [];
+        add_filter('oxy_html_converter_tree_builder', static function ($builder, array $options, string $html, string $context) use (&$contexts) {
+            $contexts[] = $context;
+            return $builder;
+        }, 10, 4);
+
+        $ajax = new Ajax();
+
+        $_POST = [
+            'nonce' => 'n',
+            'html' => '<div>Convert</div>',
+        ];
+        $ajax->handleConvert();
+
+        $_POST = [
+            'nonce' => 'n',
+            'html' => '<div>Preview</div>',
+        ];
+        $ajax->handlePreview();
+
+        $_POST = [
+            'nonce' => 'n',
+            'batch' => [
+                '<div>Batch</div>',
+            ],
+        ];
+        $ajax->handleBatchConvert();
+
+        $this->assertContains('convert', $contexts);
+        $this->assertContains('preview', $contexts);
+        $this->assertContains('batch', $contexts);
+    }
+
     private function collectElementTypes(array $element, array &$types): void
     {
         $types[] = $element['data']['type'] ?? '';
@@ -252,6 +316,17 @@ class AjaxEndpointBehaviorTest extends TestCase
         foreach (($element['children'] ?? []) as $child) {
             if (is_array($child)) {
                 $this->collectElementTypes($child, $types);
+            }
+        }
+    }
+
+    private function collectElementIds(array $element, array &$ids): void
+    {
+        $ids[] = $element['id'] ?? null;
+
+        foreach (($element['children'] ?? []) as $child) {
+            if (is_array($child)) {
+                $this->collectElementIds($child, $ids);
             }
         }
     }

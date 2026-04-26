@@ -101,7 +101,7 @@ class FrameworkDetector
         }
 
         // Stimulus.js
-        if (in_array($name, ['data-controller', 'data-action', 'data-target'])) {
+        if (in_array($name, ['data-controller', 'data-action', 'data-target'], true)) {
             return true;
         }
 

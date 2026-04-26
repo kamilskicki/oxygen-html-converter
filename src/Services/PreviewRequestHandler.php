@@ -23,7 +23,7 @@ class PreviewRequestHandler
      */
     public function handle(string $html, array $options): array
     {
-        $builder = $this->treeBuilderFactory->create($options);
+        $builder = $this->treeBuilderFactory->create($options, 'preview', $html);
         $result = $builder->convert($html);
 
         if (empty($result['success'])) {

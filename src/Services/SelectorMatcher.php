@@ -39,7 +39,7 @@ class SelectorMatcher
             strpos($selector, '[') === false &&
             strpos($selector, '#') === false) {
             preg_match_all('/\.([a-zA-Z0-9_\-\\\\:]+)/', $selector, $matches);
-            $selectorClasses = $matches[1] ?? [];
+            $selectorClasses = $matches[1];
 
             if ($selectorClasses === []) {
                 return false;
@@ -151,7 +151,7 @@ class SelectorMatcher
         }
 
         preg_match_all('/\.([a-zA-Z0-9_\-:\\\\]+)/', $selectorPart, $classMatches);
-        $classes = $classMatches[1] ?? [];
+        $classes = $classMatches[1];
 
         if ($tag !== null && strtolower($node->tagName) !== $tag) {
             return false;
