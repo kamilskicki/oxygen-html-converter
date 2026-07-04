@@ -26,6 +26,8 @@ class OxygenDocumentTreeTest extends TestCase
         $this->assertArrayHasKey('root', $tree);
         $this->assertSame(12, $tree['_nextNodeId']);
         $this->assertSame('exported', $tree['status']);
+        $this->assertSame([], $tree['exportedLookupTable']);
+        $this->assertSame([], $tree['root']['data']['properties']);
     }
 
     public function testBuildPreservesExistingBuilderMetadata(): void
@@ -44,5 +46,7 @@ class OxygenDocumentTreeTest extends TestCase
 
         $this->assertSame(99, $tree['_nextNodeId']);
         $this->assertSame('draft', $tree['status']);
+        $this->assertSame([], $tree['exportedLookupTable']);
+        $this->assertSame([], $tree['root']['data']['properties']);
     }
 }

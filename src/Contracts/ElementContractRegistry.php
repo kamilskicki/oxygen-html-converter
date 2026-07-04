@@ -31,6 +31,11 @@ final class ElementContractRegistry
                 'content.content.text',
                 'content.content.link.url',
             ],
+            ElementTypes::COMPONENT => [
+                'content.content.block.componentId',
+                'content.content.block.targets',
+                'content.content.block.properties',
+            ],
         ];
     }
 
@@ -43,4 +48,3 @@ final class ElementContractRegistry
         return $contracts[$elementType] ?? [];
     }
 }
-

@@ -1,0 +1,40 @@
+{
+  "contract": "variables",
+  "oxygenVersion": "6.1.0-beta.1",
+  "sourceFiles": [
+    "oxygen/plugin/variables/save.php",
+    "oxygen/plugin/variables/variables.php",
+    "oxygen/plugin/variables/template/macro.twig",
+    "oxygen/plugin/variables/template/global.twig",
+    "oxygen/plugin/variables/controls.php"
+  ],
+  "payload": {
+    "oxygen_variables_json_string": [
+      {
+        "id": "ohc-var-primary",
+        "cssVariableName": "ohc-primary",
+        "label": "Primary",
+        "value": "#2563EB",
+        "type": "color",
+        "dynamicData": null,
+        "collection": "Imported HTML"
+      },
+      {
+        "id": "ohc-var-page-gutter",
+        "cssVariableName": "ohc-page-gutter",
+        "label": "Page gutter",
+        "value": {
+          "number": 24,
+          "unit": "px",
+          "style": "24px"
+        },
+        "type": "unit",
+        "dynamicData": null,
+        "collection": "Imported HTML"
+      }
+    ],
+    "oxygen_variables_collections_json_string": [
+      "Imported HTML"
+    ]
+  }
+}

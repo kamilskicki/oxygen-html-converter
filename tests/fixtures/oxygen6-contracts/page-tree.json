@@ -1,0 +1,18 @@
+{
+  "contract": "page-tree",
+  "oxygenVersion": "6.1.0-beta.1",
+  "sourceFiles": [
+    "oxygen/plugin/data/tree.php",
+    "oxygen/plugin/data/save.php",
+    "oxygen/plugin/data/load.php",
+    "oxygen/plugin/render/renderer.php",
+    "oxygen/subplugins/oxygen-elements/elements/Container/element.php",
+    "oxygen/subplugins/oxygen-elements/elements/Text/element.php",
+    "oxygen/subplugins/oxygen-elements/elements/Text_Link/element.php"
+  ],
+  "payload": {
+    "_oxygen_data": {
+      "tree_json_string": "{\"root\":{\"id\":0,\"data\":{\"type\":\"root\",\"properties\":{}},\"children\":[{\"id\":1,\"data\":{\"type\":\"OxygenElements\\\\Container\",\"properties\":{\"settings\":{\"advanced\":{\"tag\":\"section\",\"id\":\"hero\",\"classes\":[\"imported-hero\"]}},\"meta\":{\"classes\":[\"ohc-selector-hero\"],\"classes_conditions\":{}}}},\"children\":[{\"id\":2,\"data\":{\"type\":\"OxygenElements\\\\Text\",\"properties\":{\"content\":{\"content\":{\"text\":\"Build native Oxygen pages from HTML\"}},\"settings\":{\"advanced\":{\"tag\":\"h1\"}},\"meta\":{\"classes\":[\"ohc-selector-heading\"]}}},\"children\":[]},{\"id\":3,\"data\":{\"type\":\"OxygenElements\\\\TextLink\",\"properties\":{\"content\":{\"content\":{\"text\":\"Get started\",\"url\":\"/contact\",\"open_in_new_tab\":false}},\"settings\":{\"advanced\":{\"classes\":[\"button-like-link\"]}},\"meta\":{\"classes\":[\"ohc-selector-button\"]}}},\"children\":[]}]}]},\"_nextNodeId\":4,\"exportedLookupTable\":{}}"
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "contract": "global-settings",
+  "oxygenVersion": "6.1.0-beta.1",
+  "sourceFiles": [
+    "oxygen/plugin/global-styles/base.php",
+    "oxygen/plugin/global-styles/colors/base.php",
+    "oxygen/plugin/global-styles/other/global-css-vars.css.twig",
+    "oxygen/plugin/global-styles/typography/base.php",
+    "oxygen/plugin/global-styles/containers/base.php",
+    "oxygen/plugin/global-styles/advanced/base.php",
+    "oxygen/plugin/render/cache.php"
+  ],
+  "payload": {
+    "oxygen_global_settings_json_string": {
+      "settings": {
+        "colors": {
+          "brand": "#2563EB",
+          "text": "#111827",
+          "background": "#FFFFFF",
+          "palette": {
+            "colors": [
+              {
+                "label": "Primary",
+                "cssVariableName": "ohc-primary",
+                "value": "#2563EB"
+              }
+            ],
+            "gradients": [
+              {
+                "label": "Hero gradient",
+                "cssVariableName": "ohc-hero-gradient",
+                "value": {
+                  "value": "linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)",
+                  "svgValue": "<symbol id=\"%%GRADIENTID%%\" viewBox=\"0 0 1 1\"><linearGradient id=\"g\" x1=\"0\" x2=\"1\" y1=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#2563EB\"/><stop offset=\"1\" stop-color=\"#14B8A6\"/></linearGradient><rect width=\"1\" height=\"1\" fill=\"url(#g)\"/></symbol>"
+                }
+              }
+            ]
+          }
+        },
+        "typography": {
+          "body_font": "Inter",
+          "heading_font": "Inter",
+          "base_size": {
+            "number": 16,
+            "unit": "px",
+            "style": "16px"
+          },
+          "ratio": 1.2
+        },
+        "containers": {
+          "sections": {
+            "container_width": {
+              "number": 1120,
+              "unit": "px",
+              "style": "1120px"
+            }
+          }
+        },
+        "code": {
+          "stylesheets": [
+            {
+              "name": "Imported base CSS",
+              "code": ":root { --ohc-radius: 12px; }"
+            }
+          ],
+          "scripts": []
+        }
+      }
+    }
+  }
+}

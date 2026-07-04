@@ -30,8 +30,8 @@ final class ElementTypes
     public const CSS_CODE = 'OxygenElements\\CssCode';
     public const JAVASCRIPT_CODE = 'OxygenElements\\JavaScriptCode';
 
-    // Header element (for sticky headers)
-    public const HEADER = 'OxygenElements\\Header';
+    // Reusable block component instance
+    public const COMPONENT = 'OxygenElements\\Component';
 
     // Breakdance Elements for Oxygen element
     public const ESSENTIAL_BUTTON = 'EssentialElements\\Button';
@@ -50,7 +50,7 @@ final class ElementTypes
         self::HTML_CODE,
         self::CSS_CODE,
         self::JAVASCRIPT_CODE,
-        self::HEADER,
+        self::COMPONENT,
         self::ESSENTIAL_BUTTON,
     ];
 

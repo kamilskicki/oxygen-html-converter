@@ -14,8 +14,16 @@ class OxygenDocumentTree
             ? $tree
             : ['root' => $tree];
 
+        if (isset($documentTree['root']) && is_array($documentTree['root'])) {
+            $documentTree['root'] = $this->normalizeNode($documentTree['root']);
+        }
+
         if (!isset($documentTree['_nextNodeId']) || !is_int($documentTree['_nextNodeId']) || $documentTree['_nextNodeId'] < 1) {
             $documentTree['_nextNodeId'] = $this->calculateNextNodeId($documentTree['root'] ?? []);
+        }
+
+        if (!array_key_exists('exportedLookupTable', $documentTree)) {
+            $documentTree['exportedLookupTable'] = [];
         }
 
         if (!isset($documentTree['status']) || !is_string($documentTree['status']) || trim($documentTree['status']) === '') {
@@ -60,5 +68,32 @@ class OxygenDocumentTree
         }
 
         return $maxId;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @return array<string, mixed>
+     */
+    private function normalizeNode(array $node): array
+    {
+        if (isset($node['data']) && is_array($node['data']) && !array_key_exists('properties', $node['data'])) {
+            $node['data']['properties'] = [];
+        }
+
+        if (!array_key_exists('children', $node)) {
+            $node['children'] = [];
+        }
+
+        if (isset($node['children']) && is_array($node['children'])) {
+            foreach ($node['children'] as $index => $child) {
+                if (!is_array($child)) {
+                    continue;
+                }
+
+                $node['children'][$index] = $this->normalizeNode($child);
+            }
+        }
+
+        return $node;
     }
 }

@@ -1,0 +1,37 @@
+{
+  "contract": "component-instance",
+  "oxygenVersion": "6.1.0-beta.1",
+  "sourceFiles": [
+    "oxygen/plugin/breakdance-oxygen/components.php",
+    "oxygen/subplugins/oxygen-elements/elements/Component/element.php",
+    "oxygen/subplugins/oxygen-elements/elements/Component/ssr.php"
+  ],
+  "payload": {
+    "componentNode": {
+      "id": 8,
+      "data": {
+        "type": "OxygenElements\\Component",
+        "properties": {
+          "content": {
+            "content": {
+              "block": {
+                "componentId": 456,
+                "targets": [
+                  {
+                    "nodeId": 2,
+                    "propertyKey": "cta_heading",
+                    "controlPath": "content.content.text"
+                  }
+                ],
+                "properties": {
+                  "cta_heading": "Schedule a consultation"
+                }
+              }
+            }
+          }
+        }
+      },
+      "children": []
+    }
+  }
+}

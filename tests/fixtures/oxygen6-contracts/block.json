@@ -1,0 +1,24 @@
+{
+  "contract": "block",
+  "oxygenVersion": "6.1.0-beta.1",
+  "sourceFiles": [
+    "oxygen/plugin/blocks/block.cpt.php",
+    "oxygen/plugin/blocks/ajax_save_block.php",
+    "oxygen/plugin/blocks/ajax_load_blocks.php",
+    "oxygen/plugin/blocks/block-shortcode.php"
+  ],
+  "payload": {
+    "post_type": "oxygen_block",
+    "post_status": "publish",
+    "post_title": "Imported CTA block",
+    "_oxygen_data": {
+      "tree_json_string": "{\"root\":{\"id\":0,\"data\":{\"type\":\"root\",\"properties\":{}},\"children\":[{\"id\":1,\"data\":{\"type\":\"OxygenElements\\\\Container\",\"properties\":{\"settings\":{\"advanced\":{\"tag\":\"section\"}},\"meta\":{\"classes\":[\"ohc-selector-cta\"]}}},\"children\":[{\"id\":2,\"data\":{\"type\":\"OxygenElements\\\\Text\",\"properties\":{\"content\":{\"content\":{\"text\":\"Default CTA heading\"}},\"settings\":{\"advanced\":{\"tag\":\"h2\"}},\"meta\":{\"component\":{\"editableProperties\":[{\"enabled\":true,\"label\":\"CTA heading\",\"controlPath\":\"content.content.text\",\"propertyKey\":\"cta_heading\"}]}}}},\"children\":[]}]}]},\"_nextNodeId\":3,\"exportedLookupTable\":{}}"
+    },
+    "_breakdance_block_settings": {
+      "preview": {
+        "acfFlexibleField": "",
+        "acfFlexibleFieldRow": ""
+      }
+    }
+  }
+}

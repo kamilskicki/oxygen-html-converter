@@ -125,6 +125,91 @@ class BuilderContractService
     }
 
     /**
+     * @return array{compatible: bool, oxygenVersion: string, supportedVersion: string, contracts: array<string, array<string, mixed>>, issues: array<int, string>}
+     */
+    public function evaluateOxygenStorageFixtures(string $fixtureDirectory): array
+    {
+        $issues = [];
+        $contracts = [];
+        $oxygenVersions = [];
+
+        if (!is_dir($fixtureDirectory)) {
+            return [
+                'compatible' => false,
+                'oxygenVersion' => '',
+                'supportedVersion' => OxygenStorageContract::SUPPORTED_OXYGEN_VERSION,
+                'contracts' => [],
+                'issues' => [
+                    'Oxygen storage contract fixture directory is missing: ' . $fixtureDirectory,
+                ],
+            ];
+        }
+
+        foreach (OxygenStorageContract::REQUIRED_CONTRACT_FIXTURES as $contract => $fileName) {
+            $file = rtrim($fixtureDirectory, "\\/") . DIRECTORY_SEPARATOR . $fileName;
+            if (!is_file($file)) {
+                $issues[] = sprintf(
+                    'Missing Oxygen storage contract fixture "%s" at %s.',
+                    $contract,
+                    $file
+                );
+                continue;
+            }
+
+            $decoded = $this->decodeFixtureFile($file, $contract, $issues);
+            if ($decoded === null) {
+                continue;
+            }
+
+            if (($decoded['contract'] ?? null) !== $contract) {
+                $issues[] = sprintf(
+                    'Oxygen storage contract fixture "%s" declares contract "%s".',
+                    $contract,
+                    is_scalar($decoded['contract'] ?? null) ? (string) $decoded['contract'] : 'invalid'
+                );
+            }
+
+            $version = is_string($decoded['oxygenVersion'] ?? null) ? $decoded['oxygenVersion'] : '';
+            if ($version === '') {
+                $issues[] = sprintf('Oxygen storage contract fixture "%s" is missing oxygenVersion.', $contract);
+            } else {
+                $oxygenVersions[] = $version;
+                if ($version !== OxygenStorageContract::SUPPORTED_OXYGEN_VERSION) {
+                    $issues[] = sprintf(
+                        'Unsupported Oxygen storage contract version "%s" in "%s"; supported version is "%s".',
+                        $version,
+                        $contract,
+                        OxygenStorageContract::SUPPORTED_OXYGEN_VERSION
+                    );
+                }
+            }
+
+            if (empty($decoded['sourceFiles']) || !is_array($decoded['sourceFiles'])) {
+                $issues[] = sprintf('Oxygen storage contract fixture "%s" must list sourceFiles.', $contract);
+            }
+
+            if (!isset($decoded['payload']) || !is_array($decoded['payload'])) {
+                $issues[] = sprintf('Oxygen storage contract fixture "%s" must contain an array payload.', $contract);
+            }
+
+            $contracts[$contract] = $decoded;
+        }
+
+        $uniqueVersions = array_values(array_unique($oxygenVersions));
+        if (count($uniqueVersions) > 1) {
+            $issues[] = 'Oxygen storage contract fixtures declare mixed versions: ' . implode(', ', $uniqueVersions) . '.';
+        }
+
+        return [
+            'compatible' => $issues === [],
+            'oxygenVersion' => $uniqueVersions[0] ?? '',
+            'supportedVersion' => OxygenStorageContract::SUPPORTED_OXYGEN_VERSION,
+            'contracts' => $contracts,
+            'issues' => $issues,
+        ];
+    }
+
+    /**
      * @param mixed $value
      * @return array
      */
@@ -146,6 +231,37 @@ class BuilderContractService
         }
 
         return array_values(array_unique($paths));
+    }
+
+    /**
+     * @param array<int, string> $issues
+     * @return array<string, mixed>|null
+     */
+    private function decodeFixtureFile(string $file, string $contract, array &$issues): ?array
+    {
+        $content = file_get_contents($file);
+        if (!is_string($content)) {
+            $issues[] = sprintf('Oxygen storage contract fixture "%s" could not be read.', $contract);
+            return null;
+        }
+
+        try {
+            $decoded = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            $issues[] = sprintf(
+                'Oxygen storage contract fixture "%s" contains invalid JSON: %s.',
+                $contract,
+                $e->getMessage()
+            );
+            return null;
+        }
+
+        if (!is_array($decoded)) {
+            $issues[] = sprintf('Oxygen storage contract fixture "%s" must decode to an object.', $contract);
+            return null;
+        }
+
+        return $decoded;
     }
 
     /**
@@ -181,4 +297,3 @@ class BuilderContractService
         return '\\' . ltrim($className, '\\');
     }
 }
-

@@ -1,0 +1,20 @@
+{
+  "contract": "template-settings",
+  "oxygenVersion": "6.1.0-beta.1",
+  "sourceFiles": [
+    "oxygen/plugin/themeless/constants.php",
+    "oxygen/plugin/themeless/template.cpt.php",
+    "oxygen/plugin/themeless/database.php",
+    "oxygen/plugin/themeless/request.php",
+    "oxygen/plugin/themeless/rules/constants.php"
+  ],
+  "payload": {
+    "post_type": "oxygen_template",
+    "post_status": "publish",
+    "post_title": "Imported single post template",
+    "_oxygen_data": {
+      "tree_json_string": "{\"root\":{\"id\":0,\"data\":{\"type\":\"root\",\"properties\":{}},\"children\":[{\"id\":1,\"data\":{\"type\":\"OxygenElements\\\\Container\",\"properties\":{\"settings\":{\"advanced\":{\"tag\":\"main\",\"id\":\"content\"}},\"meta\":{\"classes\":[\"ohc-selector-template-shell\"]}}},\"children\":[{\"id\":2,\"data\":{\"type\":\"OxygenElements\\\\RichText\",\"properties\":{\"content\":{\"content\":{\"text\":\"<p>This template shell was imported from HTML.</p>\"}}}},\"children\":[]}]}]},\"_nextNodeId\":3,\"exportedLookupTable\":{}}"
+    },
+    "_oxygen_template_settings": "{\"type\":\"all-singles\",\"ruleGroups\":[[{\"operand\":\"is one of\",\"ruleCategorySlug\":\"singular\",\"ruleSlug\":\"post-type\",\"ruleDynamic\":\"\",\"value\":[\"post\"]}]],\"triggers\":[],\"priority\":10,\"fallback\":false}"
+  }
+}

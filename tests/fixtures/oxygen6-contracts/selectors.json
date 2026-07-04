@@ -1,0 +1,55 @@
+{
+  "contract": "selectors",
+  "oxygenVersion": "6.1.0-beta.1",
+  "sourceFiles": [
+    "oxygen/plugin/breakdance-oxygen/selectors.php",
+    "oxygen/plugin/breakdance-oxygen/selectors.twig",
+    "oxygen/plugin/psalm-types/z-z-misc.php",
+    "oxygen/plugin/classes-selectors/builder.php",
+    "oxygen/plugin/classes-selectors/controls.php"
+  ],
+  "payload": {
+    "oxygen_oxy_selectors_json_string": [
+      {
+        "id": "ohc-selector-hero",
+        "name": "imported-hero",
+        "type": "class",
+        "collection": "Imported HTML",
+        "properties": {
+          "breakpoint_base": {
+            "layout": {
+              "display": "flex",
+              "flex_direction": "column",
+              "gap": {
+                "number": 24,
+                "unit": "px",
+                "style": "24px"
+              }
+            },
+            "typography": {
+              "color": "#111827FF"
+            }
+          }
+        },
+        "children": [
+          {
+            "id": "ohc-selector-hero-hover",
+            "name": "&:hover",
+            "pseudo": true,
+            "properties": {
+              "breakpoint_base": {
+                "effects": {
+                  "opacity": 92
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "oxygen_oxy_selectors_collections_json_string": [
+      "Imported HTML"
+    ],
+    "oxygen_breakdance_classes_json_string": "[{\"name\":\".imported-hero\",\"type\":\"class\",\"properties\":{}}]"
+  }
+}
