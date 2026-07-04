@@ -117,8 +117,8 @@ class StyleExtractorTest extends TestCase
 
     public function testNormalizeColorHex(): void
     {
-        $this->assertEquals('#ff0000', $this->extractor->normalizeColor('#ff0000'));
-        $this->assertEquals('#f00', $this->extractor->normalizeColor('#f00'));
+        $this->assertEquals('#FF0000FF', $this->extractor->normalizeColor('#ff0000'));
+        $this->assertEquals('#FF0000FF', $this->extractor->normalizeColor('#f00'));
     }
 
     public function testNormalizeColorRgb(): void
@@ -291,7 +291,7 @@ class StyleExtractorTest extends TestCase
 
         $this->assertEquals('1', $properties['flex_child']['flex_grow']);
         $this->assertEquals('0', $properties['flex_child']['flex_shrink']);
-        $this->assertEquals('auto', $properties['flex_child']['flex_basis']);
+        $this->assertEquals('auto', $properties['flex_child']['flex_basis']['style']);
         $this->assertEquals('custom', $properties['flex_child']['order']);
         $this->assertEquals('2', $properties['flex_child']['order_custom']);
         $this->assertEquals('span 2', $properties['grid_child']['column_start']);
@@ -320,7 +320,7 @@ class StyleExtractorTest extends TestCase
         $this->assertEquals('pointer', $properties['effects']['cursor']);
         $this->assertFalse($properties['effects']['backdrop_filter'][0]['disabled']);
         $this->assertEquals('blur', $properties['effects']['backdrop_filter'][0]['type']);
-        $this->assertEquals('10px', $properties['effects']['backdrop_filter'][0]['blur_value']);
+        $this->assertEquals('10px', $properties['effects']['backdrop_filter'][0]['blur_value']['style']);
         $this->assertEquals('multiply', $properties['effects']['blend_mode']);
     }
 
@@ -336,11 +336,11 @@ class StyleExtractorTest extends TestCase
 
         $properties = $this->extractor->toOxygenProperties($styles);
 
-        $this->assertEquals('8px', $properties['borders']['border_radius']['topLeft']);
-        $this->assertEquals('12px', $properties['borders']['border_radius']['topRight']);
-        $this->assertEquals('4px', $properties['borders']['border_radius']['bottomLeft']);
-        $this->assertEquals('16px', $properties['borders']['border_radius']['bottomRight']);
-        $this->assertEquals('2px', $properties['effects']['outline_width']);
+        $this->assertEquals('8px', $properties['borders']['border_radius']['topLeft']['style']);
+        $this->assertEquals('12px', $properties['borders']['border_radius']['topRight']['style']);
+        $this->assertEquals('4px', $properties['borders']['border_radius']['bottomLeft']['style']);
+        $this->assertEquals('16px', $properties['borders']['border_radius']['bottomRight']['style']);
+        $this->assertEquals('2px', $properties['effects']['outline_width']['style']);
         $this->assertEquals('solid', $properties['effects']['outline_style']);
         $this->assertEquals('blue', $properties['effects']['outline_color']);
     }
@@ -362,14 +362,14 @@ class StyleExtractorTest extends TestCase
         $this->assertSame('flex', $properties['layout']['display']);
         $this->assertSame('center', $properties['layout']['flex_align']['primary_axis']);
         $this->assertSame('flex-start', $properties['layout']['flex_align']['cross_axis']);
-        $this->assertSame('24px', $properties['layout']['gap']['row']);
-        $this->assertSame('24px', $properties['layout']['gap']['column']);
-        $this->assertSame('10px', $properties['spacing']['spacing']['padding']['top']);
-        $this->assertSame('20px', $properties['spacing']['spacing']['padding']['right']);
-        $this->assertSame('18px', $properties['typography']['font_size']);
+        $this->assertSame('24px', $properties['layout']['gap']['row']['style']);
+        $this->assertSame('24px', $properties['layout']['gap']['column']['style']);
+        $this->assertSame('10px', $properties['spacing']['spacing']['padding']['top']['style']);
+        $this->assertSame('20px', $properties['spacing']['spacing']['padding']['right']['style']);
+        $this->assertSame('18px', $properties['typography']['font_size']['style']);
         $this->assertSame('italic', $properties['typography']['style']['font_style']);
         $this->assertSame('underline', $properties['typography']['style']['text_decoration']);
-        $this->assertSame('8px', $properties['borders']['border_radius']['all']);
+        $this->assertSame('8px', $properties['borders']['border_radius']['all']['style']);
 
         $this->assertArrayNotHasKey('font-size', $properties['typography']);
         $this->assertArrayNotHasKey('justify-content', $properties['layout']);
@@ -392,16 +392,16 @@ class StyleExtractorTest extends TestCase
 
         $this->assertSame('3', $properties['layout']['grid']['simple_grid_template_columns']);
         $this->assertTrue($properties['layout']['grid']['enable_advanced_mode']);
-        $this->assertSame('120px auto', $properties['layout']['grid_template_rows'][0]['size']);
+        $this->assertSame('120px auto', $properties['layout']['grid_template_rows'][0]['size']['style']);
         $this->assertSame('gradient', $properties['background']['backgrounds'][0]['type']);
         $this->assertSame('linear-gradient(red, blue)', $properties['background']['backgrounds'][0]['gradient']['value']);
         $this->assertSame('cover', $properties['background']['backgrounds'][0]['background_size']);
         $this->assertSame('no-repeat', $properties['background']['backgrounds'][0]['background_repeat']);
-        $this->assertSame('1px', $properties['borders']['borders']['top']['width']);
+        $this->assertSame('1px', $properties['borders']['borders']['top']['width']['style']);
         $this->assertSame('solid', $properties['borders']['borders']['top']['style']);
-        $this->assertSame('#ff0000', $properties['borders']['borders']['top']['color']);
-        $this->assertSame('0', $properties['effects']['box_shadow'][0]['x']);
-        $this->assertSame('12px', $properties['effects']['box_shadow'][0]['y']);
+        $this->assertSame('#FF0000FF', $properties['borders']['borders']['top']['color']);
+        $this->assertSame('0px', $properties['effects']['box_shadow'][0]['x']['style']);
+        $this->assertSame('12px', $properties['effects']['box_shadow'][0]['y']['style']);
         $this->assertSame('cover', $properties['size']['object_fit']);
         $this->assertSame('multiply', $properties['effects']['blend_mode']);
 

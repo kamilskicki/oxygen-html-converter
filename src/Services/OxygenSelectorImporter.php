@@ -13,6 +13,8 @@ class OxygenSelectorImporter
 {
     private const COLLECTION = 'Imported HTML';
 
+    private OxygenValueNormalizer $valueNormalizer;
+
     /**
      * @var array<string, array<string, mixed>>
      */
@@ -22,6 +24,11 @@ class OxygenSelectorImporter
      * @var array<string, array<string, string>>
      */
     private array $declarationsByClass = [];
+
+    public function __construct(?OxygenValueNormalizer $valueNormalizer = null)
+    {
+        $this->valueNormalizer = $valueNormalizer ?? new OxygenValueNormalizer();
+    }
 
     public function reset(): void
     {
@@ -165,13 +172,26 @@ class OxygenSelectorImporter
             return false;
         }
 
+        $converted = [];
         foreach ($assignments as $assignment) {
-            $assignmentValue = $assignment['value'];
-            $this->setNestedValue(
-                $base,
+            $normalizedValue = $this->valueNormalizer->normalizeForPath(
                 $assignment['path'],
-                $this->convertSelectorValue($property, $assignment['path'], (string) $assignmentValue)
+                $assignment['value'],
+                $property
             );
+
+            if ($normalizedValue === null) {
+                return false;
+            }
+
+            $converted[] = [
+                'path' => $assignment['path'],
+                'value' => $normalizedValue,
+            ];
+        }
+
+        foreach ($converted as $assignment) {
+            $this->setNestedValue($base, $assignment['path'], $assignment['value']);
         }
 
         return true;

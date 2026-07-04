@@ -50,9 +50,11 @@ class HeuristicsService
      * Current heuristic states
      */
     private array $enabledHeuristics = [];
+    private OxygenValueNormalizer $valueNormalizer;
 
-    public function __construct()
+    public function __construct(?OxygenValueNormalizer $valueNormalizer = null)
     {
+        $this->valueNormalizer = $valueNormalizer ?? new OxygenValueNormalizer();
         $this->loadFromOptions();
     }
 
@@ -305,7 +307,8 @@ class HeuristicsService
                 $element['data']['properties']['design'] = $element['data']['properties']['design'] ?? [];
                 $element['data']['properties']['design']['spacing'] = $element['data']['properties']['design']['spacing'] ?? [];
                 $element['data']['properties']['design']['spacing']['spacing']['padding']['top'] =
-                    $element['data']['properties']['design']['spacing']['spacing']['padding']['top'] ?? '80px';
+                    $element['data']['properties']['design']['spacing']['spacing']['padding']['top']
+                    ?? $this->valueNormalizer->normalizeMeasurement('80px');
                 $headerDetected = false; // Only apply once
                 return true;
             }

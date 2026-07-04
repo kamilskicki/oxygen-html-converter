@@ -3,6 +3,7 @@
 namespace OxyHtmlConverter;
 
 use OxyHtmlConverter\Services\CssParser;
+use OxyHtmlConverter\Services\OxygenValueNormalizer;
 use DOMElement;
 
 /**
@@ -11,6 +12,7 @@ use DOMElement;
 class StyleExtractor
 {
     private CssParser $cssParser;
+    private OxygenValueNormalizer $valueNormalizer;
 
     /**
      * CSS property to Oxygen property path mapping
@@ -106,9 +108,10 @@ class StyleExtractor
         'outset' => true,
     ];
 
-    public function __construct(?CssParser $cssParser = null)
+    public function __construct(?CssParser $cssParser = null, ?OxygenValueNormalizer $valueNormalizer = null)
     {
         $this->cssParser = $cssParser ?? new CssParser();
+        $this->valueNormalizer = $valueNormalizer ?? new OxygenValueNormalizer();
     }
 
     /**
@@ -154,7 +157,17 @@ class StyleExtractor
             }
 
             foreach (self::controlAssignmentsForDeclaration((string) $cssProp, $value) as $assignment) {
-                $this->setNestedValue($properties, $assignment['path'], $assignment['value']);
+                $normalizedValue = $this->valueNormalizer->normalizeForPath(
+                    $assignment['path'],
+                    $assignment['value'],
+                    (string) $cssProp
+                );
+
+                if ($normalizedValue === null) {
+                    continue;
+                }
+
+                $this->setNestedValue($properties, $assignment['path'], $normalizedValue);
             }
         }
 
@@ -170,7 +183,7 @@ class StyleExtractor
         $supportedDeclarationCount = 0;
 
         foreach ($styles as $cssProp => $value) {
-            if (!$this->supportsDeclaration((string) $cssProp)) {
+            if (!$this->supportsDeclaration((string) $cssProp, $value)) {
                 return false;
             }
 
@@ -182,13 +195,28 @@ class StyleExtractor
         return $supportedDeclarationCount > 0;
     }
 
-    public function supportsDeclaration(string $cssProp): bool
+    public function supportsDeclaration(string $cssProp, $value = null): bool
     {
         if (strpos($cssProp, '_') === 0) {
             return true;
         }
 
-        return self::controlPathsForDeclaration($cssProp) !== [];
+        $assignments = self::controlAssignmentsForDeclaration($cssProp, func_num_args() > 1 ? $value : '');
+        if ($assignments === []) {
+            return false;
+        }
+
+        if (func_num_args() === 1) {
+            return true;
+        }
+
+        foreach ($assignments as $assignment) {
+            if ($this->valueNormalizer->normalizeForPath($assignment['path'], $assignment['value'], $cssProp) === null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -681,15 +709,7 @@ class StyleExtractor
      */
     public function normalizeColor(string $color): string
     {
-        $color = trim($color);
-
-        // Already hex or rgb/rgba
-        if (preg_match('/^#|^rgb/i', $color)) {
-            return $color;
-        }
-
-        // Named colors - return as-is (browser will handle)
-        return $color;
+        return $this->valueNormalizer->normalizeColor($color) ?? trim($color);
     }
 
     /**

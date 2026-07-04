@@ -84,8 +84,8 @@ class TreeBuilderElementMappingTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame('flex', $result['element']['data']['properties']['design']['layout']['display']);
         $this->assertSame('center', $result['element']['data']['properties']['design']['layout']['flex_align']['cross_axis']);
-        $this->assertSame('#ffffff', $result['element']['data']['properties']['design']['typography']['color']);
-        $this->assertSame('#ff0084', $result['element']['data']['properties']['design']['background']['background_color']);
+        $this->assertSame('#FFFFFFFF', $result['element']['data']['properties']['design']['typography']['color']);
+        $this->assertSame('#FF0084FF', $result['element']['data']['properties']['design']['background']['background_color']);
         $this->assertArrayNotHasKey('align-items', $result['element']['data']['properties']['design']['layout']);
         $this->assertArrayNotHasKey('background-color', $result['element']['data']['properties']['design']['background']);
         $classes = $result['element']['data']['properties']['settings']['advanced']['classes'];
@@ -153,7 +153,7 @@ class TreeBuilderElementMappingTest extends TestCase
         $section = $result['element']['children'][1];
         $spacing = $section['data']['properties']['design']['spacing'] ?? [];
 
-        $this->assertSame('80px', $spacing['spacing']['padding']['top'] ?? null);
+        $this->assertSame('80px', $spacing['spacing']['padding']['top']['style'] ?? null);
         $this->assertArrayNotHasKey('padding-top', $spacing);
         $this->assertStringNotContainsString('ohc-native-', $result['extractedCss']);
     }
@@ -171,8 +171,8 @@ class TreeBuilderElementMappingTest extends TestCase
 
         $this->assertSame('grid', $layout['display'] ?? null);
         $this->assertSame('3', $layout['grid']['simple_grid_template_columns'] ?? null);
-        $this->assertSame('1rem', $layout['gap']['row'] ?? null);
-        $this->assertSame('1rem', $layout['gap']['column'] ?? null);
+        $this->assertSame('1rem', $layout['gap']['row']['style'] ?? null);
+        $this->assertSame('1rem', $layout['gap']['column']['style'] ?? null);
         $this->assertArrayNotHasKey('template_columns', $layout['grid'] ?? []);
         $this->assertStringNotContainsString('ohc-native-', $result['extractedCss']);
     }
@@ -190,7 +190,7 @@ class TreeBuilderElementMappingTest extends TestCase
 
         $this->assertSame('grid', $layout['display'] ?? null);
         $this->assertTrue($layout['grid']['enable_advanced_mode'] ?? false);
-        $this->assertSame('200px 1fr', $layout['grid_template_columns'][0]['size'] ?? null);
+        $this->assertSame('200px 1fr', $layout['grid_template_columns'][0]['size']['style'] ?? null);
         $this->assertArrayNotHasKey('template_columns', $layout['grid'] ?? []);
         $this->assertStringNotContainsString('ohc-native-', $result['extractedCss']);
     }

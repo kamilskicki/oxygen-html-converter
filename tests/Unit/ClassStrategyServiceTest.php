@@ -50,7 +50,7 @@ class ClassStrategyServiceTest extends TestCase
 
         $this->assertSame('flex', $element['data']['properties']['design']['layout']['display']);
         $this->assertSame('center', $element['data']['properties']['design']['layout']['flex_align']['cross_axis']);
-        $this->assertSame('#ffffff', $element['data']['properties']['design']['typography']['color']);
+        $this->assertSame('#FFFFFFFF', $element['data']['properties']['design']['typography']['color']);
         $this->assertArrayNotHasKey('align-items', $element['data']['properties']['design']['layout']);
         $this->assertSame(['custom-card'], $element['data']['properties']['settings']['advanced']['classes']);
     }

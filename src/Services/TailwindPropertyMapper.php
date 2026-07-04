@@ -14,6 +14,8 @@ use OxyHtmlConverter\StyleExtractor;
  */
 class TailwindPropertyMapper
 {
+    private OxygenValueNormalizer $valueNormalizer;
+
     private const TEXT_COLORS = [
         'text-white' => '#ffffff',
         'text-black' => '#000000',
@@ -25,6 +27,11 @@ class TailwindPropertyMapper
         'bg-black' => '#000000',
         'bg-transparent' => 'transparent',
     ];
+
+    public function __construct(?OxygenValueNormalizer $valueNormalizer = null)
+    {
+        $this->valueNormalizer = $valueNormalizer ?? new OxygenValueNormalizer();
+    }
 
     /**
      * @return array<string, mixed>
@@ -146,7 +153,17 @@ class TailwindPropertyMapper
         $properties = [];
 
         foreach (StyleExtractor::controlAssignmentsForDeclaration($property, $value) as $assignment) {
-            StyleExtractor::setControlPathValue($properties, $assignment['path'], $assignment['value']);
+            $normalizedValue = $this->valueNormalizer->normalizeForPath(
+                $assignment['path'],
+                $assignment['value'],
+                $property
+            );
+
+            if ($normalizedValue === null) {
+                continue;
+            }
+
+            StyleExtractor::setControlPathValue($properties, $assignment['path'], $normalizedValue);
         }
 
         return $properties;

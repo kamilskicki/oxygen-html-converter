@@ -1143,7 +1143,7 @@ class TreeBuilder
     {
         foreach ($declarations as $property => $value) {
             $property = strtolower(trim((string) $property));
-            if ($property === '' || !$this->styleExtractor->supportsDeclaration($property)) {
+            if ($property === '' || !$this->styleExtractor->supportsDeclaration($property, $value)) {
                 continue;
             }
 
