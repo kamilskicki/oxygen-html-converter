@@ -11,6 +11,12 @@ namespace OxyHtmlConverter\Services;
  */
 class TailwindCssFallbackGenerator
 {
+    private const BASE_COMPATIBILITY_CSS = [
+        '*, ::before, ::after { box-sizing: border-box; }',
+        'img, svg, video, canvas { display: block; max-width: 100%; }',
+        'html, body { overflow-x: hidden; }',
+    ];
+
     private const BREAKPOINTS = [
         'sm' => '640px',
         'md' => '768px',
@@ -77,6 +83,7 @@ class TailwindCssFallbackGenerator
         'inline' => 'inline',
         'flex' => 'flex',
         'inline-flex' => 'inline-flex',
+        'grid' => 'grid',
     ];
 
     private const TEXT_ALIGNS = [
@@ -84,6 +91,36 @@ class TailwindCssFallbackGenerator
         'text-center' => 'center',
         'text-right' => 'right',
         'text-justify' => 'justify',
+    ];
+
+    private const FLEX_DIRECTIONS = [
+        'flex-row' => 'row',
+        'flex-row-reverse' => 'row-reverse',
+        'flex-col' => 'column',
+        'flex-col-reverse' => 'column-reverse',
+    ];
+
+    private const FLEX_WRAPS = [
+        'flex-wrap' => 'wrap',
+        'flex-wrap-reverse' => 'wrap-reverse',
+        'flex-nowrap' => 'nowrap',
+    ];
+
+    private const JUSTIFY_CONTENT = [
+        'justify-start' => 'flex-start',
+        'justify-center' => 'center',
+        'justify-end' => 'flex-end',
+        'justify-between' => 'space-between',
+        'justify-around' => 'space-around',
+        'justify-evenly' => 'space-evenly',
+    ];
+
+    private const ALIGN_ITEMS = [
+        'items-start' => 'flex-start',
+        'items-center' => 'center',
+        'items-end' => 'flex-end',
+        'items-baseline' => 'baseline',
+        'items-stretch' => 'stretch',
     ];
 
     private const COLORS = [
@@ -98,6 +135,47 @@ class TailwindCssFallbackGenerator
         'text-gray-800' => '#1f2937',
         'text-gray-900' => '#111827',
         'text-neutral-200' => '#e5e5e5',
+        'text-stone-400' => '#a8a29e',
+        'text-stone-500' => '#78716c',
+        'text-stone-800' => '#292524',
+        'text-stone-950' => '#0c0a09',
+        'text-red-500' => '#ef4444',
+        'text-red-600' => '#dc2626',
+        'text-red-700' => '#b91c1c',
+        'text-red-800' => '#991b1b',
+        'text-red-900' => '#7f1d1d',
+        'text-background' => '#fff8f5',
+        'text-brass-accent' => '#9A7440',
+        'text-copper-highlight' => '#BE8656',
+        'text-ink-black' => '#17120F',
+        'text-ink-soft' => '#544B45',
+        'text-ivory-base' => '#F3EDE4',
+        'text-on-background' => '#201a17',
+        'text-on-primary' => '#ffffff',
+        'text-on-surface' => '#201a17',
+        'text-oxblood-primary' => '#731B19',
+        'text-paper-bright' => '#FCF9F4',
+        'bg-background' => '#fff8f5',
+        'bg-brass-accent' => '#9A7440',
+        'bg-copper-highlight' => '#BE8656',
+        'bg-ink-black' => '#17120F',
+        'bg-ink-soft' => '#544B45',
+        'bg-ivory-base' => '#F3EDE4',
+        'bg-on-primary' => '#ffffff',
+        'bg-on-surface' => '#201a17',
+        'bg-oxblood-primary' => '#731B19',
+        'bg-paper-bright' => '#FCF9F4',
+        'bg-paper-soft' => '#E8DED0',
+        'bg-stone-50' => '#fafaf9',
+        'bg-stone-950' => '#0c0a09',
+        'bg-surface-variant' => '#ece0db',
+        'border-brass-accent' => '#9A7440',
+        'border-ink-soft' => '#544B45',
+        'border-oxblood-primary' => '#731B19',
+        'border-paper-soft' => '#E8DED0',
+        'border-red-900' => '#7f1d1d',
+        'border-stone-200' => '#e7e5e4',
+        'border-stone-800' => '#292524',
     ];
 
     private const GRADIENT_DIRECTIONS = [
@@ -109,6 +187,33 @@ class TailwindCssFallbackGenerator
         'bg-gradient-to-tl' => 'to top left',
         'bg-gradient-to-br' => 'to bottom right',
         'bg-gradient-to-bl' => 'to bottom left',
+    ];
+
+    private const MAX_WIDTHS = [
+        'max-w-xs' => '20rem',
+        'max-w-sm' => '24rem',
+        'max-w-md' => '28rem',
+        'max-w-lg' => '32rem',
+        'max-w-xl' => '36rem',
+        'max-w-2xl' => '42rem',
+        'max-w-3xl' => '48rem',
+        'max-w-4xl' => '56rem',
+        'max-w-5xl' => '64rem',
+        'max-w-6xl' => '72rem',
+        'max-w-7xl' => '80rem',
+        'max-w-screen-sm' => '640px',
+        'max-w-screen-md' => '768px',
+        'max-w-screen-lg' => '1024px',
+        'max-w-screen-xl' => '1280px',
+        'max-w-screen-2xl' => '1536px',
+    ];
+
+    private const CUSTOM_SPACING = [
+        'component-padding' => '16px',
+        'gutter-grid' => '24px',
+        'margin-page' => '64px',
+        'section-gap' => '120px',
+        'unit' => '8px',
     ];
 
     /**
@@ -139,7 +244,7 @@ class TailwindCssFallbackGenerator
             return '';
         }
 
-        $css = [];
+        $css = self::BASE_COMPATIBILITY_CSS;
 
         foreach ($rulesByBreakpoint['base'] ?? [] as $rule) {
             $css[] = $rule;
@@ -252,6 +357,81 @@ class TailwindCssFallbackGenerator
             return ['text-align: ' . self::TEXT_ALIGNS[$utility] . ' !important;'];
         }
 
+        if (isset(self::FLEX_DIRECTIONS[$utility])) {
+            return ['flex-direction: ' . self::FLEX_DIRECTIONS[$utility] . ' !important;'];
+        }
+
+        if (isset(self::FLEX_WRAPS[$utility])) {
+            return ['flex-wrap: ' . self::FLEX_WRAPS[$utility] . ' !important;'];
+        }
+
+        if (isset(self::JUSTIFY_CONTENT[$utility])) {
+            return ['justify-content: ' . self::JUSTIFY_CONTENT[$utility] . ' !important;'];
+        }
+
+        if (isset(self::ALIGN_ITEMS[$utility])) {
+            return ['align-items: ' . self::ALIGN_ITEMS[$utility] . ' !important;'];
+        }
+
+        if (isset(self::MAX_WIDTHS[$utility])) {
+            return ['max-width: ' . self::MAX_WIDTHS[$utility] . ' !important;'];
+        }
+
+        if ($utility === 'mx-auto') {
+            return [
+                'margin-left: auto !important;',
+                'margin-right: auto !important;',
+            ];
+        }
+
+        if ($utility === 'my-auto') {
+            return [
+                'margin-top: auto !important;',
+                'margin-bottom: auto !important;',
+            ];
+        }
+
+        if (preg_match('/^grid-cols-(\d+)$/', $utility, $matches)) {
+            return ['grid-template-columns: repeat(' . (int) $matches[1] . ', minmax(0, 1fr)) !important;'];
+        }
+
+        if (preg_match('/^grid-cols-\[(.+)\]$/', $utility, $matches)) {
+            return ['grid-template-columns: ' . $this->normalizeArbitraryValue($matches[1]) . ' !important;'];
+        }
+
+        if (preg_match('/^col-span-(\d+)$/', $utility, $matches)) {
+            return ['grid-column: span ' . (int) $matches[1] . ' / span ' . (int) $matches[1] . ' !important;'];
+        }
+
+        if (preg_match('/^col-start-(\d+)$/', $utility, $matches)) {
+            return ['grid-column-start: ' . (int) $matches[1] . ' !important;'];
+        }
+
+        $spacingDeclarations = $this->mapSpacingUtilityToDeclarations($utility);
+        if ($spacingDeclarations !== []) {
+            return $spacingDeclarations;
+        }
+
+        $sizingDeclarations = $this->mapSizingUtilityToDeclarations($utility);
+        if ($sizingDeclarations !== []) {
+            return $sizingDeclarations;
+        }
+
+        $positionDeclarations = $this->mapPositionUtilityToDeclarations($utility);
+        if ($positionDeclarations !== []) {
+            return $positionDeclarations;
+        }
+
+        $transformDeclarations = $this->mapTransformUtilityToDeclarations($utility);
+        if ($transformDeclarations !== []) {
+            return $transformDeclarations;
+        }
+
+        $borderDeclarations = $this->mapBorderUtilityToDeclarations($utility);
+        if ($borderDeclarations !== []) {
+            return $borderDeclarations;
+        }
+
         if ($utility === 'text-transparent') {
             return [
                 'color: transparent !important;',
@@ -259,7 +439,7 @@ class TailwindCssFallbackGenerator
             ];
         }
 
-        if (isset(self::COLORS[$utility])) {
+        if (str_starts_with($utility, 'text-') && isset(self::COLORS[$utility])) {
             return ['color: ' . self::COLORS[$utility] . ' !important;'];
         }
 
@@ -306,25 +486,6 @@ class TailwindCssFallbackGenerator
 
         if ($utility === 'grayscale-0') {
             return ['filter: grayscale(0) !important;'];
-        }
-
-        if (preg_match('/^scale-(\d{2,3})$/', $utility, $matches)) {
-            $value = ((int) $matches[1]) / 100;
-            return ['transform: scale(' . rtrim(rtrim(sprintf('%.2F', $value), '0'), '.') . ') !important;'];
-        }
-
-        if (preg_match('/^translate-x-(\d+)$/', $utility, $matches)) {
-            $value = $this->resolveSpacingScale((int) $matches[1]);
-            if ($value !== null) {
-                return ['transform: translateX(' . $value . ') !important;'];
-            }
-        }
-
-        if (preg_match('/^translate-y-(\d+)$/', $utility, $matches)) {
-            $value = $this->resolveSpacingScale((int) $matches[1]);
-            if ($value !== null) {
-                return ['transform: translateY(' . $value . ') !important;'];
-            }
         }
 
         if ($utility === 'outline-none') {
@@ -389,6 +550,312 @@ class TailwindCssFallbackGenerator
         }
 
         return [];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function mapSizingUtilityToDeclarations(string $utility): array
+    {
+        if (preg_match('/^(w|h|min-w|min-h|max-w|max-h)-(.+)$/', $utility, $matches) !== 1) {
+            return [];
+        }
+
+        $property = match ($matches[1]) {
+            'w' => 'width',
+            'h' => 'height',
+            'min-w' => 'min-width',
+            'min-h' => 'min-height',
+            'max-w' => 'max-width',
+            'max-h' => 'max-height',
+        };
+
+        if (isset(self::MAX_WIDTHS[$utility])) {
+            return [];
+        }
+
+        $value = $this->resolveSizeValue($matches[2], $matches[1]);
+        if ($value === null) {
+            return [];
+        }
+
+        return [$property . ': ' . $value . ' !important;'];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function mapPositionUtilityToDeclarations(string $utility): array
+    {
+        if (preg_match('/^(-?)inset(?:-([xy]))?-(.+)$/', $utility, $matches) === 1) {
+            $value = $this->resolveSizeValue($matches[3], 'inset');
+            if ($value === null) {
+                return [];
+            }
+
+            if ($matches[1] === '-' && $value !== '0' && $value !== '0px') {
+                $value = '-' . ltrim($value, '-');
+            }
+
+            $axis = $matches[2];
+
+            return match ($axis) {
+                'x' => [
+                    'left: ' . $value . ' !important;',
+                    'right: ' . $value . ' !important;',
+                ],
+                'y' => [
+                    'top: ' . $value . ' !important;',
+                    'bottom: ' . $value . ' !important;',
+                ],
+                default => [
+                    'top: ' . $value . ' !important;',
+                    'right: ' . $value . ' !important;',
+                    'bottom: ' . $value . ' !important;',
+                    'left: ' . $value . ' !important;',
+                ],
+            };
+        }
+
+        if (preg_match('/^(-?)(top|right|bottom|left)-(.+)$/', $utility, $matches) !== 1) {
+            return [];
+        }
+
+        $value = $this->resolveSizeValue($matches[3], $matches[2]);
+        if ($value === null) {
+            return [];
+        }
+
+        if ($matches[1] === '-' && $value !== '0' && $value !== '0px') {
+            $value = '-' . ltrim($value, '-');
+        }
+
+        return [$matches[2] . ': ' . $value . ' !important;'];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function mapTransformUtilityToDeclarations(string $utility): array
+    {
+        if (preg_match('/^(-?)translate-(x|y)-(.+)$/', $utility, $matches) === 1) {
+            $value = $this->resolveTranslateValue($matches[3]);
+            if ($value === null) {
+                return [];
+            }
+
+            if ($matches[1] === '-' && $value !== '0' && $value !== '0px') {
+                $value = '-' . ltrim($value, '-');
+            }
+
+            $axis = $matches[2] === 'x' ? 'x' : 'y';
+            return [
+                '--tw-translate-' . $axis . ': ' . $value . ' !important;',
+                $this->tailwindTransformDeclaration(),
+            ];
+        }
+
+        if (preg_match('/^(-?)skew-(x|y)-(\d+)$/', $utility, $matches) === 1) {
+            $value = (int) $matches[3] . 'deg';
+            if ($matches[1] === '-') {
+                $value = '-' . $value;
+            }
+
+            return [
+                '--tw-skew-' . $matches[2] . ': ' . $value . ' !important;',
+                $this->tailwindTransformDeclaration(),
+            ];
+        }
+
+        if (preg_match('/^scale-(\d{2,3})$/', $utility, $matches) === 1) {
+            $value = rtrim(rtrim(sprintf('%.2F', ((int) $matches[1]) / 100), '0'), '.');
+            return [
+                '--tw-scale-x: ' . $value . ' !important;',
+                '--tw-scale-y: ' . $value . ' !important;',
+                $this->tailwindTransformDeclaration(),
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function mapBorderUtilityToDeclarations(string $utility): array
+    {
+        return match ($utility) {
+            'border' => ['border-width: 1px !important;'],
+            'border-0' => ['border-width: 0 !important;'],
+            'border-t' => ['border-top-width: 1px !important;'],
+            'border-r' => ['border-right-width: 1px !important;'],
+            'border-b' => ['border-bottom-width: 1px !important;'],
+            'border-l' => ['border-left-width: 1px !important;'],
+            'border-x' => [
+                'border-left-width: 1px !important;',
+                'border-right-width: 1px !important;',
+            ],
+            'border-y' => [
+                'border-top-width: 1px !important;',
+                'border-bottom-width: 1px !important;',
+            ],
+            'rounded-none' => ['border-radius: 0 !important;'],
+            default => [],
+        };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function mapSpacingUtilityToDeclarations(string $utility): array
+    {
+        if (preg_match('/^gap-(.+)$/', $utility, $matches)) {
+            $value = $this->resolveSpacingValue($matches[1]);
+            return $value === null ? [] : ['gap: ' . $value . ' !important;'];
+        }
+
+        if (preg_match('/^gap-x-(.+)$/', $utility, $matches)) {
+            $value = $this->resolveSpacingValue($matches[1]);
+            return $value === null ? [] : ['column-gap: ' . $value . ' !important;'];
+        }
+
+        if (preg_match('/^gap-y-(.+)$/', $utility, $matches)) {
+            $value = $this->resolveSpacingValue($matches[1]);
+            return $value === null ? [] : ['row-gap: ' . $value . ' !important;'];
+        }
+
+        if (preg_match('/^(p|px|py|pt|pr|pb|pl)-(.+)$/', $utility, $matches)) {
+            $value = $this->resolveSpacingValue($matches[2]);
+            if ($value === null) {
+                return [];
+            }
+
+            return $this->expandBoxSpacingDeclarations('padding', $matches[1], $value);
+        }
+
+        if (preg_match('/^(m|mx|my|mt|mr|mb|ml)-(.+)$/', $utility, $matches)) {
+            $value = $this->resolveSpacingValue($matches[2]);
+            if ($value === null) {
+                return [];
+            }
+
+            return $this->expandBoxSpacingDeclarations('margin', $matches[1], $value);
+        }
+
+        return [];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function expandBoxSpacingDeclarations(string $propertyRoot, string $prefix, string $value): array
+    {
+        $axis = substr($prefix, -1);
+
+        if ($prefix === 'p' || $prefix === 'm') {
+            return [$propertyRoot . ': ' . $value . ' !important;'];
+        }
+
+        if ($axis === 'x') {
+            return [
+                $propertyRoot . '-left: ' . $value . ' !important;',
+                $propertyRoot . '-right: ' . $value . ' !important;',
+            ];
+        }
+
+        if ($axis === 'y') {
+            return [
+                $propertyRoot . '-top: ' . $value . ' !important;',
+                $propertyRoot . '-bottom: ' . $value . ' !important;',
+            ];
+        }
+
+        $side = match ($axis) {
+            't' => 'top',
+            'r' => 'right',
+            'b' => 'bottom',
+            'l' => 'left',
+            default => null,
+        };
+
+        return $side === null ? [] : [$propertyRoot . '-' . $side . ': ' . $value . ' !important;'];
+    }
+
+    private function resolveSpacingValue(string $token): ?string
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        if (isset(self::CUSTOM_SPACING[$token])) {
+            return self::CUSTOM_SPACING[$token];
+        }
+
+        if (preg_match('/^\[(.+)\]$/', $token, $matches)) {
+            return $this->normalizeArbitraryValue($matches[1]);
+        }
+
+        if (preg_match('/^\d+$/', $token) === 1) {
+            return $this->resolveSpacingScale((int) $token);
+        }
+
+        return null;
+    }
+
+    private function resolveSizeValue(string $token, string $axis = ''): ?string
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        if ($token === 'full') {
+            return '100%';
+        }
+
+        if ($token === 'screen') {
+            return str_contains($axis, 'h') || in_array($axis, ['top', 'bottom'], true) ? '100vh' : '100vw';
+        }
+
+        if ($token === 'px') {
+            return '1px';
+        }
+
+        if (preg_match('/^(\d+)\/(\d+)$/', $token, $matches) === 1) {
+            $denominator = (int) $matches[2];
+            if ($denominator === 0) {
+                return null;
+            }
+
+            return rtrim(rtrim(sprintf('%.6F', ((int) $matches[1] / $denominator) * 100), '0'), '.') . '%';
+        }
+
+        return $this->resolveSpacingValue($token);
+    }
+
+    private function resolveTranslateValue(string $token): ?string
+    {
+        $token = trim($token);
+        if ($token === 'full') {
+            return '100%';
+        }
+
+        if (preg_match('/^(\d+)\/(\d+)$/', $token, $matches) === 1) {
+            $denominator = (int) $matches[2];
+            if ($denominator === 0) {
+                return null;
+            }
+
+            return rtrim(rtrim(sprintf('%.6F', ((int) $matches[1] / $denominator) * 100), '0'), '.') . '%';
+        }
+
+        return $this->resolveSpacingValue($token);
+    }
+
+    private function tailwindTransformDeclaration(): string
+    {
+        return 'transform: translate(var(--tw-translate-x, 0), var(--tw-translate-y, 0)) rotate(var(--tw-rotate, 0)) skewX(var(--tw-skew-x, 0)) skewY(var(--tw-skew-y, 0)) scaleX(var(--tw-scale-x, 1)) scaleY(var(--tw-scale-y, 1)) !important;';
     }
 
     private function resolveGradientColorValue(string $value): ?string
@@ -486,6 +953,11 @@ class TailwindCssFallbackGenerator
             8 => '2rem',
             10 => '2.5rem',
             12 => '3rem',
+            16 => '4rem',
+            20 => '5rem',
+            24 => '6rem',
+            28 => '7rem',
+            32 => '8rem',
         ];
 
         return $scale[$step] ?? null;

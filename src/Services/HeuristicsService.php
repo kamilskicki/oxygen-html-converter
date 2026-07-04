@@ -222,11 +222,11 @@ class HeuristicsService
             $element['data']['properties']['design']['layout'] = $element['data']['properties']['design']['layout'] ?? [];
             $layout = &$element['data']['properties']['design']['layout'];
             $layout['display'] = 'flex';
-            $layout['justify-content'] = 'center';
-            $layout['align-items'] = 'center';
+            $layout['flex_align']['primary_axis'] = 'center';
+            $layout['flex_align']['cross_axis'] = 'center';
 
             $element['data']['properties']['design']['typography'] = $element['data']['properties']['design']['typography'] ?? [];
-            $element['data']['properties']['design']['typography']['line-height'] = '0';
+            $element['data']['properties']['design']['typography']['line_height'] = '0';
             return true;
         }
 
@@ -253,11 +253,11 @@ class HeuristicsService
             $layout = &$element['data']['properties']['design']['layout'];
 
             $layout['display'] = $layout['display'] ?? 'flex';
-            $layout['justify-content'] = $layout['justify-content'] ?? 'center';
-            $layout['align-items'] = $layout['align-items'] ?? 'center';
+            $layout['flex_align']['primary_axis'] = $layout['flex_align']['primary_axis'] ?? 'center';
+            $layout['flex_align']['cross_axis'] = $layout['flex_align']['cross_axis'] ?? 'center';
 
             $element['data']['properties']['design']['typography'] = $element['data']['properties']['design']['typography'] ?? [];
-            $element['data']['properties']['design']['typography']['text-align'] = $element['data']['properties']['design']['typography']['text-align'] ?? 'center';
+            $element['data']['properties']['design']['typography']['text_align'] = $element['data']['properties']['design']['typography']['text_align'] ?? 'center';
             return true;
         }
 
@@ -304,8 +304,8 @@ class HeuristicsService
             if ($tag === 'header' || $tag === 'section' || $tag === 'div') {
                 $element['data']['properties']['design'] = $element['data']['properties']['design'] ?? [];
                 $element['data']['properties']['design']['spacing'] = $element['data']['properties']['design']['spacing'] ?? [];
-                $element['data']['properties']['design']['spacing']['padding-top'] =
-                    $element['data']['properties']['design']['spacing']['padding-top'] ?? '80px';
+                $element['data']['properties']['design']['spacing']['spacing']['padding']['top'] =
+                    $element['data']['properties']['design']['spacing']['spacing']['padding']['top'] ?? '80px';
                 $headerDetected = false; // Only apply once
                 return true;
             }

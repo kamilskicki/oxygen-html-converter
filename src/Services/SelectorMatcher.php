@@ -203,7 +203,7 @@ class SelectorMatcher
             'OxygenElements\\Image' => 'img',
             'OxygenElements\\Html5Video' => 'video',
             'OxygenElements\\RichText' => 'div',
-            'OxygenElements\\Header' => 'header',
+            'OxygenElements\\Component' => 'div',
             'EssentialElements\\Button' => 'button',
         ];
 

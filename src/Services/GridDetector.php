@@ -66,23 +66,50 @@ class GridDetector
         $isGrid = false;
 
         foreach ($classNames as $className) {
-            if (preg_match('/^grid-cols-/', $className) || $className === 'grid') {
+            if (preg_match('/^grid-(?:cols|rows)-/', $className) || $className === 'grid') {
                 $isGrid = true;
                 break;
             }
         }
 
         if ($isGrid) {
-            $properties['grid'] = 'true';
             $properties['display'] = 'grid';
+
+            foreach ($classNames as $className) {
+                if (preg_match('/^grid-cols-(\d+)$/', $className, $matches)) {
+                    $properties['grid']['simple_grid_template_columns'] = $matches[1];
+                    continue;
+                }
+
+                if (preg_match('/^grid-rows-(\d+)$/', $className, $matches)) {
+                    $properties['grid']['simple_grid_template_rows'] = $matches[1];
+                }
+            }
             
             $cols = $this->getGridTemplateColumns($classNames);
-            if ($cols) {
-                $properties['grid-template-columns'] = $cols;
+            if ($cols && !isset($properties['grid']['simple_grid_template_columns'])) {
+                $properties['grid']['enable_advanced_mode'] = true;
+                $properties['grid_template_columns'][0]['size'] = $cols;
             }
             
             $gaps = $this->getGridGap($classNames);
             foreach ($gaps as $key => $val) {
+                if ($key === 'gap') {
+                    $properties['gap']['row'] = $val;
+                    $properties['gap']['column'] = $val;
+                    continue;
+                }
+
+                if ($key === 'column-gap') {
+                    $properties['gap']['column'] = $val;
+                    continue;
+                }
+
+                if ($key === 'row-gap') {
+                    $properties['gap']['row'] = $val;
+                    continue;
+                }
+
                 $properties[$key] = $val;
             }
         }

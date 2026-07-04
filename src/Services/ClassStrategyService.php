@@ -73,13 +73,15 @@ class ClassStrategyService
         $preservedUnsupportedTailwind = false;
 
         foreach ($classes as $className) {
+            $mappedClassProperties = $this->tailwindPropertyMapper->mapClass($className);
+            if ($mappedClassProperties !== []) {
+                $this->report->incrementTailwindClassCount();
+                $mappedProperties = $this->mergeAssociativeProperties($mappedProperties, $mappedClassProperties);
+                continue;
+            }
+
             if ($this->tailwindDetector->isTailwindClass($className)) {
                 $this->report->incrementTailwindClassCount();
-                $mappedClassProperties = $this->tailwindPropertyMapper->mapClass($className);
-                if ($mappedClassProperties !== []) {
-                    $mappedProperties = $this->mergeAssociativeProperties($mappedProperties, $mappedClassProperties);
-                    continue;
-                }
 
                 $preservedTailwindClasses[] = $className;
                 $preservedUnsupportedTailwind = true;

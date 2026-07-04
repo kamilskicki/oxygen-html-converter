@@ -178,7 +178,43 @@ class StyleExtractorTest extends TestCase
         
         $properties = $this->extractor->toOxygenProperties($styles);
         
-        $this->assertIsArray($properties);
+        $this->assertSame('red', $properties['typography']['color']);
+        $this->assertSame('blue', $properties['background']['background_color']);
+        $this->assertArrayNotHasKey('background-color', $properties['background']);
+    }
+
+    public function testToOxygenPropertiesNormalizesMeasurementValues(): void
+    {
+        $properties = $this->extractor->toOxygenProperties([
+            'width' => '120px',
+            'padding' => '10px 20px',
+            'font-size' => '18px',
+            'line-height' => '1.5em',
+            'border-radius' => '8px',
+            'outline' => '2px solid #123456',
+        ]);
+
+        $this->assertSame('120px', $properties['size']['width']['style']);
+        $this->assertSame(120, $properties['size']['width']['number']);
+        $this->assertSame('10px', $properties['spacing']['spacing']['padding']['top']['style']);
+        $this->assertSame('20px', $properties['spacing']['spacing']['padding']['right']['style']);
+        $this->assertSame('18px', $properties['typography']['font_size']['style']);
+        $this->assertSame('1.5em', $properties['typography']['line_height']['style']);
+        $this->assertSame('8px', $properties['borders']['border_radius']['all']['style']);
+        $this->assertSame('2px', $properties['effects']['outline_width']['style']);
+        $this->assertSame('#123456FF', $properties['effects']['outline_color']);
+    }
+
+    public function testToOxygenPropertiesAcceptsCustomMeasurementFunctionsOnlyInMeasurementPaths(): void
+    {
+        $properties = $this->extractor->toOxygenProperties([
+            'width' => 'calc(100% - var(--gap, 2rem))',
+            'display' => 'calc(100% - 1rem)',
+        ]);
+
+        $this->assertSame('custom', $properties['size']['width']['unit']);
+        $this->assertSame('calc(100% - var(--gap, 2rem))', $properties['size']['width']['style']);
+        $this->assertArrayNotHasKey('display', $properties['layout'] ?? []);
     }
 
     public function testExtractHandlesComplexValues(): void
@@ -191,6 +227,18 @@ class StyleExtractorTest extends TestCase
 
         $this->assertStringContainsString('linear-gradient', $styles['background']);
         $this->assertStringContainsString('Open Sans', $styles['font-family']);
+    }
+
+    public function testParseInlineStylesPreservesSemicolonsInsideValues(): void
+    {
+        $styles = $this->extractor->parseInlineStyles(
+            'background-image: url("data:image/svg+xml;utf8,<svg></svg>"); content: "a;b"; --label: "c;d"; width: calc(100% - var(--gap, 2rem));'
+        );
+
+        $this->assertStringContainsString('data:image/svg+xml;utf8', $styles['background-image']);
+        $this->assertSame('"a;b"', $styles['content']);
+        $this->assertSame('"c;d"', $styles['--label']);
+        $this->assertSame('calc(100% - var(--gap, 2rem))', $styles['width']);
     }
 
     // ─── Value 0 Bug Fix Tests ──────────────────────────────────────
@@ -216,16 +264,16 @@ class StyleExtractorTest extends TestCase
     public function testNewTypographyProperties(): void
     {
         $styles = [
-            'white-space' => 'nowrap',
-            'word-break' => 'break-all',
+            'overflow-wrap' => 'break-word',
+            'text-wrap' => 'balance',
             'text-overflow' => 'ellipsis',
         ];
 
         $properties = $this->extractor->toOxygenProperties($styles);
 
-        $this->assertEquals('nowrap', $properties['typography']['white-space']);
-        $this->assertEquals('break-all', $properties['typography']['word-break']);
-        $this->assertEquals('ellipsis', $properties['typography']['text-overflow']);
+        $this->assertEquals('break-word', $properties['typography']['overflow_wrap']);
+        $this->assertEquals('balance', $properties['typography']['text_wrap']);
+        $this->assertEquals('ellipsis', $properties['typography']['text_overflow']);
     }
 
     public function testNewLayoutProperties(): void
@@ -241,12 +289,14 @@ class StyleExtractorTest extends TestCase
 
         $properties = $this->extractor->toOxygenProperties($styles);
 
-        $this->assertEquals('1', $properties['layout']['flex-grow']);
-        $this->assertEquals('0', $properties['layout']['flex-shrink']);
-        $this->assertEquals('auto', $properties['layout']['flex-basis']);
-        $this->assertEquals('2', $properties['layout']['order']);
-        $this->assertEquals('span 2', $properties['layout']['grid-column']);
-        $this->assertEquals('1 / 3', $properties['layout']['grid-row']);
+        $this->assertEquals('1', $properties['flex_child']['flex_grow']);
+        $this->assertEquals('0', $properties['flex_child']['flex_shrink']);
+        $this->assertEquals('auto', $properties['flex_child']['flex_basis']);
+        $this->assertEquals('custom', $properties['flex_child']['order']);
+        $this->assertEquals('2', $properties['flex_child']['order_custom']);
+        $this->assertEquals('span 2', $properties['grid_child']['column_start']);
+        $this->assertEquals('1', $properties['grid_child']['row_start']);
+        $this->assertEquals('3', $properties['grid_child']['row_end']);
     }
 
     public function testNewSizeProperties(): void
@@ -254,7 +304,7 @@ class StyleExtractorTest extends TestCase
         $styles = ['aspect-ratio' => '16 / 9'];
         $properties = $this->extractor->toOxygenProperties($styles);
 
-        $this->assertEquals('16 / 9', $properties['size']['aspect-ratio']);
+        $this->assertEquals('16 / 9', $properties['size']['aspect_ratio']);
     }
 
     public function testNewEffectsProperties(): void
@@ -268,8 +318,10 @@ class StyleExtractorTest extends TestCase
         $properties = $this->extractor->toOxygenProperties($styles);
 
         $this->assertEquals('pointer', $properties['effects']['cursor']);
-        $this->assertEquals('blur(10px)', $properties['effects']['backdrop-filter']);
-        $this->assertEquals('multiply', $properties['effects']['mix-blend-mode']);
+        $this->assertFalse($properties['effects']['backdrop_filter'][0]['disabled']);
+        $this->assertEquals('blur', $properties['effects']['backdrop_filter'][0]['type']);
+        $this->assertEquals('10px', $properties['effects']['backdrop_filter'][0]['blur_value']);
+        $this->assertEquals('multiply', $properties['effects']['blend_mode']);
     }
 
     public function testNewBorderProperties(): void
@@ -284,11 +336,78 @@ class StyleExtractorTest extends TestCase
 
         $properties = $this->extractor->toOxygenProperties($styles);
 
-        $this->assertEquals('8px', $properties['border']['border-top-left-radius']);
-        $this->assertEquals('12px', $properties['border']['border-top-right-radius']);
-        $this->assertEquals('4px', $properties['border']['border-bottom-left-radius']);
-        $this->assertEquals('16px', $properties['border']['border-bottom-right-radius']);
-        $this->assertEquals('2px solid blue', $properties['border']['outline']);
+        $this->assertEquals('8px', $properties['borders']['border_radius']['topLeft']);
+        $this->assertEquals('12px', $properties['borders']['border_radius']['topRight']);
+        $this->assertEquals('4px', $properties['borders']['border_radius']['bottomLeft']);
+        $this->assertEquals('16px', $properties['borders']['border_radius']['bottomRight']);
+        $this->assertEquals('2px', $properties['effects']['outline_width']);
+        $this->assertEquals('solid', $properties['effects']['outline_style']);
+        $this->assertEquals('blue', $properties['effects']['outline_color']);
+    }
+
+    public function testNativeControlMapUsesOxygenReadablePathsForSupportedDeclarations(): void
+    {
+        $properties = $this->extractor->toOxygenProperties([
+            'display' => 'flex',
+            'justify-content' => 'center',
+            'align-items' => 'flex-start',
+            'gap' => '24px',
+            'padding' => '10px 20px',
+            'font-size' => '18px',
+            'font-style' => 'italic',
+            'text-decoration' => 'underline',
+            'border-radius' => '8px',
+        ]);
+
+        $this->assertSame('flex', $properties['layout']['display']);
+        $this->assertSame('center', $properties['layout']['flex_align']['primary_axis']);
+        $this->assertSame('flex-start', $properties['layout']['flex_align']['cross_axis']);
+        $this->assertSame('24px', $properties['layout']['gap']['row']);
+        $this->assertSame('24px', $properties['layout']['gap']['column']);
+        $this->assertSame('10px', $properties['spacing']['spacing']['padding']['top']);
+        $this->assertSame('20px', $properties['spacing']['spacing']['padding']['right']);
+        $this->assertSame('18px', $properties['typography']['font_size']);
+        $this->assertSame('italic', $properties['typography']['style']['font_style']);
+        $this->assertSame('underline', $properties['typography']['style']['text_decoration']);
+        $this->assertSame('8px', $properties['borders']['border_radius']['all']);
+
+        $this->assertArrayNotHasKey('font-size', $properties['typography']);
+        $this->assertArrayNotHasKey('justify-content', $properties['layout']);
+        $this->assertArrayNotHasKey('padding', $properties['spacing']);
+    }
+
+    public function testNativeControlMapUsesContractPathsForGridBackgroundBordersAndEffects(): void
+    {
+        $properties = $this->extractor->toOxygenProperties([
+            'grid-template-columns' => 'repeat(3, minmax(0, 1fr))',
+            'grid-template-rows' => '120px auto',
+            'background-image' => 'linear-gradient(red, blue)',
+            'background-size' => 'cover',
+            'background-repeat' => 'no-repeat',
+            'border' => '1px solid #ff0000',
+            'box-shadow' => '0 12px 30px rgba(0,0,0,.2)',
+            'object-fit' => 'cover',
+            'mix-blend-mode' => 'multiply',
+        ]);
+
+        $this->assertSame('3', $properties['layout']['grid']['simple_grid_template_columns']);
+        $this->assertTrue($properties['layout']['grid']['enable_advanced_mode']);
+        $this->assertSame('120px auto', $properties['layout']['grid_template_rows'][0]['size']);
+        $this->assertSame('gradient', $properties['background']['backgrounds'][0]['type']);
+        $this->assertSame('linear-gradient(red, blue)', $properties['background']['backgrounds'][0]['gradient']['value']);
+        $this->assertSame('cover', $properties['background']['backgrounds'][0]['background_size']);
+        $this->assertSame('no-repeat', $properties['background']['backgrounds'][0]['background_repeat']);
+        $this->assertSame('1px', $properties['borders']['borders']['top']['width']);
+        $this->assertSame('solid', $properties['borders']['borders']['top']['style']);
+        $this->assertSame('#ff0000', $properties['borders']['borders']['top']['color']);
+        $this->assertSame('0', $properties['effects']['box_shadow'][0]['x']);
+        $this->assertSame('12px', $properties['effects']['box_shadow'][0]['y']);
+        $this->assertSame('cover', $properties['size']['object_fit']);
+        $this->assertSame('multiply', $properties['effects']['blend_mode']);
+
+        $this->assertArrayNotHasKey('template_columns', $properties['layout']['grid']);
+        $this->assertArrayNotHasKey('mix_blend_mode', $properties['effects']);
+        $this->assertArrayNotHasKey('object_fit', $properties['effects']);
     }
 
     public function testSupportsDeclarationsFullyReturnsTrueForFullyMappableStyles(): void
@@ -296,6 +415,7 @@ class StyleExtractorTest extends TestCase
         $this->assertTrue($this->extractor->supportsDeclarationsFully([
             'display' => 'flex',
             'justify-content' => 'center',
+            'grid-template-columns' => 'repeat(3, minmax(0, 1fr))',
         ]));
     }
 
@@ -304,6 +424,13 @@ class StyleExtractorTest extends TestCase
         $this->assertFalse($this->extractor->supportsDeclarationsFully([
             'display' => 'flex',
             'clip-path' => 'circle(50%)',
+        ]));
+    }
+
+    public function testSupportsDeclarationsFullyReturnsFalseForInvalidSupportedValue(): void
+    {
+        $this->assertFalse($this->extractor->supportsDeclarationsFully([
+            'width' => 'url(javascript:alert(1))',
         ]));
     }
 }

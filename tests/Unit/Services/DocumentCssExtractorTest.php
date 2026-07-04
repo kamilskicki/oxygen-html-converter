@@ -11,6 +11,25 @@ use PHPUnit\Framework\TestCase;
 
 class DocumentCssExtractorTest extends TestCase
 {
+    private mixed $previousClassMode;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->previousClassMode = $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] ?? null;
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->previousClassMode === null) {
+            unset($GLOBALS['__wp_options']['oxy_html_converter_class_mode']);
+        } else {
+            $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] = $this->previousClassMode;
+        }
+
+        parent::tearDown();
+    }
+
     public function testAddsCompatibilityShimForUniversalReset(): void
     {
         $doc = new \DOMDocument();
@@ -30,6 +49,8 @@ class DocumentCssExtractorTest extends TestCase
 
     public function testAppendsTailwindFallbackCss(): void
     {
+        $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] = 'native';
+
         $doc = new \DOMDocument();
         $doc->loadHTML('<div class="md:text-8xl leading-[0.9]">Hello</div>');
 
@@ -43,6 +64,27 @@ class DocumentCssExtractorTest extends TestCase
         $css = $extractor->extract($doc);
 
         $this->assertStringContainsString('Tailwind utility fallback', $css);
+        $this->assertStringContainsString('.leading-\\[0\\.9\\]', $css);
+    }
+
+    public function testWindPressModeStillExtractsTailwindFallbackForStyleRouter(): void
+    {
+        $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] = 'windpress';
+
+        $doc = new \DOMDocument();
+        $doc->loadHTML('<div class="text-6xl leading-[0.9] md:flex p-4">Hello</div>');
+
+        $extractor = new DocumentCssExtractor(
+            new HeuristicsService(),
+            new TailwindDetector(),
+            new TailwindPropertyMapper(),
+            new TailwindCssFallbackGenerator()
+        );
+
+        $css = $extractor->extract($doc);
+
+        $this->assertStringContainsString('Tailwind utility fallback', $css);
+        $this->assertStringContainsString('.text-6xl', $css);
         $this->assertStringContainsString('.leading-\\[0\\.9\\]', $css);
     }
 }

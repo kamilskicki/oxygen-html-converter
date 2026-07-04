@@ -33,7 +33,7 @@ class HeadAssetExtractor
         foreach ($linkTags as $linkTag) {
             $rel = strtolower($linkTag->getAttribute('rel'));
 
-            if (!in_array($rel, ['stylesheet', 'preconnect'], true)) {
+            if ($rel !== 'stylesheet') {
                 continue;
             }
 
@@ -91,6 +91,7 @@ class HeadAssetExtractor
             if (trim((string) $html) === '') {
                 continue;
             }
+            $html = $this->normalizeScriptHtml((string) $html, $scriptTag);
 
             $signature = $src !== '' ? 'src|' . $src : 'inline|' . md5(trim((string) $html));
             if (isset($seenSignatures[$signature])) {
@@ -102,6 +103,54 @@ class HeadAssetExtractor
         }
 
         return $elements;
+    }
+
+    private function normalizeScriptHtml(string $html, DOMElement $scriptTag): string
+    {
+        if (trim((string) $scriptTag->getAttribute('src')) !== '') {
+            return $html;
+        }
+
+        $patterns = [
+            [
+                'pattern' => '/(?<![\w$.])window\s*\.\s*tailwind\s*\.\s*config\s*=/',
+                'guard' => 'window.tailwind = window.tailwind || {};',
+                'replacement' => 'window.tailwind.config =',
+            ],
+            [
+                'pattern' => '/(?<![\w$.])globalThis\s*\.\s*tailwind\s*\.\s*config\s*=/',
+                'guard' => 'globalThis.tailwind = globalThis.tailwind || {};',
+                'replacement' => 'globalThis.tailwind.config =',
+            ],
+            [
+                'pattern' => '/(?<![\w$.])tailwind\s*\.\s*config\s*=/',
+                'guard' => 'window.tailwind = window.tailwind || {};',
+                'replacement' => 'window.tailwind.config =',
+            ],
+        ];
+
+        $normalized = $html;
+        foreach ($patterns as $entry) {
+            if (preg_match($entry['pattern'], $normalized) !== 1) {
+                continue;
+            }
+
+            $guard = str_contains($normalized, $entry['guard'])
+                ? ''
+                : $entry['guard'] . "\n";
+            $normalized = (string) preg_replace(
+                $entry['pattern'],
+                $guard . $entry['replacement'],
+                $normalized,
+                1
+            );
+        }
+
+        if ($normalized === $html) {
+            return $html;
+        }
+
+        return $normalized;
     }
 
     /**

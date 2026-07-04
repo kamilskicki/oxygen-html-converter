@@ -73,7 +73,31 @@ class ClassStrategyServiceTest extends TestCase
 
         $this->assertSame(['my-custom-class'], $storedClasses);
         $this->assertSame('flex', $element['data']['properties']['design']['layout']['display']);
-        $this->assertSame('center', $element['data']['properties']['design']['layout']['align-items']);
+        $this->assertSame('center', $element['data']['properties']['design']['layout']['flex_align']['cross_axis']);
+        $this->assertArrayNotHasKey('align-items', $element['data']['properties']['design']['layout']);
+    }
+
+    public function testOxygenNativeModeMapsKnownUtilitiesEvenWhenDetectorMissesThem(): void
+    {
+        $service = $this->createServiceWithWindPressMode(false);
+        $element = ['data' => ['properties' => []]];
+
+        $service->processClasses(['inline-flex', 'inline-block', 'custom-card'], $element);
+
+        $this->assertSame(['custom-card'], $element['data']['properties']['settings']['advanced']['classes']);
+        $this->assertSame('inline-block', $element['data']['properties']['design']['layout']['display']);
+    }
+
+    public function testOxygenNativeModePreservesUnsupportedFlexWrapUtilities(): void
+    {
+        $service = $this->createServiceWithWindPressMode(false);
+        $element = ['data' => ['properties' => []]];
+
+        $service->processClasses(['flex', 'flex-wrap', 'flex-nowrap'], $element);
+
+        $this->assertSame(['flex-wrap', 'flex-nowrap'], $element['data']['properties']['settings']['advanced']['classes']);
+        $this->assertSame('flex', $element['data']['properties']['design']['layout']['display']);
+        $this->assertArrayNotHasKey('flex_wrap', $element['data']['properties']['design']['layout']);
     }
 
     public function testReportTracksClassCounts(): void

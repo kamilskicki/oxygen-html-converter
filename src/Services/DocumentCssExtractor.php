@@ -119,4 +119,5 @@ CSS;
 
         return $css . "/* Tailwind utility fallback */\n" . $fallbackCss . "\n";
     }
+
 }
