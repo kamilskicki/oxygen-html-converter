@@ -15,7 +15,9 @@ class ConvertPayloadBuilder
     public function __construct(
         private readonly OxygenDocumentTree $documentTree,
         private readonly ConversionAuditBuilder $auditBuilder,
-        private readonly OutputValidator $outputValidator
+        private readonly OutputValidator $outputValidator,
+        private readonly ?DesignDocumentBuilder $designDocumentBuilder = null,
+        private readonly ?ImportPlanBuilder $importPlanBuilder = null
     )
     {
     }
@@ -25,17 +27,24 @@ class ConvertPayloadBuilder
      * @param array<string, mixed> $options
      * @return array{success:bool,status:int,data:array<string, mixed>}
      */
-    public function build(array $result, array $options): array
+    public function build(array $result, array $options, string $html = ''): array
     {
         $rootElement = $this->buildRootElement($result, $options);
         $this->reindexElementTree($rootElement, (int) ($options['startingNodeId'] ?? 1));
         $validationErrors = $this->validatePayload($rootElement, $result);
+        $designDocument = $this->getDesignDocumentBuilder()->build($html, $result);
+        $resultForPlanBase = array_merge($result, ['element' => $rootElement]);
+        $resultForPlan = $validationErrors !== []
+            ? array_merge($resultForPlanBase, ['validationErrors' => $validationErrors])
+            : $resultForPlanBase;
+        $importPlan = $this->getImportPlanBuilder()->build($resultForPlan, $designDocument, $options);
+        $resultWithAnalysis = array_merge($resultForPlan, [
+            'designDocument' => $designDocument,
+            'importPlan' => $importPlan,
+        ]);
 
         if ($validationErrors !== []) {
-            $audit = $this->auditBuilder->build(
-                array_merge($result, ['validationErrors' => $validationErrors]),
-                $options
-            );
+            $audit = $this->auditBuilder->build($resultWithAnalysis, $options);
 
             return [
                 'success' => false,
@@ -43,6 +52,24 @@ class ConvertPayloadBuilder
                 'data' => [
                     'message' => __('Converted output failed builder validation. Try Safe Mode or a different preset.', 'oxygen-html-converter'),
                     'errors' => $validationErrors,
+                    'designDocument' => $designDocument,
+                    'importPlan' => $importPlan,
+                    'audit' => $audit,
+                ],
+            ];
+        }
+
+        if (!empty($options['strictNative']) && ($importPlan['status'] ?? '') === 'blocked') {
+            $audit = $this->auditBuilder->build($resultWithAnalysis, $options);
+
+            return [
+                'success' => false,
+                'status' => 422,
+                'data' => [
+                    'message' => __('Strict native import blocked fallback code or unsupported constructs. Review the import plan before importing.', 'oxygen-html-converter'),
+                    'errors' => is_array($importPlan['blockers'] ?? null) ? $importPlan['blockers'] : [],
+                    'designDocument' => $designDocument,
+                    'importPlan' => $importPlan,
                     'audit' => $audit,
                 ],
             ];
@@ -50,7 +77,10 @@ class ConvertPayloadBuilder
 
         $documentTree = $this->documentTree->build($rootElement);
         $cssElement = $this->findFirstElementOfType($rootElement, ElementTypes::CSS_CODE) ?? $result['cssElement'];
-        $audit = $this->auditBuilder->build($result, $options);
+        $audit = $this->auditBuilder->build($resultWithAnalysis, $options);
+        $selectorPayload = is_array($result['selectorPayload'] ?? null)
+            ? $result['selectorPayload']
+            : ['selectors' => [], 'collections' => []];
 
         return [
             'success' => true,
@@ -60,8 +90,15 @@ class ConvertPayloadBuilder
                 'documentTree' => $documentTree,
                 'cssElement' => $cssElement,
                 'extractedCss' => $result['extractedCss'],
+                'globalCss' => (string) ($result['globalCss'] ?? ''),
+                'pageScopedCss' => (string) ($result['pageScopedCss'] ?? ''),
+                'styleRouting' => is_array($result['styleRouting'] ?? null) ? $result['styleRouting'] : [],
                 'customClasses' => $result['customClasses'],
+                'selectorPayload' => $selectorPayload,
+                'selectorJson' => json_encode($selectorPayload, JSON_PRETTY_PRINT),
                 'stats' => $result['stats'],
+                'designDocument' => $designDocument,
+                'importPlan' => $importPlan,
                 'json' => json_encode([
                     'element' => $rootElement,
                 ], JSON_PRETTY_PRINT),
@@ -208,5 +245,15 @@ class ConvertPayloadBuilder
         }
 
         return $this->outputValidator->getErrors();
+    }
+
+    private function getDesignDocumentBuilder(): DesignDocumentBuilder
+    {
+        return $this->designDocumentBuilder ?? new DesignDocumentBuilder();
+    }
+
+    private function getImportPlanBuilder(): ImportPlanBuilder
+    {
+        return $this->importPlanBuilder ?? new ImportPlanBuilder();
     }
 }

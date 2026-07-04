@@ -4,7 +4,9 @@ namespace OxyHtmlConverter\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use OxyHtmlConverter\Contracts\ElementContractRegistry;
 use OxyHtmlConverter\ElementMapper;
+use OxyHtmlConverter\ElementTypes;
 use DOMDocument;
 use DOMElement;
 
@@ -138,6 +140,15 @@ class ElementMapperTest extends TestCase
         $this->assertEquals('h2', $this->mapper->getTagOption('h2'));
         $this->assertEquals('p', $this->mapper->getTagOption('p'));
         $this->assertEquals('blockquote', $this->mapper->getTagOption('blockquote'));
+        $this->assertEquals('header', $this->mapper->getTagOption('header'));
+    }
+
+    public function testElementRegistryAcceptsComponentAndRejectsStaleHeaderElement(): void
+    {
+        $this->assertTrue(ElementTypes::isValid(ElementTypes::COMPONENT));
+        $this->assertFalse(ElementTypes::isValid('OxygenElements\\Header'));
+        $this->assertSame('OxygenElements\\Container', $this->mapper->getElementType('header'));
+        $this->assertContains('content.content.block.componentId', ElementContractRegistry::getRequiredPropertyPaths(ElementTypes::COMPONENT));
     }
 
     public function testBuildPropertiesForImage(): void
@@ -152,6 +163,43 @@ class ElementMapperTest extends TestCase
         $properties = $this->mapper->buildProperties($img);
 
         $this->assertArrayHasKey('content', $properties);
+    }
+
+    public function testBuildPropertiesExposeRenderedSinkPaths(): void
+    {
+        $doc = new DOMDocument();
+        @$doc->loadHTML(
+            '<p>Hello <span>world</span></p>'
+            . '<table><tr><td>Cell</td></tr></table>'
+            . '<a href="/contact">Contact</a>'
+            . '<img src="/image.jpg" alt="Hero">'
+            . '<form><button>Send</button></form>'
+        );
+
+        $text = $doc->getElementsByTagName('p')->item(0);
+        $richText = $doc->getElementsByTagName('table')->item(0);
+        $link = $doc->getElementsByTagName('a')->item(0);
+        $image = $doc->getElementsByTagName('img')->item(0);
+        $form = $doc->getElementsByTagName('form')->item(0);
+
+        $this->assertInstanceOf(DOMElement::class, $text);
+        $this->assertInstanceOf(DOMElement::class, $richText);
+        $this->assertInstanceOf(DOMElement::class, $link);
+        $this->assertInstanceOf(DOMElement::class, $image);
+        $this->assertInstanceOf(DOMElement::class, $form);
+
+        $this->assertArrayHasKey('text', $this->mapper->buildProperties($text)['content']['content']);
+        $this->assertArrayHasKey('text', $this->mapper->buildProperties($richText)['content']['content']);
+
+        $linkContent = $this->mapper->buildProperties($link)['content']['content'];
+        $this->assertArrayHasKey('text', $linkContent);
+        $this->assertArrayHasKey('url', $linkContent);
+
+        $imageContent = $this->mapper->buildProperties($image)['content']['image'];
+        $this->assertArrayHasKey('url', $imageContent);
+        $this->assertArrayHasKey('custom_alt_when_from_url', $imageContent);
+
+        $this->assertArrayHasKey('html_code', $this->mapper->buildProperties($form)['content']['content']);
     }
 
     public function testBuildPropertiesForVideo(): void

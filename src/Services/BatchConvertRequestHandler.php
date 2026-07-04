@@ -15,7 +15,9 @@ class BatchConvertRequestHandler
         private readonly TreeBuilderFactory $treeBuilderFactory,
         private readonly OxygenDocumentTree $documentTree,
         private readonly ConversionAuditBuilder $auditBuilder,
-        private readonly OutputValidator $outputValidator
+        private readonly OutputValidator $outputValidator,
+        private readonly ?DesignDocumentBuilder $designDocumentBuilder = null,
+        private readonly ?ImportPlanBuilder $importPlanBuilder = null
     )
     {
     }
@@ -44,7 +46,16 @@ class BatchConvertRequestHandler
             $result = $builder->convert($html);
 
             if (!empty($result['success'])) {
+                $designDocument = $this->getDesignDocumentBuilder()->build($html, $result);
                 $validationErrors = $this->validatePayload($result);
+                $resultForPlan = $validationErrors !== []
+                    ? array_merge($result, ['validationErrors' => $validationErrors])
+                    : $result;
+                $importPlan = $this->getImportPlanBuilder()->build($resultForPlan, $designDocument, $options);
+                $resultWithAnalysis = array_merge($resultForPlan, [
+                    'designDocument' => $designDocument,
+                    'importPlan' => $importPlan,
+                ]);
 
                 if ($validationErrors !== []) {
                     $results[] = [
@@ -52,13 +63,28 @@ class BatchConvertRequestHandler
                         'success' => false,
                         'message' => __('Converted output failed builder validation.', 'oxygen-html-converter'),
                         'errors' => $validationErrors,
-                        'audit' => $this->auditBuilder->build(
-                            array_merge($result, ['validationErrors' => $validationErrors]),
-                            $options
-                        ),
+                        'designDocument' => $designDocument,
+                        'importPlan' => $importPlan,
+                        'audit' => $this->auditBuilder->build($resultWithAnalysis, $options),
                     ];
                     $totalStats['warnings'][] = 'Item ' . $index . ' failed builder validation.';
                     $totalStats['errors'] = array_merge($totalStats['errors'], $validationErrors);
+                    continue;
+                }
+
+                if (!empty($options['strictNative']) && ($importPlan['status'] ?? '') === 'blocked') {
+                    $blockers = is_array($importPlan['blockers'] ?? null) ? $importPlan['blockers'] : [];
+                    $results[] = [
+                        'index' => $index,
+                        'success' => false,
+                        'message' => __('Strict native import blocked fallback code or unsupported constructs.', 'oxygen-html-converter'),
+                        'errors' => $blockers,
+                        'designDocument' => $designDocument,
+                        'importPlan' => $importPlan,
+                        'audit' => $this->auditBuilder->build($resultWithAnalysis, $options),
+                    ];
+                    $totalStats['warnings'][] = 'Item ' . $index . ' was blocked by Strict Native mode.';
+                    $totalStats['errors'] = array_merge($totalStats['errors'], $blockers);
                     continue;
                 }
 
@@ -68,11 +94,17 @@ class BatchConvertRequestHandler
                     'success' => true,
                     'element' => $result['element'],
                     'documentTree' => $documentTree,
+                    'selectorPayload' => $result['selectorPayload'] ?? ['selectors' => [], 'collections' => []],
+                    'globalCss' => (string) ($result['globalCss'] ?? ''),
+                    'pageScopedCss' => (string) ($result['pageScopedCss'] ?? ''),
+                    'styleRouting' => is_array($result['styleRouting'] ?? null) ? $result['styleRouting'] : [],
                     'documentJson' => json_encode([
                         'tree_json_string' => wp_json_encode($documentTree),
                     ], JSON_PRETTY_PRINT),
                     'stats' => $result['stats'],
-                    'audit' => $this->auditBuilder->build($result, $options),
+                    'designDocument' => $designDocument,
+                    'importPlan' => $importPlan,
+                    'audit' => $this->auditBuilder->build($resultWithAnalysis, $options),
                 ];
 
                 $totalStats['elements'] += $result['stats']['elements'];
@@ -134,5 +166,15 @@ class BatchConvertRequestHandler
         }
 
         return $this->outputValidator->getErrors();
+    }
+
+    private function getDesignDocumentBuilder(): DesignDocumentBuilder
+    {
+        return $this->designDocumentBuilder ?? new DesignDocumentBuilder();
+    }
+
+    private function getImportPlanBuilder(): ImportPlanBuilder
+    {
+        return $this->importPlanBuilder ?? new ImportPlanBuilder();
     }
 }

@@ -36,7 +36,7 @@ class ConvertRequestHandler
             ];
         }
 
-        $response = $this->payloadBuilder->build($result, $options);
+        $response = $this->payloadBuilder->build($result, $options, $html);
         if ($response['success']) {
             $response['data'] = apply_filters('oxy_html_converter_convert_response', $response['data'], $result, $options, $html);
         }

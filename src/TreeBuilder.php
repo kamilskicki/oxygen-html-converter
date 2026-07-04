@@ -16,9 +16,11 @@ use OxyHtmlConverter\Services\CssParser;
 use OxyHtmlConverter\Services\AnimationDetector;
 use OxyHtmlConverter\Services\ComponentDetector;
 use OxyHtmlConverter\Services\DocumentCssExtractor;
+use OxyHtmlConverter\Services\StyleRoutingService;
 use OxyHtmlConverter\Services\HeuristicsService;
 use OxyHtmlConverter\Services\HeadAssetExtractor;
 use OxyHtmlConverter\Services\HtmlCodeSanitizer;
+use OxyHtmlConverter\Services\OxygenSelectorImporter;
 use OxyHtmlConverter\Services\SelectorMatcher;
 use OxyHtmlConverter\Validation\OutputValidator;
 use OxyHtmlConverter\ElementTypes;
@@ -31,6 +33,84 @@ use DOMText;
  */
 class TreeBuilder
 {
+    private const NATIVE_CSS_MIRROR_PROPERTIES = [
+        'align-items' => true,
+        'background' => true,
+        'background-color' => true,
+        'background-image' => true,
+        'background-position' => true,
+        'background-repeat' => true,
+        'background-size' => true,
+        'border' => true,
+        'border-bottom' => true,
+        'border-bottom-width' => true,
+        'border-color' => true,
+        'border-left' => true,
+        'border-left-width' => true,
+        'border-radius' => true,
+        'border-right' => true,
+        'border-right-width' => true,
+        'border-style' => true,
+        'border-top' => true,
+        'border-top-width' => true,
+        'border-width' => true,
+        'bottom' => true,
+        'box-shadow' => true,
+        'color' => true,
+        'column-gap' => true,
+        'display' => true,
+        'filter' => true,
+        'flex' => true,
+        'flex-basis' => true,
+        'flex-direction' => true,
+        'flex-grow' => true,
+        'flex-shrink' => true,
+        'flex-wrap' => true,
+        'font-family' => true,
+        'font-size' => true,
+        'font-style' => true,
+        'font-weight' => true,
+        'gap' => true,
+        'grid-template-columns' => true,
+        'grid-template-rows' => true,
+        'height' => true,
+        'justify-content' => true,
+        'left' => true,
+        'letter-spacing' => true,
+        'line-height' => true,
+        'margin' => true,
+        'margin-bottom' => true,
+        'margin-left' => true,
+        'margin-right' => true,
+        'margin-top' => true,
+        'max-height' => true,
+        'max-width' => true,
+        'min-height' => true,
+        'min-width' => true,
+        'mix-blend-mode' => true,
+        'object-fit' => true,
+        'opacity' => true,
+        'overflow' => true,
+        'overflow-x' => true,
+        'overflow-y' => true,
+        'padding' => true,
+        'padding-bottom' => true,
+        'padding-left' => true,
+        'padding-right' => true,
+        'padding-top' => true,
+        'position' => true,
+        'right' => true,
+        'row-gap' => true,
+        'text-align' => true,
+        'text-decoration' => true,
+        'text-transform' => true,
+        'top' => true,
+        'transform' => true,
+        'transition' => true,
+        'width' => true,
+        'z-index' => true,
+    ];
+
     private HtmlParser $parser;
     private ElementMapper $mapper;
     private StyleExtractor $styleExtractor;
@@ -48,8 +128,10 @@ class TreeBuilder
     private ComponentDetector $componentDetector;
     private HeuristicsService $heuristics;
     private DocumentCssExtractor $documentCssExtractor;
+    private StyleRoutingService $styleRoutingService;
     private HeadAssetExtractor $headAssetExtractor;
     private SelectorMatcher $selectorMatcher;
+    private OxygenSelectorImporter $selectorImporter;
     private HtmlCodeSanitizer $htmlCodeSanitizer;
     private OutputValidator $validator;
     private ConversionReport $report;
@@ -68,6 +150,9 @@ class TreeBuilder
     private bool $fixedHeaderDetected = false;
     private array $jsPatterns = [];
     private array $consumedCssSelectors = [];
+    private array $consumedCssDeclarations = [];
+    private array $nativeCssMirrorRules = [];
+    private array $styleRouting = [];
 
     public function __construct()
     {
@@ -99,10 +184,12 @@ class TreeBuilder
             $this->tailwindPropertyMapper,
             $this->tailwindFallbackGenerator
         );
+        $this->styleRoutingService = new StyleRoutingService();
         $this->headAssetExtractor = new HeadAssetExtractor(function (): int {
             return $this->generateNodeId();
         });
         $this->selectorMatcher = new SelectorMatcher();
+        $this->selectorImporter = new OxygenSelectorImporter();
         $this->htmlCodeSanitizer = new HtmlCodeSanitizer();
         $this->validator = new OutputValidator();
     }
@@ -122,6 +209,10 @@ class TreeBuilder
         $this->fixedHeaderDetected = false;
         $this->jsPatterns = [];
         $this->consumedCssSelectors = [];
+        $this->consumedCssDeclarations = [];
+        $this->nativeCssMirrorRules = [];
+        $this->styleRouting = [];
+        $this->selectorImporter->reset();
         $this->report->reset();
 
         // Configure element mapping mode per conversion.
@@ -170,6 +261,7 @@ class TreeBuilder
 
         // Parse extracted CSS rules
         $this->cssRules = $this->cssParser->parse($this->extractedCss);
+        $this->selectorImporter->setCssRules($this->cssRules);
 
         // Pre-analyze CSS rules for animation detection
         $this->animationDetector->analyzeCssRules($this->cssRules, $this->extractedCss);
@@ -220,6 +312,22 @@ class TreeBuilder
         // Keep stateful/animation CSS as fallback, but prune rules that were
         // fully materialized into native Oxygen properties.
         $this->extractedCss = $this->cleanupConsumedCssRules($this->extractedCss);
+        $this->appendNativeCssMirrorFallback($rootElement);
+        if ($this->nativeCssMirrorRules !== []) {
+            $this->extractedCss = trim($this->extractedCss);
+            $nativeMirrorCss = implode("\n", $this->nativeCssMirrorRules);
+            $this->extractedCss = $this->extractedCss === ''
+                ? $nativeMirrorCss
+                : $nativeMirrorCss . "\n" . $this->extractedCss;
+            $this->report->addInfo(
+                'Native CSS mirror fallback emitted for ' . count($this->nativeCssMirrorRules) . ' element(s).'
+            );
+        }
+        $this->styleRouting = $this->styleRoutingService->route(
+            $this->extractedCss,
+            $this->environment->shouldUseWindPressMode()
+        );
+        $this->extractedCss = (string) ($this->styleRouting['pageCss'] ?? $this->extractedCss);
 
         // Create CSS Code element if we have extracted CSS
         $cssElement = null;
@@ -254,12 +362,16 @@ class TreeBuilder
             'success' => true,
             'element' => $rootElement,
             'cssElement' => $cssElement,
+            'globalCss' => (string) ($this->styleRouting['globalCss'] ?? ''),
+            'pageScopedCss' => (string) ($this->styleRouting['pageScopedCss'] ?? ''),
+            'styleRouting' => $this->styleRouting,
             'headLinkElements' => $headLinkElements,
             'headScriptElements' => $headScriptElements,
             'iconScriptElements' => $iconScriptElements,
             'detectedIconLibraries' => $this->detectedIconLibraries,
             'extractedCss' => $this->extractedCss,
             'customClasses' => array_unique($this->customClasses),
+            'selectorPayload' => $this->selectorImporter->buildPayload(),
             'stats' => $this->report->toArray(),
         ];
 
@@ -343,6 +455,10 @@ class TreeBuilder
             $text = trim($node->textContent);
             if ($text === '') {
                 return null;
+            }
+
+            if ($this->safeMode) {
+                $text = $this->htmlCodeSanitizer->escapePlainText($text);
             }
 
             $this->report->incrementElementCount();
@@ -503,8 +619,11 @@ class TreeBuilder
         $contentProperties = $this->mapper->buildProperties($node);
 
         // Extract and convert inline style attributes only when inline style mode is enabled.
-        $styleProperties = $this->inlineStyles
+        $nativeStyleProperties = $this->inlineStyles
             ? $this->styleExtractor->extractAndConvert($node)
+            : [];
+        $styleProperties = $nativeStyleProperties !== []
+            ? ['design' => $nativeStyleProperties]
             : [];
 
         // Merge properties
@@ -624,7 +743,7 @@ class TreeBuilder
             if ($textChild !== null) {
                 // Ensure text inside button is centered in Oxygen
                 $textChild['data']['properties']['design']['typography'] = $textChild['data']['properties']['design']['typography'] ?? [];
-                $textChild['data']['properties']['design']['typography']['text-align'] = 'center';
+                $textChild['data']['properties']['design']['typography']['text_align'] = 'center';
                 $element['children'][] = $textChild;
             }
 
@@ -632,6 +751,10 @@ class TreeBuilder
             if ($this->inlineStyles) {
                 $this->applyCssRules($element, $this->cssRules, $node);
             }
+
+            $this->sanitizeSafeModeElementSinks($element);
+            $this->syncElementSelectorReferences($element);
+            $this->sanitizeTagForElementType($element);
 
             // Don't process other children for buttons - they're handled as text
             return $element;
@@ -682,6 +805,10 @@ class TreeBuilder
         if ($this->inlineStyles) {
             $this->applyCssRules($element, $this->cssRules, $node);
         }
+
+        $this->sanitizeSafeModeElementSinks($element);
+        $this->syncElementSelectorReferences($element);
+        $this->sanitizeTagForElementType($element);
 
         return $element;
     }
@@ -776,6 +903,7 @@ class TreeBuilder
                 $element['data']['properties'] = $this->mergeProperties(
                     $element['data']['properties'], ['design' => $convertedStyles]
                 );
+                $this->trackConsumedCssDeclarations($selector, $rule['declarations']);
                 if ($this->styleExtractor->supportsDeclarationsFully($materializedDeclarations)) {
                     $this->consumedCssSelectors[$selector] = true;
                 }
@@ -842,18 +970,315 @@ class TreeBuilder
      */
     private function cleanupConsumedCssRules(string $css): string
     {
-        if (empty($this->consumedCssSelectors)) {
+        if (empty($this->consumedCssSelectors) && empty($this->consumedCssDeclarations)) {
             return $css;
         }
 
-        foreach (array_keys($this->consumedCssSelectors) as $selector) {
-            $escaped = preg_quote($selector, '/');
-            // Match the selector followed by its rule block { ... }
-            $pattern = '/' . $escaped . '\s*\{[^}]*\}\s*/';
-            $css = preg_replace($pattern, '', $css);
+        $fullyConsumed = array_fill_keys(array_map('strval', array_keys($this->consumedCssSelectors)), true);
+        $partiallyConsumed = $this->consumedCssDeclarations;
+
+        return $this->rewriteCssRuleBlocks(
+            $css,
+            function (string $selector, string $selectorRaw, string $block) use ($fullyConsumed, $partiallyConsumed): ?string {
+                if (isset($fullyConsumed[$selector])) {
+                    return '';
+                }
+
+                if (!isset($partiallyConsumed[$selector])) {
+                    return null;
+                }
+
+                $remainingBlock = $this->removeConsumedDeclarationsFromCssBlock($block, $partiallyConsumed[$selector]);
+                if (trim($remainingBlock) === '') {
+                    return '';
+                }
+
+                return $selectorRaw . '{' . $remainingBlock . '}';
+            }
+        );
+    }
+
+    /**
+     * @param callable(string, string, string): ?string $callback
+     */
+    private function rewriteCssRuleBlocks(string $css, callable $callback): string
+    {
+        $len = strlen($css);
+        $result = '';
+        $ruleStart = 0;
+        $inString = false;
+        $stringChar = '';
+        $inComment = false;
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $css[$i];
+            $next = $css[$i + 1] ?? '';
+
+            if ($inComment) {
+                if ($char === '*' && $next === '/') {
+                    $inComment = false;
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($inString) {
+                if ($char === $stringChar && !$this->isCssCharacterEscaped($css, $i)) {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '/' && $next === '*') {
+                $inComment = true;
+                $i++;
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $inString = true;
+                $stringChar = $char;
+                continue;
+            }
+
+            if ($char !== '{') {
+                continue;
+            }
+
+            $blockEnd = $this->findMatchingCssBlockEnd($css, $i);
+            if ($blockEnd === null) {
+                break;
+            }
+
+            $selectorRaw = substr($css, $ruleStart, $i - $ruleStart);
+            $selector = $this->normalizeCssSelectorForCleanup($selectorRaw);
+            $block = substr($css, $i + 1, $blockEnd - $i - 1);
+            $replacement = $callback($selector, $selectorRaw, $block);
+
+            if ($replacement === null) {
+                $result .= substr($css, $ruleStart, $blockEnd - $ruleStart + 1);
+            } else {
+                $result .= $replacement;
+            }
+
+            $i = $blockEnd;
+            $ruleStart = $blockEnd + 1;
         }
 
-        return $css;
+        return $result . substr($css, $ruleStart);
+    }
+
+    private function findMatchingCssBlockEnd(string $css, int $blockStart): ?int
+    {
+        $len = strlen($css);
+        $depth = 1;
+        $inString = false;
+        $stringChar = '';
+        $inComment = false;
+
+        for ($i = $blockStart + 1; $i < $len; $i++) {
+            $char = $css[$i];
+            $next = $css[$i + 1] ?? '';
+
+            if ($inComment) {
+                if ($char === '*' && $next === '/') {
+                    $inComment = false;
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($inString) {
+                if ($char === $stringChar && !$this->isCssCharacterEscaped($css, $i)) {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '/' && $next === '*') {
+                $inComment = true;
+                $i++;
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $inString = true;
+                $stringChar = $char;
+                continue;
+            }
+
+            if ($char === '{') {
+                $depth++;
+                continue;
+            }
+
+            if ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    return $i;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeCssSelectorForCleanup(string $selectorRaw): string
+    {
+        $withoutComments = preg_replace('!/\*.*?\*/!s', '', $selectorRaw);
+        return trim(is_string($withoutComments) ? $withoutComments : $selectorRaw);
+    }
+
+    private function isCssCharacterEscaped(string $css, int $offset): bool
+    {
+        $slashes = 0;
+        for ($i = $offset - 1; $i >= 0 && $css[$i] === '\\'; $i--) {
+            $slashes++;
+        }
+
+        return $slashes % 2 === 1;
+    }
+
+    private function trackConsumedCssDeclarations(string $selector, array $declarations): void
+    {
+        foreach ($declarations as $property => $value) {
+            $property = strtolower(trim((string) $property));
+            if ($property === '' || !$this->styleExtractor->supportsDeclaration($property)) {
+                continue;
+            }
+
+            $this->consumedCssDeclarations[$selector] = $this->consumedCssDeclarations[$selector] ?? [];
+            $this->consumedCssDeclarations[$selector][] = $property;
+        }
+
+        if (isset($this->consumedCssDeclarations[$selector])) {
+            $this->consumedCssDeclarations[$selector] = array_values(array_unique($this->consumedCssDeclarations[$selector]));
+        }
+    }
+
+    private function removeConsumedDeclarationsFromCssBlock(string $block, array $properties): string
+    {
+        $properties = array_fill_keys(array_map('strtolower', $properties), true);
+        $remaining = [];
+
+        foreach ($this->cssParser->parseDeclarationList($block) as $declaration) {
+            $property = strtolower($declaration['property']);
+
+            if (isset($properties[$property])) {
+                continue;
+            }
+
+            $remaining[] = $declaration['property'] . ': ' . $declaration['value'];
+        }
+
+        return $remaining === [] ? '' : ' ' . implode('; ', $remaining) . '; ';
+    }
+
+    private function appendNativeCssMirrorFallback(array &$element): void
+    {
+        $design = $element['data']['properties']['design'] ?? [];
+        $declarations = is_array($design) ? $this->collectNativeCssMirrorDeclarations($design) : [];
+
+        if ($declarations !== []) {
+            $className = 'ohc-native-' . (int) ($element['id'] ?? 0);
+            $this->appendInternalElementClass($element, $className);
+            $this->nativeCssMirrorRules[] = '.' . $className . '{' . $this->formatNativeCssMirrorDeclarations($declarations) . '}';
+        }
+
+        if (!isset($element['children']) || !is_array($element['children'])) {
+            return;
+        }
+
+        foreach ($element['children'] as &$child) {
+            if (is_array($child)) {
+                $this->appendNativeCssMirrorFallback($child);
+            }
+        }
+        unset($child);
+    }
+
+    private function appendInternalElementClass(array &$element, string $className): void
+    {
+        $element['data']['properties']['settings'] = $element['data']['properties']['settings'] ?? [];
+        $element['data']['properties']['settings']['advanced'] = $element['data']['properties']['settings']['advanced'] ?? [];
+
+        $classes = $element['data']['properties']['settings']['advanced']['classes'] ?? [];
+        if (!is_array($classes)) {
+            $classes = [];
+        }
+
+        if (!in_array($className, $classes, true)) {
+            $classes[] = $className;
+        }
+
+        $element['data']['properties']['settings']['advanced']['classes'] = array_values($classes);
+    }
+
+    private function collectNativeCssMirrorDeclarations(array $design): array
+    {
+        $declarations = [];
+        $this->collectNativeCssMirrorDeclarationsRecursive($design, $declarations);
+
+        return $declarations;
+    }
+
+    private function collectNativeCssMirrorDeclarationsRecursive(array $properties, array &$declarations): void
+    {
+        foreach ($properties as $property => $value) {
+            if (is_array($value)) {
+                $this->collectNativeCssMirrorDeclarationsRecursive($value, $declarations);
+                continue;
+            }
+
+            $property = strtolower(trim((string) $property));
+            if (
+                $property === ''
+                || strpos($property, '-') === false
+                || !isset(self::NATIVE_CSS_MIRROR_PROPERTIES[$property])
+            ) {
+                continue;
+            }
+
+            $normalizedValue = $this->normalizeNativeCssMirrorValue($value);
+            if ($normalizedValue === null) {
+                continue;
+            }
+
+            $declarations[$property] = $normalizedValue;
+        }
+    }
+
+    private function normalizeNativeCssMirrorValue(mixed $value): ?string
+    {
+        if (is_bool($value) || $value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        $value = preg_replace('/\s*!important\s*$/i', '', $value);
+        if (!is_string($value)) {
+            return null;
+        }
+
+        if (preg_match('/[{}<>;]/', $value) === 1) {
+            return null;
+        }
+
+        return trim($value);
+    }
+
+    private function formatNativeCssMirrorDeclarations(array $declarations): string
+    {
+        $parts = [];
+        foreach ($declarations as $property => $value) {
+            $parts[] = $property . ':' . $value . ' !important;';
+        }
+
+        return implode('', $parts);
     }
 
     /**
@@ -904,8 +1329,56 @@ class TreeBuilder
 
         // Use strategy service to process classes based on mode
         $this->classStrategy->processClasses($classNames, $element);
+        $this->syncElementSelectorReferences($element);
+    }
 
+    private function syncElementSelectorReferences(array &$element): void
+    {
+        $classes = $element['data']['properties']['settings']['advanced']['classes'] ?? [];
+        if (!is_array($classes)) {
+            $classes = [];
+        }
 
+        if ($this->environment->shouldUseWindPressMode()) {
+            $classes = array_values(array_filter(
+                $classes,
+                fn($className): bool => is_string($className)
+                    && !$this->tailwindDetector->isTailwindClass($className)
+            ));
+        }
+
+        $this->selectorImporter->syncElementClasses($classes, $element);
+    }
+
+    private function sanitizeTagForElementType(array &$element): void
+    {
+        $type = $element['data']['type'] ?? '';
+        $allowedTags = match ($type) {
+            ElementTypes::CONTAINER, ElementTypes::CONTAINER_LINK => [
+                'section', 'footer', 'header', 'nav', 'aside', 'figure',
+                'article', 'main', 'details', 'summary', 'ul', 'li', 'ol',
+            ],
+            ElementTypes::TEXT, ElementTypes::TEXT_LINK => [
+                'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote',
+            ],
+            default => [],
+        };
+
+        if ($allowedTags === []) {
+            unset($element['data']['properties']['design']['tag']);
+            unset($element['data']['properties']['settings']['advanced']['tag']);
+            return;
+        }
+
+        $designTag = $element['data']['properties']['design']['tag'] ?? null;
+        if (is_string($designTag) && !in_array($designTag, $allowedTags, true)) {
+            unset($element['data']['properties']['design']['tag']);
+        }
+
+        $settingsTag = $element['data']['properties']['settings']['advanced']['tag'] ?? null;
+        if (is_string($settingsTag) && !in_array($settingsTag, $allowedTags, true)) {
+            unset($element['data']['properties']['settings']['advanced']['tag']);
+        }
     }
 
     /**
@@ -1112,54 +1585,125 @@ class TreeBuilder
     }
 
     /**
+     * Sanitize rendered Oxygen property sinks after mapping and heuristics.
+     *
+     * @param array<string, mixed> $element
+     */
+    private function sanitizeSafeModeElementSinks(array &$element): void
+    {
+        if (!$this->safeMode) {
+            return;
+        }
+
+        $type = (string) ($element['data']['type'] ?? '');
+        if (isset($element['data']['properties']['content']) && is_array($element['data']['properties']['content'])) {
+            $content = &$element['data']['properties']['content'];
+
+            if (isset($content['content']['text']) && is_string($content['content']['text'])) {
+                if ($type === ElementTypes::RICH_TEXT) {
+                    $content['content']['text'] = $this->htmlCodeSanitizer->sanitizeRichText($content['content']['text']);
+                } elseif ($type === ElementTypes::ESSENTIAL_BUTTON) {
+                    $content['content']['text'] = $this->htmlCodeSanitizer->sanitizePlainText($content['content']['text']);
+                } else {
+                    $content['content']['text'] = $this->htmlCodeSanitizer->sanitizeInlineRichText($content['content']['text']);
+                }
+            }
+
+            if (isset($content['content']['url']) && is_string($content['content']['url'])) {
+                $content['content']['url'] = $this->sanitizeUrl($content['content']['url'], ['http', 'https', 'mailto', 'tel']);
+            }
+
+            if (isset($content['content']['link']['url']) && is_string($content['content']['link']['url'])) {
+                $content['content']['link']['url'] = $this->sanitizeUrl(
+                    $content['content']['link']['url'],
+                    ['http', 'https', 'mailto', 'tel']
+                );
+            }
+
+            if (isset($content['image']['url']) && is_string($content['image']['url'])) {
+                $content['image']['url'] = $this->sanitizeUrl($content['image']['url'], ['http', 'https', 'data']);
+            }
+
+            if (isset($content['image']['custom_alt_when_from_url']) && is_string($content['image']['custom_alt_when_from_url'])) {
+                $content['image']['custom_alt_when_from_url'] = $this->htmlCodeSanitizer->sanitizePlainText(
+                    $content['image']['custom_alt_when_from_url']
+                );
+            }
+
+            if (isset($content['content']['video_file_url']) && is_string($content['content']['video_file_url'])) {
+                $content['content']['video_file_url'] = $this->sanitizeUrl(
+                    $content['content']['video_file_url'],
+                    ['http', 'https', 'data']
+                );
+            }
+
+            unset($content);
+        }
+
+        $attributes = $element['data']['properties']['settings']['advanced']['attributes'] ?? null;
+        if (is_array($attributes)) {
+            $safeAttributes = [];
+            foreach ($attributes as $attribute) {
+                if (!is_array($attribute)) {
+                    continue;
+                }
+
+                $name = strtolower((string) ($attribute['name'] ?? ''));
+                $value = (string) ($attribute['value'] ?? '');
+                if (!$this->isSafeModeAdvancedAttribute($name, $value)) {
+                    continue;
+                }
+
+                $safeAttributes[] = [
+                    'name' => $name,
+                    'value' => $this->htmlCodeSanitizer->sanitizePlainText($value),
+                ];
+            }
+
+            if ($safeAttributes === []) {
+                unset($element['data']['properties']['settings']['advanced']['attributes']);
+            } else {
+                $element['data']['properties']['settings']['advanced']['attributes'] = $safeAttributes;
+            }
+        }
+    }
+
+    private function isSafeModeAdvancedAttribute(string $name, string $value): bool
+    {
+        if ($name === '' || strpos($name, 'on') === 0) {
+            return false;
+        }
+
+        if (strpos($name, 'data-oxy-at-') === 0
+            || strpos($name, 'x-') === 0
+            || strpos($name, 'v-') === 0
+            || strpos($name, 'ng-') === 0
+            || strpos($name, 'hx-on') === 0
+            || strpos($name, 'bind:') === 0
+            || strpos($name, ':') === 0
+            || strpos($name, '@') === 0
+        ) {
+            return false;
+        }
+
+        if (in_array($name, ['ping', 'formaction', 'action', 'srcdoc', 'srcset', 'sizes'], true)) {
+            return false;
+        }
+
+        $urlAttributeNames = ['href', 'src', 'poster', 'action', 'formaction', 'xlink:href'];
+        if (in_array($name, $urlAttributeNames, true)) {
+            return $this->sanitizeUrl($value, ['http', 'https', 'mailto', 'tel']) !== '#';
+        }
+
+        return preg_match('/^(aria-[a-z0-9_-]+|data-[a-z0-9_-]+|role|title|lang|dir|tabindex)$/', $name) === 1;
+    }
+
+    /**
      * Sanitize local URLs
      */
     private function sanitizeUrl(string $url, array $allowedSchemes = ['http', 'https']): string
     {
-        $url = trim($url);
-        if ($url === '') {
-            return '';
-        }
-
-        if (strpos($url, 'file://') === 0) {
-            // Extract filename or relative path
-            $parts = explode('/', str_replace('\\', '/', $url));
-            $filename = end($parts);
-            return $filename; // Minimal fix, just keep filename
-        }
-
-        // Allow local anchors, root-relative paths, and query-relative paths.
-        if (preg_match('/^(#|\/|\.\.?\/|\?)/', $url)) {
-            return $url;
-        }
-
-        // No explicit scheme -> keep as relative URL.
-        if (!preg_match('/^([a-zA-Z][a-zA-Z0-9+.-]*):/', $url, $matches)) {
-            return $url;
-        }
-
-        $scheme = strtolower($matches[1]);
-        if (!in_array($scheme, $allowedSchemes, true)) {
-            return '#';
-        }
-
-        if ($scheme === 'data') {
-            // Restrict data URLs to image/video payloads.
-            if (preg_match('/^data:(image|video)\/[a-z0-9.+-]+;base64,[a-z0-9+\/=\s]+$/i', $url)) {
-                $dataUrl = preg_replace('/\s+/', '', $url);
-                return is_string($dataUrl) ? $dataUrl : '#';
-            }
-            return '#';
-        }
-
-        if ($scheme === 'http' || $scheme === 'https') {
-            $sanitized = esc_url_raw($url);
-            return is_string($sanitized) && $sanitized !== '' ? $sanitized : '#';
-        }
-
-        // mailto/tel: strip CRLF to prevent header injection.
-        $safeUrl = preg_replace('/[\r\n]+/', '', $url);
-        return is_string($safeUrl) ? $safeUrl : '#';
+        return $this->htmlCodeSanitizer->sanitizeUrl($url, $allowedSchemes);
     }
 
     /**

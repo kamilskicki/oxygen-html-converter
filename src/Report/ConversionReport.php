@@ -13,6 +13,7 @@ class ConversionReport
     private array $warnings = [];
     private array $errors = [];
     private array $info = [];
+    private array $unsupportedItems = [];
 
     /**
      * Increment the count of converted elements.
@@ -69,6 +70,29 @@ class ConversionReport
     }
 
     /**
+     * Add a source-located unsupported or fallback decision to the report.
+     */
+    public function addUnsupportedItem(
+        string $location,
+        string $reason,
+        string $severity = 'review',
+        string $owner = 'core',
+        string $remediation = ''
+    ): void {
+        $item = [
+            'location' => trim($location) !== '' ? trim($location) : 'unknown',
+            'reason' => trim($reason) !== '' ? trim($reason) : 'Unsupported structure requires review.',
+            'severity' => in_array($severity, ['info', 'review', 'blocking'], true) ? $severity : 'review',
+            'owner' => trim($owner) !== '' ? trim($owner) : 'core',
+            'remediation' => trim($remediation) !== '' ? trim($remediation) : 'Map natively, remove it, or choose an explicit fallback.',
+        ];
+
+        if (!in_array($item, $this->unsupportedItems, true)) {
+            $this->unsupportedItems[] = $item;
+        }
+    }
+
+    /**
      * Reset the report data.
      */
     public function reset(): void
@@ -79,6 +103,7 @@ class ConversionReport
         $this->warnings = [];
         $this->errors = [];
         $this->info = [];
+        $this->unsupportedItems = [];
     }
 
     /**
@@ -93,6 +118,7 @@ class ConversionReport
             'warnings' => $this->warnings,
             'errors' => $this->errors,
             'info' => $this->info,
+            'unsupportedItems' => $this->unsupportedItems,
         ];
     }
 }

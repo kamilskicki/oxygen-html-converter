@@ -93,7 +93,7 @@ class InteractionDetector
         $toRemove = [];
 
         foreach ($node->attributes as $attr) {
-            $name = $attr->name;
+            $name = $this->normalizeAttributeName($attr->name);
             $value = $attr->value;
 
             // Skip already-handled attributes
@@ -126,10 +126,7 @@ class InteractionDetector
                     $originalName = '@' . substr($name, 12);
                 }
 
-                if ($this->stripEventHandlers && (
-                    str_starts_with($originalName, '@') ||
-                    str_starts_with($originalName, 'x-on:')
-                )) {
+                if ($this->stripEventHandlers) {
                     $toRemove[] = $name;
                     continue;
                 }
@@ -166,7 +163,7 @@ class InteractionDetector
                 $shouldPreserve = true;
             }
 
-            if ($shouldPreserve) {
+            if ($shouldPreserve && (!$this->stripEventHandlers || $this->isSafeModeAllowedAttribute($name, $value))) {
                 $attributes[] = [
                     'name' => $name,
                     'value' => $value,
@@ -304,6 +301,66 @@ class InteractionDetector
             'name' => $attrName,
             'value' => $handlerCode,
         ];
+    }
+
+    private function normalizeAttributeName(string $name): string
+    {
+        $name = strtolower(trim($name));
+        $normalized = preg_replace('/[\x00-\x20\x7F]+/', '', $name);
+
+        return is_string($normalized) ? $normalized : '';
+    }
+
+    private function isSafeModeAllowedAttribute(string $name, string $value): bool
+    {
+        if ($name === ''
+            || strpos($name, 'on') === 0
+            || $this->isDirectiveAttribute($name)
+            || in_array($name, [
+                'ping',
+                'download',
+                'formaction',
+                'formtarget',
+                'formmethod',
+                'formenctype',
+                'formnovalidate',
+                'action',
+                'srcdoc',
+                'referrerpolicy',
+            ], true)
+        ) {
+            return false;
+        }
+
+        if (preg_match('/^(aria-[a-z0-9_-]+|data-[a-z0-9_-]+|role|title|lang|dir|tabindex)$/', $name) === 1) {
+            return !$this->containsUnsafeUrlValue($value);
+        }
+
+        return false;
+    }
+
+    private function isDirectiveAttribute(string $name): bool
+    {
+        return strpos($name, 'data-oxy-at-') === 0
+            || strpos($name, 'x-') === 0
+            || strpos($name, 'v-') === 0
+            || strpos($name, 'ng-') === 0
+            || strpos($name, 'hx-on') === 0
+            || strpos($name, 'bind:') === 0
+            || strpos($name, ':') === 0
+            || strpos($name, '@') === 0;
+    }
+
+    private function containsUnsafeUrlValue(string $value): bool
+    {
+        $decoded = strtolower(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $probe = rawurldecode($decoded);
+        $probe = preg_replace('/[\x00-\x20\x7F]+/', '', $probe);
+        if (!is_string($probe)) {
+            return true;
+        }
+
+        return preg_match('/(?:javascript|vbscript|data:text\/html|data:image\/svg\+xml)\s*:/i', $probe) === 1;
     }
 
     // ─── JavaScript pattern detection ────────────────────────────────

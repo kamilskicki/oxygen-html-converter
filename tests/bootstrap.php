@@ -19,6 +19,56 @@ if (!defined('OXY_HTML_CONVERTER_API_VERSION')) {
     define('OXY_HTML_CONVERTER_API_VERSION', '1.0.0');
 }
 
+if (!defined('OBJECT')) {
+    define('OBJECT', 'OBJECT');
+}
+
+if (!class_exists('WP_Post')) {
+    class WP_Post
+    {
+        public int $ID;
+        public string $post_type = 'page';
+        public string $post_status = 'draft';
+        public string $post_title = '';
+        public string $post_name = '';
+        public string $post_content = '';
+
+        /**
+         * @param array<string, mixed> $data
+         */
+        public function __construct(array $data)
+        {
+            foreach ($data as $key => $value) {
+                $key = (string) $key;
+
+                if (!property_exists($this, $key)) {
+                    continue;
+                }
+
+                if ($key === 'ID') {
+                    $this->ID = (int) $value;
+                } else {
+                    $this->{$key} = (string) $value;
+                }
+            }
+        }
+    }
+}
+
+if (!class_exists('WP_Error')) {
+    class WP_Error
+    {
+        public function __construct(private readonly string $message = '')
+        {
+        }
+
+        public function get_error_message(): string
+        {
+            return $this->message;
+        }
+    }
+}
+
 // Minimal WordPress test stubs for pure unit tests.
 $GLOBALS['__test_wp_filters'] = $GLOBALS['__test_wp_filters'] ?? [];
 $GLOBALS['__wp_send_json_last'] = null;
@@ -29,7 +79,13 @@ $GLOBALS['__wp_registered_settings'] = [];
 $GLOBALS['__wp_admin_pages'] = [];
 $GLOBALS['__wp_enqueued_scripts'] = [];
 $GLOBALS['__wp_enqueued_styles'] = [];
+$GLOBALS['__wp_registered_styles'] = [];
+$GLOBALS['__wp_inline_styles'] = [];
 $GLOBALS['__wp_localized_scripts'] = [];
+$GLOBALS['__wp_posts'] = $GLOBALS['__wp_posts'] ?? [];
+$GLOBALS['__wp_post_meta'] = $GLOBALS['__wp_post_meta'] ?? [];
+$GLOBALS['__wp_next_post_id'] = $GLOBALS['__wp_next_post_id'] ?? 1;
+$GLOBALS['__wp_cleaned_post_cache'] = $GLOBALS['__wp_cleaned_post_cache'] ?? [];
 
 if (!function_exists('add_filter')) {
     function add_filter($tag, $function_to_add, $priority = 10, $accepted_args = 1)
@@ -127,6 +183,15 @@ if (!function_exists('sanitize_text_field')) {
     }
 }
 
+if (!function_exists('sanitize_title')) {
+    function sanitize_title($title)
+    {
+        $title = strtolower(trim((string) $title));
+        $title = preg_replace('/[^a-z0-9]+/', '-', $title) ?? '';
+        return trim($title, '-');
+    }
+}
+
 if (!function_exists('__')) {
     function __($text, $domain = null)
     {
@@ -176,6 +241,17 @@ if (!function_exists('wp_unslash')) {
     }
 }
 
+if (!function_exists('wp_slash')) {
+    function wp_slash($value)
+    {
+        if (is_array($value)) {
+            return array_map('wp_slash', $value);
+        }
+
+        return is_string($value) ? addslashes($value) : $value;
+    }
+}
+
 if (!function_exists('wp_json_encode')) {
     function wp_json_encode($value, $flags = 0, $depth = 512)
     {
@@ -190,6 +266,13 @@ if (!function_exists('esc_url_raw')) {
     }
 }
 
+if (!function_exists('absint')) {
+    function absint($maybeint)
+    {
+        return abs((int) $maybeint);
+    }
+}
+
 if (!function_exists('get_option')) {
     function get_option($option, $default = false)
     {
@@ -201,6 +284,132 @@ if (!function_exists('update_option')) {
     function update_option($option, $value)
     {
         $GLOBALS['__wp_options'][$option] = $value;
+        return true;
+    }
+}
+
+if (!function_exists('is_wp_error')) {
+    function is_wp_error($thing)
+    {
+        return $thing instanceof WP_Error;
+    }
+}
+
+if (!function_exists('wp_insert_post')) {
+    function wp_insert_post($postarr, $wp_error = false)
+    {
+        if (!is_array($postarr)) {
+            return $wp_error ? new WP_Error('Invalid post payload.') : 0;
+        }
+
+        $postId = (int) ($GLOBALS['__wp_next_post_id'] ?? 1);
+        $GLOBALS['__wp_next_post_id'] = $postId + 1;
+        $postarr['ID'] = $postId;
+        $postarr['post_name'] = isset($postarr['post_name']) && trim((string) $postarr['post_name']) !== ''
+            ? sanitize_title($postarr['post_name'])
+            : sanitize_title($postarr['post_title'] ?? ('post-' . $postId));
+        $GLOBALS['__wp_posts'][$postId] = new WP_Post($postarr);
+
+        return $postId;
+    }
+}
+
+if (!function_exists('wp_update_post')) {
+    function wp_update_post($postarr, $wp_error = false)
+    {
+        if (!is_array($postarr) || empty($postarr['ID']) || empty($GLOBALS['__wp_posts'][(int) $postarr['ID']])) {
+            return $wp_error ? new WP_Error('Post not found.') : 0;
+        }
+
+        $postId = (int) $postarr['ID'];
+        $existing = $GLOBALS['__wp_posts'][$postId];
+        $data = [
+            'ID' => $postId,
+            'post_type' => $postarr['post_type'] ?? $existing->post_type,
+            'post_status' => $postarr['post_status'] ?? $existing->post_status,
+            'post_title' => $postarr['post_title'] ?? $existing->post_title,
+            'post_name' => isset($postarr['post_name']) ? sanitize_title($postarr['post_name']) : $existing->post_name,
+            'post_content' => $postarr['post_content'] ?? $existing->post_content,
+        ];
+        $GLOBALS['__wp_posts'][$postId] = new WP_Post($data);
+
+        return $postId;
+    }
+}
+
+if (!function_exists('get_page_by_path')) {
+    function get_page_by_path($page_path, $output = OBJECT, $post_type = 'page')
+    {
+        $slug = sanitize_title($page_path);
+
+        foreach ($GLOBALS['__wp_posts'] as $post) {
+            if ($post instanceof WP_Post && $post->post_type === $post_type && $post->post_name === $slug) {
+                return $post;
+            }
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('wp_delete_post')) {
+    function wp_delete_post($postid, $force_delete = false)
+    {
+        $postId = (int) $postid;
+        $post = $GLOBALS['__wp_posts'][$postId] ?? null;
+        unset($GLOBALS['__wp_posts'][$postId], $GLOBALS['__wp_post_meta'][$postId]);
+        return $post;
+    }
+}
+
+if (!function_exists('get_permalink')) {
+    function get_permalink($post)
+    {
+        $postId = $post instanceof WP_Post ? $post->ID : (int) $post;
+        return 'http://example.test/?page_id=' . $postId;
+    }
+}
+
+if (!function_exists('clean_post_cache')) {
+    function clean_post_cache($post)
+    {
+        $GLOBALS['__wp_cleaned_post_cache'][] = $post instanceof WP_Post ? $post->ID : (int) $post;
+    }
+}
+
+if (!function_exists('update_post_meta')) {
+    function update_post_meta($post_id, $meta_key, $meta_value)
+    {
+        $postId = (int) $post_id;
+        $GLOBALS['__wp_post_meta'][$postId] = $GLOBALS['__wp_post_meta'][$postId] ?? [];
+        $GLOBALS['__wp_post_meta'][$postId][(string) $meta_key] = $meta_value;
+        return true;
+    }
+}
+
+if (!function_exists('get_post_meta')) {
+    function get_post_meta($post_id, $key = '', $single = false)
+    {
+        $postId = (int) $post_id;
+        $meta = $GLOBALS['__wp_post_meta'][$postId] ?? [];
+
+        if ($key === '') {
+            return $meta;
+        }
+
+        if (!array_key_exists((string) $key, $meta)) {
+            return $single ? '' : [];
+        }
+
+        return $single ? $meta[(string) $key] : [$meta[(string) $key]];
+    }
+}
+
+if (!function_exists('delete_post_meta')) {
+    function delete_post_meta($post_id, $meta_key)
+    {
+        $postId = (int) $post_id;
+        unset($GLOBALS['__wp_post_meta'][$postId][(string) $meta_key]);
         return true;
     }
 }
@@ -272,10 +481,34 @@ if (!function_exists('add_management_page')) {
     }
 }
 
+if (!function_exists('is_admin')) {
+    function is_admin()
+    {
+        return !empty($GLOBALS['__wp_is_admin']);
+    }
+}
+
 if (!function_exists('wp_enqueue_style')) {
     function wp_enqueue_style($handle, $src = '', $deps = [], $ver = false, $media = 'all')
     {
         $GLOBALS['__wp_enqueued_styles'][$handle] = compact('src', 'deps', 'ver', 'media');
+    }
+}
+
+if (!function_exists('wp_register_style')) {
+    function wp_register_style($handle, $src = '', $deps = [], $ver = false, $media = 'all')
+    {
+        $GLOBALS['__wp_registered_styles'][$handle] = compact('src', 'deps', 'ver', 'media');
+        return true;
+    }
+}
+
+if (!function_exists('wp_add_inline_style')) {
+    function wp_add_inline_style($handle, $data)
+    {
+        $GLOBALS['__wp_inline_styles'][$handle] = $GLOBALS['__wp_inline_styles'][$handle] ?? [];
+        $GLOBALS['__wp_inline_styles'][$handle][] = (string) $data;
+        return true;
     }
 }
 
@@ -322,12 +555,13 @@ if (!function_exists('check_ajax_referer')) {
 }
 
 if (!function_exists('current_user_can')) {
-    function current_user_can($capability)
+    function current_user_can($capability, ...$args)
     {
         $GLOBALS['__wp_current_user_can_last_capability'] = $capability;
+        $GLOBALS['__wp_current_user_can_last_args'] = $args;
         $value = $GLOBALS['__wp_current_user_can'] ?? true;
         if (is_callable($value)) {
-            return (bool) call_user_func($value, $capability);
+            return (bool) call_user_func($value, $capability, ...$args);
         }
         return (bool) $value;
     }

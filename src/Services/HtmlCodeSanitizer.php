@@ -25,27 +25,33 @@ class HtmlCodeSanitizer
         'base',
     ];
 
-    private const ALLOWED_TAGS = [
+    private const HTML_CODE_ALLOWED_TAGS = [
         'a', 'abbr', 'article', 'aside', 'b', 'blockquote', 'br', 'button',
         'caption', 'cite', 'code', 'col', 'colgroup', 'dd', 'details', 'dfn',
-        'div', 'dl', 'dt', 'em', 'fieldset', 'figcaption', 'figure', 'footer',
-        'form', 'g', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'i',
-        'img', 'input', 'label', 'legend', 'li', 'main', 'mark', 'nav',
-        'ol', 'option', 'p', 'path', 'polygon', 'polyline', 'pre', 'rect',
-        'section', 'select', 'small', 'source', 'span', 'strong', 'sub', 'summary',
-        'sup', 'svg', 'table', 'tbody', 'td', 'textarea', 'tfoot', 'th',
-        'thead', 'tr', 'u', 'ul', 'video',
+        'div', 'dl', 'dt', 'em', 'figcaption', 'figure', 'footer',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'i',
+        'img', 'label', 'legend', 'li', 'main', 'mark', 'nav',
+        'ol', 'p', 'pre', 'section', 'small', 'span', 'strong', 'sub', 'summary',
+        'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
+    ];
+
+    private const INLINE_RICH_TEXT_ALLOWED_TAGS = [
+        'a', 'abbr', 'b', 'br', 'cite', 'code', 'dfn', 'em', 'i', 'mark',
+        'small', 'span', 'strong', 'sub', 'sup', 'u', 's',
+    ];
+
+    private const RICH_TEXT_ALLOWED_TAGS = [
+        'a', 'abbr', 'b', 'blockquote', 'br', 'caption', 'cite', 'code', 'col',
+        'colgroup', 'dd', 'dfn', 'div', 'dl', 'dt', 'em', 'figcaption', 'figure',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'li', 'mark',
+        'ol', 'p', 'pre', 'small', 'span', 'strong', 'sub', 'summary', 'sup',
+        'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
     ];
 
     private const ALLOWED_ATTRIBUTES = [
-        'accept', 'action', 'alt', 'autocomplete', 'autofocus', 'checked',
-        'class', 'cols', 'colspan', 'controls', 'd', 'disabled', 'enctype',
-        'for', 'height', 'href', 'id', 'loading', 'loop', 'max', 'maxlength',
-        'method', 'min', 'minlength', 'multiple', 'muted', 'name', 'pattern',
-        'placeholder', 'playsinline', 'poster', 'readonly', 'rel', 'required',
-        'role', 'rows', 'rowspan', 'selected', 'src', 'step', 'tabindex',
-        'target', 'title', 'type', 'value', 'viewbox', 'width', 'xlink:href',
-        'xmlns',
+        'alt', 'class', 'colspan', 'dir', 'for', 'height', 'href', 'id',
+        'lang', 'loading', 'rel', 'role', 'rowspan', 'src', 'tabindex',
+        'target', 'title', 'type', 'width',
     ];
 
     /**
@@ -69,6 +75,41 @@ class HtmlCodeSanitizer
     }
 
     public function sanitizeFragment(string $html): string
+    {
+        return $this->sanitizeFragmentWithAllowedTags($html, self::HTML_CODE_ALLOWED_TAGS);
+    }
+
+    public function sanitizeInlineRichText(string $html): string
+    {
+        return $this->sanitizeFragmentWithAllowedTags($html, self::INLINE_RICH_TEXT_ALLOWED_TAGS);
+    }
+
+    public function sanitizeRichText(string $html): string
+    {
+        return $this->sanitizeFragmentWithAllowedTags($html, self::RICH_TEXT_ALLOWED_TAGS);
+    }
+
+    public function sanitizePlainText(string $text): string
+    {
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = strip_tags($text);
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/', '', $text);
+
+        return trim(is_string($text) ? $text : '');
+    }
+
+    public function escapePlainText(string $text): string
+    {
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/', '', $text);
+        $text = is_string($text) ? $text : '';
+
+        return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+    }
+
+    /**
+     * @param array<int, string> $allowedTags
+     */
+    private function sanitizeFragmentWithAllowedTags(string $html, array $allowedTags): string
     {
         $html = trim($html);
         if ($html === '') {
@@ -94,7 +135,7 @@ class HtmlCodeSanitizer
             return '';
         }
 
-        $this->sanitizeNode($root);
+        $this->sanitizeNode($root, $allowedTags);
 
         $output = '';
         $children = [];
@@ -108,7 +149,10 @@ class HtmlCodeSanitizer
         return trim($output);
     }
 
-    private function sanitizeNode(DOMNode $node): void
+    /**
+     * @param array<int, string> $allowedTags
+     */
+    private function sanitizeNode(DOMNode $node, array $allowedTags): void
     {
         if (!($node instanceof DOMElement)) {
             return;
@@ -123,20 +167,19 @@ class HtmlCodeSanitizer
             return;
         }
 
-        if ($tag !== 'div' || $node->getAttribute('id') !== 'oxy-safe-root') {
-            if (!in_array($tag, self::ALLOWED_TAGS, true)) {
-                if ($node->parentNode) {
-                    $children = [];
-                    foreach ($node->childNodes as $child) {
-                        $children[] = $child;
-                    }
-                    foreach ($children as $child) {
-                        $node->parentNode->insertBefore($child, $node);
-                    }
-                    $node->parentNode->removeChild($node);
-                }
-                return;
-            }
+        $children = [];
+        foreach ($node->childNodes as $child) {
+            $children[] = $child;
+        }
+
+        foreach ($children as $child) {
+            $this->sanitizeNode($child, $allowedTags);
+        }
+
+        $isRoot = $tag === 'div' && $node->getAttribute('id') === 'oxy-safe-root';
+        if (!$isRoot && !in_array($tag, $allowedTags, true)) {
+            $this->unwrapOrRemoveNode($node);
+            return;
         }
 
         $attributeNames = [];
@@ -148,7 +191,7 @@ class HtmlCodeSanitizer
             $name = strtolower($attributeName);
             $value = $node->getAttribute($attributeName);
 
-            if (strpos($name, 'on') === 0 || $name === 'style') {
+            if (strpos($name, 'on') === 0 || $name === 'style' || $this->isBlockedDirectiveAttribute($name)) {
                 $node->removeAttribute($attributeName);
                 continue;
             }
@@ -170,7 +213,28 @@ class HtmlCodeSanitizer
 
             if ($name === 'target' && !in_array($value, ['_self', '_blank', '_parent', '_top'], true)) {
                 $node->removeAttribute($attributeName);
+                continue;
             }
+
+            if ($name === 'target' && $value === '_blank') {
+                $existingRel = trim($node->getAttribute('rel'));
+                $relParts = preg_split('/\s+/', $existingRel) ?: [];
+                $relParts = array_filter($relParts, static fn (string $part): bool => $part !== '');
+                foreach (['noopener', 'noreferrer'] as $requiredRel) {
+                    if (!in_array($requiredRel, $relParts, true)) {
+                        $relParts[] = $requiredRel;
+                    }
+                }
+                $node->setAttribute('rel', implode(' ', $relParts));
+            }
+        }
+    }
+
+    private function unwrapOrRemoveNode(DOMElement $node): void
+    {
+        $parent = $node->parentNode;
+        if ($parent === null) {
+            return;
         }
 
         $children = [];
@@ -179,8 +243,12 @@ class HtmlCodeSanitizer
         }
 
         foreach ($children as $child) {
-            $this->sanitizeNode($child);
+            if ($child->parentNode === $node) {
+                $parent->insertBefore($child, $node);
+            }
         }
+
+        $parent->removeChild($node);
     }
 
     private function isAllowedAttribute(string $attribute): bool
@@ -189,15 +257,28 @@ class HtmlCodeSanitizer
             return true;
         }
 
-        return strpos($attribute, 'data-') === 0 || strpos($attribute, 'aria-') === 0;
+        return (strpos($attribute, 'data-') === 0 && !$this->isBlockedDirectiveAttribute($attribute))
+            || strpos($attribute, 'aria-') === 0;
+    }
+
+    private function isBlockedDirectiveAttribute(string $attribute): bool
+    {
+        return strpos($attribute, 'data-oxy-at-') === 0
+            || strpos($attribute, 'x-') === 0
+            || strpos($attribute, 'v-') === 0
+            || strpos($attribute, 'ng-') === 0
+            || strpos($attribute, 'hx-on') === 0
+            || strpos($attribute, 'bind:') === 0
+            || strpos($attribute, ':') === 0
+            || strpos($attribute, '@') === 0;
     }
 
     /**
      * @param array<int, string> $allowedSchemes
      */
-    private function sanitizeUrl(string $url, array $allowedSchemes = ['http', 'https']): string
+    public function sanitizeUrl(string $url, array $allowedSchemes = ['http', 'https']): string
     {
-        $url = trim($url);
+        $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         if ($url === '') {
             return '';
         }
@@ -209,23 +290,43 @@ class HtmlCodeSanitizer
             return $filename;
         }
 
-        if (preg_match('/^(#|\/|\.\.?\/|\?)/', $url)) {
-            return $url;
+        if (strpos($url, '//') === 0) {
+            return '#';
         }
 
-        if (!preg_match('/^([a-zA-Z][a-zA-Z0-9+.-]*):/', $url, $matches)) {
-            return $url;
+        $scheme = $this->extractNormalizedScheme($url);
+
+        if (preg_match('/^(#|\/|\.\.?\/|\?)/', $url) && $scheme === null) {
+            return $this->stripUrlControlCharacters($url);
         }
 
-        $scheme = strtolower($matches[1]);
+        if ($scheme === null) {
+            return $this->stripUrlControlCharacters($url);
+        }
+
         if (!in_array($scheme, $allowedSchemes, true)) {
             return '#';
         }
 
         if ($scheme === 'data') {
-            if (preg_match('/^data:(image|video)\/[a-z0-9.+-]+;base64,[a-z0-9+\/=\s]+$/i', $url)) {
-                $dataUrl = preg_replace('/\s+/', '', $url);
-                return is_string($dataUrl) ? $dataUrl : '#';
+            $dataUrl = preg_replace('/[\x00-\x20\x7F]+/', '', $url);
+            if (!is_string($dataUrl)) {
+                return '#';
+            }
+
+            if (preg_match('/^data:([^;,]+);base64,[a-z0-9+\/=]+$/i', $dataUrl, $matches)) {
+                $mediaType = strtolower($matches[1]);
+                if (in_array($mediaType, [
+                    'image/png',
+                    'image/jpeg',
+                    'image/gif',
+                    'image/webp',
+                    'image/avif',
+                    'video/mp4',
+                    'video/webm',
+                ], true)) {
+                    return $dataUrl;
+                }
             }
 
             return '#';
@@ -236,8 +337,33 @@ class HtmlCodeSanitizer
             return is_string($sanitized) && $sanitized !== '' ? $sanitized : '#';
         }
 
-        $safeUrl = preg_replace('/[\r\n]+/', '', $url);
+        $safeUrl = $this->stripUrlControlCharacters($url);
+        if ($scheme === 'mailto' && preg_match('/(?:[\r\n]|%0a|%0d|[?&]bcc=)/i', $safeUrl) === 1) {
+            return '#';
+        }
 
-        return is_string($safeUrl) ? $safeUrl : '#';
+        return $safeUrl !== '' ? $safeUrl : '#';
+    }
+
+    private function extractNormalizedScheme(string $url): ?string
+    {
+        $probe = rawurldecode($url);
+        $probe = preg_replace('/[\x00-\x20\x7F]+/', '', $probe);
+        if (!is_string($probe) || $probe === '') {
+            return null;
+        }
+
+        if (!preg_match('/^([a-zA-Z][a-zA-Z0-9+.-]*):/', $probe, $matches)) {
+            return null;
+        }
+
+        return strtolower($matches[1]);
+    }
+
+    private function stripUrlControlCharacters(string $url): string
+    {
+        $stripped = preg_replace('/[\x00-\x1F\x7F]+/', '', $url);
+
+        return is_string($stripped) ? $stripped : '#';
     }
 }

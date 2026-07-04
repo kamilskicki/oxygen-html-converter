@@ -15,6 +15,8 @@ use OxyHtmlConverter\ElementTypes;
  */
 class OutputValidator
 {
+    private OxygenSchemaValidator $schemaValidator;
+
     /**
      * Validation errors collected during validation
      */
@@ -24,6 +26,11 @@ class OutputValidator
      * Validation warnings (non-fatal issues)
      */
     private array $warnings = [];
+
+    public function __construct(?OxygenSchemaValidator $schemaValidator = null)
+    {
+        $this->schemaValidator = $schemaValidator ?? new OxygenSchemaValidator();
+    }
 
     /**
      * Validate a complete conversion result
@@ -128,7 +135,7 @@ class OutputValidator
                 $valid = false;
             } else {
                 // Validate properties structure
-                $this->validateProperties($element['data']['properties'], "$path.data.properties");
+                $this->validateProperties($element['data']['properties'], "$path.data.properties", (string) ($element['data']['type'] ?? ''));
                 if (!$this->validateContractProperties($element['data']['type'] ?? '', $element['data']['properties'], $path)) {
                     $valid = false;
                 }
@@ -148,14 +155,32 @@ class OutputValidator
             }
         }
 
+        $schemaResult = $this->schemaValidator->validateNode($element, '$');
+        if (!$schemaResult['valid']) {
+            foreach ($schemaResult['errors'] as $error) {
+                $this->errors[] = sprintf(
+                    '[%s] Oxygen schema %s expected %s, got %s. %s',
+                    $path,
+                    $error['path'],
+                    $error['expected'],
+                    $error['actual'],
+                    $error['remediation']
+                );
+            }
+
+            $valid = false;
+        }
+
         return $valid;
     }
 
     /**
      * Validate element properties structure
      */
-    private function validateProperties(array $properties, string $path): void
+    private function validateProperties(array $properties, string $path, string $type = ''): void
     {
+        $this->validateUnsafeProperties($properties, $path, $type);
+
         // Validate settings.advanced.classes if present
         if (isset($properties['settings']['advanced']['classes'])) {
             $classes = $properties['settings']['advanced']['classes'];
@@ -188,6 +213,8 @@ class OutputValidator
                         $this->errors[] = "[$path] Each attribute must be an array with 'name' and 'value' keys";
                     } elseif (!isset($attr['name']) || !isset($attr['value'])) {
                         $this->errors[] = "[$path] Attribute at index $index missing 'name' or 'value'";
+                    } else {
+                        $this->validateAdvancedAttribute($attr, "$path.settings.advanced.attributes[$index]");
                     }
                 }
             }
@@ -221,7 +248,245 @@ class OutputValidator
             $this->errors[] = "[$path] Interaction missing required 'actions' field";
         } elseif (!is_array($interaction['actions'])) {
             $this->errors[] = "[$path] Interaction 'actions' must be an array";
+        } else {
+            foreach ($interaction['actions'] as $index => $action) {
+                if (is_array($action)) {
+                    $this->validateInteractionAction($action, "$path.actions[$index]");
+                }
+            }
         }
+    }
+
+    /**
+     * Validate security-sensitive rendered Oxygen properties.
+     */
+    private function validateUnsafeProperties(array $properties, string $path, string $type): void
+    {
+        $content = is_array($properties['content'] ?? null) ? $properties['content'] : [];
+        $contentContent = is_array($content['content'] ?? null) ? $content['content'] : [];
+
+        if (isset($contentContent['text']) && is_string($contentContent['text'])) {
+            $this->validateRenderedContentString($contentContent['text'], "$path.content.content.text");
+        }
+
+        if (isset($contentContent['html_code']) && is_string($contentContent['html_code'])) {
+            $this->validateRenderedContentString($contentContent['html_code'], "$path.content.content.html_code");
+        }
+
+        if (isset($contentContent['css_code']) && is_string($contentContent['css_code'])) {
+            $this->validateCssString($contentContent['css_code'], "$path.content.content.css_code");
+        }
+
+        if (isset($contentContent['url']) && is_string($contentContent['url'])) {
+            $this->validateUrlString($contentContent['url'], "$path.content.content.url", ['http', 'https', 'mailto', 'tel']);
+        }
+
+        if (isset($contentContent['link']['url']) && is_string($contentContent['link']['url'])) {
+            $this->validateUrlString(
+                $contentContent['link']['url'],
+                "$path.content.content.link.url",
+                ['http', 'https', 'mailto', 'tel']
+            );
+        }
+
+        if (isset($contentContent['video_file_url']) && is_string($contentContent['video_file_url'])) {
+            $this->validateUrlString(
+                $contentContent['video_file_url'],
+                "$path.content.content.video_file_url",
+                ['http', 'https', 'data']
+            );
+        }
+
+        $image = is_array($content['image'] ?? null) ? $content['image'] : [];
+        if (isset($image['url']) && is_string($image['url'])) {
+            $this->validateUrlString($image['url'], "$path.content.image.url", ['http', 'https', 'data']);
+        }
+
+        if (isset($image['custom_alt_when_from_url']) && is_string($image['custom_alt_when_from_url'])) {
+            $this->validatePlainTextString($image['custom_alt_when_from_url'], "$path.content.image.custom_alt_when_from_url");
+        }
+
+        if ($type === ElementTypes::HTML_CODE && isset($contentContent['html_code']) && is_string($contentContent['html_code'])) {
+            $this->validateRenderedContentString($contentContent['html_code'], "$path.content.content.html_code");
+        }
+    }
+
+    private function validateRenderedContentString(string $value, string $path): void
+    {
+        $decoded = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $lower = strtolower($decoded);
+
+        $unsafePatterns = [
+            '/<\s*script\b/i',
+            '/<\s*iframe\b/i',
+            '/<\s*object\b/i',
+            '/<\s*embed\b/i',
+            '/<\s*svg\b/i',
+            '/\s+on[a-z0-9_-]*\s*=/i',
+            '/\s+srcdoc\s*=/i',
+            '/\s+(?:xlink:href|href|src|action|formaction)\s*=\s*["\']?\s*(?:javascript|vbscript)\s*:/i',
+            '/data:image\/svg\+xml/i',
+        ];
+
+        foreach ($unsafePatterns as $pattern) {
+            if (preg_match($pattern, $decoded) === 1) {
+                $this->errors[] = "[$path] Unsafe rendered content detected";
+                return;
+            }
+        }
+
+        if (strpos($lower, 'javascript:') !== false || strpos($lower, 'vbscript:') !== false) {
+            $this->errors[] = "[$path] Unsafe rendered content detected";
+        }
+    }
+
+    private function validateCssString(string $value, string $path): void
+    {
+        $decoded = strtolower(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $decoded = preg_replace('/\\\\[0-9a-f]{1,6}\s?/i', '', $decoded);
+        if (!is_string($decoded)) {
+            $this->errors[] = "[$path] Unsafe CSS detected";
+            return;
+        }
+
+        if (strpos($decoded, 'expression(') !== false
+            || preg_match('/url\s*\(\s*[\'"]?\s*(?:javascript|vbscript|data:text\/html|data:image\/svg\+xml)\s*:/i', $decoded) === 1
+        ) {
+            $this->errors[] = "[$path] Unsafe CSS detected";
+        }
+    }
+
+    private function validatePlainTextString(string $value, string $path): void
+    {
+        if ($value !== strip_tags($value) || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value) === 1) {
+            $this->errors[] = "[$path] Unsafe plain text detected";
+        }
+    }
+
+    /**
+     * @param array<int, string> $allowedSchemes
+     */
+    private function validateUrlString(string $url, string $path, array $allowedSchemes): void
+    {
+        $trimmed = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if ($trimmed === '' || $trimmed === '#') {
+            return;
+        }
+
+        if (strpos($trimmed, '//') === 0) {
+            $this->errors[] = "[$path] Unsafe URL detected";
+            return;
+        }
+
+        $scheme = $this->extractNormalizedScheme($trimmed);
+        if ($scheme === null) {
+            if (preg_match('/^(#|\/|\.\.?\/|\?)/', $trimmed) === 1) {
+                return;
+            }
+
+            if (preg_match('/^[a-zA-Z0-9._~!$&\'()*+,;=@%-]+(?:\/|$)/', $trimmed) === 1) {
+                return;
+            }
+
+            $this->errors[] = "[$path] Unsafe URL detected";
+            return;
+        }
+
+        if (!in_array($scheme, $allowedSchemes, true)) {
+            $this->errors[] = "[$path] Unsafe URL detected";
+            return;
+        }
+
+        if ($scheme === 'data' && !$this->isAllowedDataUrl($trimmed)) {
+            $this->errors[] = "[$path] Unsafe URL detected";
+            return;
+        }
+
+        if ($scheme === 'mailto' && preg_match('/(?:[\r\n]|%0a|%0d|[?&]bcc=)/i', $trimmed) === 1) {
+            $this->errors[] = "[$path] Unsafe URL detected";
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $attr
+     */
+    private function validateAdvancedAttribute(array $attr, string $path): void
+    {
+        $name = strtolower(trim((string) ($attr['name'] ?? '')));
+        $value = (string) ($attr['value'] ?? '');
+
+        if ($name === ''
+            || preg_match('/[\x00-\x20\x7F]/', $name) === 1
+            || strpos($name, 'on') === 0
+            || $this->isDirectiveAttribute($name)
+            || in_array($name, ['ping', 'formaction', 'formtarget', 'action', 'srcdoc'], true)
+        ) {
+            $this->errors[] = "[$path] Unsafe advanced attribute detected";
+            return;
+        }
+
+        if (in_array($name, ['href', 'src', 'poster', 'xlink:href'], true)) {
+            $this->validateUrlString($value, "$path.value", ['http', 'https', 'mailto', 'tel']);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $action
+     */
+    private function validateInteractionAction(array $action, string $path): void
+    {
+        if (($action['name'] ?? '') === 'javascript_function') {
+            $this->errors[] = "[$path] Unsafe interaction action detected";
+        }
+    }
+
+    private function isDirectiveAttribute(string $name): bool
+    {
+        return strpos($name, 'data-oxy-at-') === 0
+            || strpos($name, 'x-') === 0
+            || strpos($name, 'v-') === 0
+            || strpos($name, 'ng-') === 0
+            || strpos($name, 'hx-on') === 0
+            || strpos($name, 'bind:') === 0
+            || strpos($name, ':') === 0
+            || strpos($name, '@') === 0;
+    }
+
+    private function extractNormalizedScheme(string $url): ?string
+    {
+        $probe = rawurldecode($url);
+        $probe = preg_replace('/[\x00-\x20\x7F]+/', '', $probe);
+        if (!is_string($probe) || $probe === '') {
+            return null;
+        }
+
+        if (!preg_match('/^([a-zA-Z][a-zA-Z0-9+.-]*):/', $probe, $matches)) {
+            return null;
+        }
+
+        return strtolower($matches[1]);
+    }
+
+    private function isAllowedDataUrl(string $url): bool
+    {
+        $dataUrl = preg_replace('/[\x00-\x20\x7F]+/', '', $url);
+        if (!is_string($dataUrl)) {
+            return false;
+        }
+
+        if (!preg_match('/^data:([^;,]+);base64,[a-z0-9+\/=]+$/i', $dataUrl, $matches)) {
+            return false;
+        }
+
+        return in_array(strtolower($matches[1]), [
+            'image/png',
+            'image/jpeg',
+            'image/gif',
+            'image/webp',
+            'image/avif',
+            'video/mp4',
+            'video/webm',
+        ], true);
     }
 
     /**

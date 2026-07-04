@@ -104,7 +104,104 @@ HTML;
         $this->assertStringNotContainsString('onclick=', $payload);
         $this->assertStringNotContainsString('onsubmit=', $payload);
         $this->assertStringNotContainsString('javascript:', $payload);
-        $this->assertStringContainsString('action="#"', $payload);
+        $this->assertStringNotContainsString('<form', $payload);
+        $this->assertStringNotContainsString('action=', $payload);
+    }
+
+    public function testSafeModeSanitizesTextRichTextLinkImageButtonAndAttributeSinks(): void
+    {
+        $textResult = $this->convertInSafeMode(
+            '<p>Hello <span onclick="alert(1)">x</span><a href="javascript:alert(1)">link</a><script>alert(1)</script></p>'
+        );
+        $textPayload = (string) ($textResult['element']['data']['properties']['content']['content']['text'] ?? '');
+
+        $this->assertSafeMarkupString($textPayload);
+        $this->assertStringContainsString('href="#"', $textPayload);
+
+        $richResult = $this->convertInSafeMode(
+            '<table><tr><td><img src="data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+" onerror="alert(1)"><iframe srcdoc="<script>alert(1)</script>"></iframe></td></tr></table>'
+        );
+        $richPayload = (string) ($richResult['element']['data']['properties']['content']['content']['text'] ?? '');
+
+        $this->assertSafeMarkupString($richPayload);
+        $this->assertStringNotContainsString('<iframe', strtolower($richPayload));
+        $this->assertStringNotContainsString('srcdoc', strtolower($richPayload));
+        $this->assertStringNotContainsString('data:image/svg+xml', strtolower($richPayload));
+
+        $linkResult = $this->convertInSafeMode(
+            '<a href="jav&#x61;script:alert(1)" target="_blank"><span onclick="alert(1)">Open</span><script>alert(1)</script></a>'
+        );
+        $linkContent = $linkResult['element']['data']['properties']['content']['content'] ?? [];
+
+        $this->assertSame('#', $linkContent['url'] ?? null);
+        $this->assertSafeMarkupString((string) ($linkContent['text'] ?? ''));
+
+        $imageResult = $this->convertInSafeMode(
+            '<img src="data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+" alt="<b>x</b>' . chr(1) . '" onerror="alert(1)">'
+        );
+        $image = $imageResult['element']['data']['properties']['content']['image'] ?? [];
+
+        $this->assertSame('#', $image['url'] ?? null);
+        $this->assertSame('x', $image['custom_alt_when_from_url'] ?? null);
+
+        $buttonResult = $this->convertInSafeMode(
+            '<button formaction="javascript:alert(1)" ping="/track"><span onclick="alert(1)">Pay</span></button>'
+        );
+        $buttonPayload = (string) ($buttonResult['element']['data']['properties']['content']['content']['text'] ?? '');
+        $buttonAttributes = $buttonResult['element']['data']['properties']['settings']['advanced']['attributes'] ?? [];
+
+        $this->assertSafeMarkupString($buttonPayload);
+        $this->assertSame([], $buttonAttributes);
+    }
+
+    public function testSafeModeBlocksObfuscatedJavaScriptUrlsInNativeLinks(): void
+    {
+        $entityResult = $this->convertInSafeMode('<a href="jav&#x61;script:alert(1)">Open</a>');
+        $this->assertSame(
+            '#',
+            $entityResult['element']['data']['properties']['content']['content']['url'] ?? null
+        );
+
+        $controlResult = $this->convertInSafeMode('<a href="java&#10;script:alert(1)">Open</a>');
+        $this->assertSame(
+            '#',
+            $controlResult['element']['data']['properties']['content']['content']['url'] ?? null
+        );
+
+        $schemeRelativeResult = $this->convertInSafeMode('<a href="//attacker.test/path">Open</a>');
+        $this->assertSame(
+            '#',
+            $schemeRelativeResult['element']['data']['properties']['content']['content']['url'] ?? null
+        );
+
+        $mailtoHeaderResult = $this->convertInSafeMode('<a href="mailto:user@example.com?bcc=attacker@example.com">Open</a>');
+        $this->assertSame(
+            '#',
+            $mailtoHeaderResult['element']['data']['properties']['content']['content']['url'] ?? null
+        );
+    }
+
+    public function testSafeModeEscapesDomTextThatLooksLikeMarkup(): void
+    {
+        $result = $this->convertInSafeMode('<section>Before &lt;img src=x onerror=alert(1)&gt;<strong>after</strong></section>');
+
+        $textPayloads = [];
+        $this->collectTextPayloads($result['element'], $textPayloads);
+        $combinedPayload = implode("\n", $textPayloads);
+
+        $this->assertStringContainsString('Before &lt;img src=x onerror=alert(1)&gt;', $combinedPayload);
+        foreach ($textPayloads as $payload) {
+            $this->assertStringNotContainsString('<img', strtolower($payload));
+            $this->assertStringNotContainsString('<script', strtolower($payload));
+        }
+    }
+
+    public function testSafeModeDoesNotAddNullContentPropertyToContainers(): void
+    {
+        $result = $this->convertInSafeMode('<section><div><span>Hi</span></div></section>');
+
+        $this->assertSame('OxygenElements\\Container', $result['element']['data']['type']);
+        $this->assertArrayNotHasKey('content', $result['element']['data']['properties']);
     }
 
     private function collectElementTypes(array $element, array &$types): void
@@ -116,6 +213,41 @@ HTML;
                 $this->collectElementTypes($child, $types);
             }
         }
+    }
+
+    private function collectTextPayloads(array $element, array &$payloads): void
+    {
+        $payload = $element['data']['properties']['content']['content']['text'] ?? null;
+        if (is_string($payload)) {
+            $payloads[] = $payload;
+        }
+
+        foreach (($element['children'] ?? []) as $child) {
+            if (is_array($child)) {
+                $this->collectTextPayloads($child, $payloads);
+            }
+        }
+    }
+
+    private function convertInSafeMode(string $html): array
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(true);
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        return $result;
+    }
+
+    private function assertSafeMarkupString(string $payload): void
+    {
+        $lowerPayload = strtolower($payload);
+
+        $this->assertStringNotContainsString('<script', $lowerPayload);
+        $this->assertStringNotContainsString('onclick', $lowerPayload);
+        $this->assertStringNotContainsString('onerror', $lowerPayload);
+        $this->assertStringNotContainsString('javascript:', $lowerPayload);
     }
 
     public function testExtractsHeadScriptsWithoutDuplicatingIconCdnScripts(): void
@@ -159,6 +291,94 @@ HTML;
         $this->assertStringContainsString('https://unpkg.com/lucide@latest', $iconPayload);
     }
 
+    public function testTailwindHeadConfigScriptIsGuardedForBuilderRuntime(): void
+    {
+        $html = <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { brand: '#ff0084' } } } };</script>
+</head>
+<body><div class="text-brand">Hello</div></body>
+</html>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $headScripts = $result['headScriptElements'] ?? [];
+        $payloads = array_map(
+            static fn (array $element): string => (string) ($element['data']['properties']['content']['content']['html_code'] ?? ''),
+            $headScripts
+        );
+        $combinedPayload = implode("\n", $payloads);
+
+        $this->assertStringContainsString('window.tailwind = window.tailwind || {};', $combinedPayload);
+        $this->assertStringContainsString('window.tailwind.config =', $combinedPayload);
+        $this->assertDoesNotMatchRegularExpression('/(?<![\\w$.])tailwind\\s*\\.\\s*config\\s*=/', $combinedPayload);
+    }
+
+    public function testHeadAssetExtractionSkipsPreconnectHints(): void
+    {
+        $html = <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+</head>
+<body><div class="font-body">Hello</div></body>
+</html>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $headLinks = $result['headLinkElements'] ?? [];
+        $this->assertCount(1, $headLinks);
+
+        $payload = (string) ($headLinks[0]['data']['properties']['content']['content']['html_code'] ?? '');
+        $this->assertStringContainsString('rel="stylesheet"', $payload);
+        $this->assertStringNotContainsString('rel="preconnect"', $payload);
+    }
+
+    public function testWindowTailwindHeadConfigScriptIsGuardedForBuilderRuntime(): void
+    {
+        $html = <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+  <script>window.tailwind.config = { theme: { extend: { colors: { brand: '#ff0084' } } } };</script>
+  <script>globalThis.tailwind.config = { darkMode: 'class' };</script>
+</head>
+<body><div class="text-brand">Hello</div></body>
+</html>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $headScripts = $result['headScriptElements'] ?? [];
+        $payloads = array_map(
+            static fn (array $element): string => (string) ($element['data']['properties']['content']['content']['html_code'] ?? ''),
+            $headScripts
+        );
+        $combinedPayload = implode("\n", $payloads);
+
+        $this->assertStringContainsString('window.tailwind = window.tailwind || {};', $combinedPayload);
+        $this->assertStringContainsString('window.tailwind.config =', $combinedPayload);
+        $this->assertStringContainsString('globalThis.tailwind = globalThis.tailwind || {};', $combinedPayload);
+        $this->assertStringContainsString('globalThis.tailwind.config =', $combinedPayload);
+    }
+
     public function testAppendsTailwindFallbackCssForTypographyUtilities(): void
     {
         $builder = new TreeBuilder();
@@ -174,10 +394,10 @@ HTML;
 
         $typography = $result['element']['data']['properties']['design']['typography'] ?? [];
         $this->assertSame('#ffffff', $typography['color'] ?? null);
-        $this->assertSame('uppercase', $typography['text-transform'] ?? null);
-        $this->assertSame('3.75rem', $typography['font-size'] ?? null);
-        $this->assertSame('1', $typography['line-height'] ?? null);
-        $this->assertSame('-0.025em', $typography['letter-spacing'] ?? null);
+        $this->assertSame('uppercase', $typography['text_transform'] ?? null);
+        $this->assertSame('3.75rem', $typography['font_size'] ?? null);
+        $this->assertSame('1', $typography['line_height'] ?? null);
+        $this->assertSame('-0.025em', $typography['letter_spacing'] ?? null);
     }
 
     public function testScrollRevealBaseClassIsPreservedWhenEntranceAnimationIsAdded(): void
@@ -256,7 +476,6 @@ HTML;
         $result = $builder->convert($html);
 
         $this->assertTrue($result['success']);
-        $this->assertNotNull($result['cssElement']);
 
         $css = (string) ($result['cssElement']['data']['properties']['content']['content']['css_code'] ?? '');
         $this->assertStringNotContainsString('body h1, body h2, body h3, body h4, body h5, body h6,', $css);

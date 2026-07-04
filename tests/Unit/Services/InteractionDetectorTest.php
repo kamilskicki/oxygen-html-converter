@@ -128,4 +128,37 @@ class InteractionDetectorTest extends TestCase
         $this->assertEquals('click', $interactions[0]['trigger']);
         $this->assertEquals('toggle', $interactions[0]['actions'][0]['js_function_name']);
     }
+
+    public function test_safe_mode_strips_framework_event_and_unsafe_url_attributes(): void
+    {
+        $parser = new HtmlParser();
+        $node = $parser->parse(
+            '<button onclick="run()" @click="run()" x-data="{open:true}" x-on:click="run()" v-html="payload" ng-click="run()" hx-on:click="run()" data-oxy-at-click="run()" ping="/track" formaction="javascript:alert(1)" formtarget="_blank" data-safe="ok" aria-label="Pay" role="button">Pay</button>'
+        )->getElementsByTagName('button')->item(0);
+
+        $this->detector->setStripEventHandlers(true);
+        $element = ['data' => ['properties' => ['settings' => []]]];
+        $this->detector->processCustomAttributes($node, $element);
+
+        $attributes = $element['data']['properties']['settings']['advanced']['attributes'] ?? [];
+        $names = array_column($attributes, 'name');
+
+        $this->assertContains('data-safe', $names);
+        $this->assertContains('aria-label', $names);
+        $this->assertContains('role', $names);
+        $this->assertNotContains('onclick', $names);
+        $this->assertNotContains('@click', $names);
+        $this->assertNotContains('x-data', $names);
+        $this->assertNotContains('x-on:click', $names);
+        $this->assertNotContains('v-html', $names);
+        $this->assertNotContains('ng-click', $names);
+        $this->assertNotContains('hx-on:click', $names);
+        $this->assertNotContains('data-oxy-at-click', $names);
+        $this->assertNotContains('ping', $names);
+        $this->assertNotContains('formaction', $names);
+        $this->assertNotContains('formtarget', $names);
+
+        $interactions = $element['data']['properties']['settings']['interactions']['interactions'] ?? [];
+        $this->assertSame([], $interactions);
+    }
 }

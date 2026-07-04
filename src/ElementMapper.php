@@ -96,7 +96,7 @@ class ElementMapper
      */
     private const CONTAINER_TAG_OPTIONS = [
         'section', 'footer', 'header', 'nav', 'aside', 'figure',
-        'article', 'main', 'details', 'summary', 'ul', 'li', 'ol', 'button'
+        'article', 'main', 'details', 'summary', 'ul', 'li', 'ol'
     ];
 
     /**
@@ -416,7 +416,9 @@ class ElementMapper
             ],
             'design' => [
                 'typography' => [
-                    'text-decoration' => 'none',
+                    'style' => [
+                        'text_decoration' => 'none',
+                    ],
                 ],
             ],
         ];

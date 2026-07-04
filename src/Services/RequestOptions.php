@@ -48,7 +48,10 @@ class RequestOptions
             'wrapInContainer' => $this->parseBool($input['wrapInContainer'] ?? true, true),
             'includeCssElement' => $this->parseBool($input['includeCssElement'] ?? true, true),
             'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
+            'safeMode' => $this->parseBool($input['safeMode'] ?? true, true),
+            'unsafeModeExplicit' => array_key_exists('safeMode', $input)
+                && !$this->parseBool($input['safeMode'] ?? true, true),
+            'strictNative' => $this->parseBool($input['strictNative'] ?? false, false),
             'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
         ];
     }
@@ -61,7 +64,10 @@ class RequestOptions
     {
         return [
             'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
+            'safeMode' => $this->parseBool($input['safeMode'] ?? true, true),
+            'unsafeModeExplicit' => array_key_exists('safeMode', $input)
+                && !$this->parseBool($input['safeMode'] ?? true, true),
+            'strictNative' => $this->parseBool($input['strictNative'] ?? false, false),
             'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
         ];
     }
@@ -74,7 +80,10 @@ class RequestOptions
     {
         return [
             'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? false, false),
+            'safeMode' => $this->parseBool($input['safeMode'] ?? true, true),
+            'unsafeModeExplicit' => array_key_exists('safeMode', $input)
+                && !$this->parseBool($input['safeMode'] ?? true, true),
+            'strictNative' => $this->parseBool($input['strictNative'] ?? false, false),
             'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
         ];
     }

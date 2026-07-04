@@ -23,6 +23,7 @@ class ConversionReportTest extends TestCase
         $this->assertEmpty($data['warnings']);
         $this->assertEmpty($data['errors']);
         $this->assertEmpty($data['info']);
+        $this->assertEmpty($data['unsupportedItems']);
     }
 
     public function testIncrements()
@@ -58,11 +59,43 @@ class ConversionReportTest extends TestCase
         $this->report->incrementElementCount(1);
         $this->report->addWarning('Warning');
         $this->report->addInfo('Info');
+        $this->report->addUnsupportedItem('form#lead', 'Forms are not approved for native Core import.');
         $this->report->reset();
 
         $data = $this->report->toArray();
         $this->assertEquals(0, $data['elements']);
         $this->assertEmpty($data['warnings']);
         $this->assertEmpty($data['info']);
+        $this->assertEmpty($data['unsupportedItems']);
+    }
+
+    public function testUnsupportedItemsIncludeRequiredFallbackTaxonomyFields()
+    {
+        $this->report->addUnsupportedItem(
+            'form#lead',
+            'Forms are not approved for native Core import.',
+            'blocking',
+            'Core import plan',
+            'Replace with an approved form integration or explicitly choose unsafe fallback.'
+        );
+        $this->report->addUnsupportedItem(
+            'form#lead',
+            'Forms are not approved for native Core import.',
+            'blocking',
+            'Core import plan',
+            'Replace with an approved form integration or explicitly choose unsafe fallback.'
+        );
+
+        $data = $this->report->toArray();
+
+        $this->assertCount(1, $data['unsupportedItems']);
+        $this->assertSame('form#lead', $data['unsupportedItems'][0]['location']);
+        $this->assertSame('Forms are not approved for native Core import.', $data['unsupportedItems'][0]['reason']);
+        $this->assertSame('blocking', $data['unsupportedItems'][0]['severity']);
+        $this->assertSame('Core import plan', $data['unsupportedItems'][0]['owner']);
+        $this->assertSame(
+            'Replace with an approved form integration or explicitly choose unsafe fallback.',
+            $data['unsupportedItems'][0]['remediation']
+        );
     }
 }

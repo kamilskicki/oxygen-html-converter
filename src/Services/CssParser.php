@@ -17,9 +17,6 @@ class CssParser
     {
         $rules = [];
 
-        // Remove comments
-        $css = preg_replace('!/\*.*?\*/!s', '', $css);
-
         // Brace-depth-aware parser to handle nested @keyframes, @media, @property blocks
         $len = strlen($css);
         $depth = 0;
@@ -27,19 +24,35 @@ class CssParser
         $block = '';
         $inString = false;
         $stringChar = '';
+        $inComment = false;
         $isAtRule = false;
 
         for ($i = 0; $i < $len; $i++) {
             $char = $css[$i];
+            $next = $css[$i + 1] ?? '';
+
+            if ($inComment) {
+                if ($char === '*' && $next === '/') {
+                    $inComment = false;
+                    $i++;
+                }
+                continue;
+            }
 
             // Handle string literals (skip braces inside quotes)
             if ($inString) {
-                if ($char === $stringChar && ($i === 0 || $css[$i - 1] !== '\\')) {
+                if ($char === $stringChar && !$this->isEscaped($css, $i)) {
                     $inString = false;
                 }
                 if ($depth === 1 && !$isAtRule) {
                     $block .= $char;
                 }
+                continue;
+            }
+
+            if ($char === '/' && $next === '*') {
+                $inComment = true;
+                $i++;
                 continue;
             }
 
@@ -112,32 +125,316 @@ class CssParser
     /**
      * Parse declaration block into key-value pairs
      */
-    private function parseDeclarations(string $declarationsRaw): array
+    public function parseDeclarations(string $declarationsRaw): array
     {
         $declarations = [];
-        $parts = explode(';', $declarationsRaw);
 
-        foreach ($parts as $part) {
-            $part = trim($part);
-            if (!$part) {
+        foreach ($this->parseDeclarationList($declarationsRaw) as $declaration) {
+            $declarations[$declaration['property']] = $declaration['value'];
+        }
+
+        return $declarations;
+    }
+
+    /**
+     * Parse declaration block into ordered property/value records.
+     *
+     * @return array<int, array{property: string, value: string}>
+     */
+    public function parseDeclarationList(string $declarationsRaw): array
+    {
+        $declarations = [];
+
+        foreach ($this->splitDeclarations($declarationsRaw) as $part) {
+            $parsed = $this->splitPropertyValue($part);
+            if ($parsed === null) {
                 continue;
             }
 
-            $bits = explode(':', $part, 2);
-            if (count($bits) === 2) {
-                $prop = trim($bits[0]);
-                $val = trim($bits[1]);
+            [$property, $value] = $parsed;
+            $value = $this->stripImportant($value);
 
-                // Remove !important if present
-                $val = trim(str_replace('!important', '', $val));
-
-                if ($prop !== '' && $val !== '') {
-                    $declarations[$prop] = $val;
-                }
+            if ($property !== '' && $value !== '') {
+                $declarations[] = [
+                    'property' => $property,
+                    'value' => $value,
+                ];
             }
         }
 
         return $declarations;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function splitDeclarations(string $declarationsRaw): array
+    {
+        $parts = [];
+        $current = '';
+        $len = strlen($declarationsRaw);
+        $inString = false;
+        $stringChar = '';
+        $inComment = false;
+        $parenDepth = 0;
+        $bracketDepth = 0;
+        $braceDepth = 0;
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $declarationsRaw[$i];
+            $next = $declarationsRaw[$i + 1] ?? '';
+
+            if ($inComment) {
+                if ($char === '*' && $next === '/') {
+                    $inComment = false;
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($inString) {
+                $current .= $char;
+                if ($char === $stringChar && !$this->isEscaped($declarationsRaw, $i)) {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '/' && $next === '*') {
+                $inComment = true;
+                $i++;
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $inString = true;
+                $stringChar = $char;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === '(') {
+                $parenDepth++;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === ')') {
+                $parenDepth = max(0, $parenDepth - 1);
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === '[') {
+                $bracketDepth++;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === ']') {
+                $bracketDepth = max(0, $bracketDepth - 1);
+                $current .= $char;
+                continue;
+            }
+
+            if (
+                $char === '{'
+                && $parenDepth === 0
+                && $bracketDepth === 0
+                && $braceDepth === 0
+                && $this->splitPropertyValue($current) === null
+            ) {
+                $current = '';
+                $this->skipNestedBlock($declarationsRaw, $i);
+                continue;
+            }
+
+            if ($char === '{') {
+                $braceDepth++;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === '}') {
+                $braceDepth = max(0, $braceDepth - 1);
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === ';' && $parenDepth === 0 && $bracketDepth === 0 && $braceDepth === 0) {
+                $part = trim($current);
+                if ($part !== '') {
+                    $parts[] = $part;
+                }
+                $current = '';
+                continue;
+            }
+
+            $current .= $char;
+        }
+
+        $part = trim($current);
+        if ($part !== '') {
+            $parts[] = $part;
+        }
+
+        return $parts;
+    }
+
+    /**
+     * @return array{string, string}|null
+     */
+    private function splitPropertyValue(string $declaration): ?array
+    {
+        $len = strlen($declaration);
+        $inString = false;
+        $stringChar = '';
+        $inComment = false;
+        $parenDepth = 0;
+        $bracketDepth = 0;
+        $braceDepth = 0;
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $declaration[$i];
+            $next = $declaration[$i + 1] ?? '';
+
+            if ($inComment) {
+                if ($char === '*' && $next === '/') {
+                    $inComment = false;
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($inString) {
+                if ($char === $stringChar && !$this->isEscaped($declaration, $i)) {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '/' && $next === '*') {
+                $inComment = true;
+                $i++;
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $inString = true;
+                $stringChar = $char;
+                continue;
+            }
+
+            if ($char === '(') {
+                $parenDepth++;
+                continue;
+            }
+
+            if ($char === ')') {
+                $parenDepth = max(0, $parenDepth - 1);
+                continue;
+            }
+
+            if ($char === '[') {
+                $bracketDepth++;
+                continue;
+            }
+
+            if ($char === ']') {
+                $bracketDepth = max(0, $bracketDepth - 1);
+                continue;
+            }
+
+            if ($char === '{') {
+                $braceDepth++;
+                continue;
+            }
+
+            if ($char === '}') {
+                $braceDepth = max(0, $braceDepth - 1);
+                continue;
+            }
+
+            if ($char === ':' && $parenDepth === 0 && $bracketDepth === 0 && $braceDepth === 0) {
+                $property = trim(substr($declaration, 0, $i));
+                $value = trim(substr($declaration, $i + 1));
+
+                return [$property, $value];
+            }
+        }
+
+        return null;
+    }
+
+    private function skipNestedBlock(string $input, int &$offset): void
+    {
+        $len = strlen($input);
+        $depth = 1;
+        $inString = false;
+        $stringChar = '';
+        $inComment = false;
+
+        for ($i = $offset + 1; $i < $len; $i++) {
+            $char = $input[$i];
+            $next = $input[$i + 1] ?? '';
+
+            if ($inComment) {
+                if ($char === '*' && $next === '/') {
+                    $inComment = false;
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($inString) {
+                if ($char === $stringChar && !$this->isEscaped($input, $i)) {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '/' && $next === '*') {
+                $inComment = true;
+                $i++;
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $inString = true;
+                $stringChar = $char;
+                continue;
+            }
+
+            if ($char === '{') {
+                $depth++;
+                continue;
+            }
+
+            if ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    $offset = $i;
+                    return;
+                }
+            }
+        }
+
+        $offset = $len - 1;
+    }
+
+    private function stripImportant(string $value): string
+    {
+        return trim((string) preg_replace('/\s*!\s*important\s*$/i', '', $value));
+    }
+
+    private function isEscaped(string $input, int $offset): bool
+    {
+        $slashes = 0;
+        for ($i = $offset - 1; $i >= 0 && $input[$i] === '\\'; $i--) {
+            $slashes++;
+        }
+
+        return $slashes % 2 === 1;
     }
 
     /**

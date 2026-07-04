@@ -12,7 +12,9 @@ class PreviewRequestHandler
     public function __construct(
         private readonly TreeBuilderFactory $treeBuilderFactory,
         private readonly PreviewSummaryBuilder $summaryBuilder,
-        private readonly ConversionAuditBuilder $auditBuilder
+        private readonly ConversionAuditBuilder $auditBuilder,
+        private readonly ?DesignDocumentBuilder $designDocumentBuilder = null,
+        private readonly ?ImportPlanBuilder $importPlanBuilder = null
     )
     {
     }
@@ -36,6 +38,13 @@ class PreviewRequestHandler
             ];
         }
 
+        $designDocument = $this->getDesignDocumentBuilder()->build($html, $result);
+        $importPlan = $this->getImportPlanBuilder()->build($result, $designDocument, $options);
+        $resultWithAnalysis = array_merge($result, [
+            'designDocument' => $designDocument,
+            'importPlan' => $importPlan,
+        ]);
+
         $payload = [
             'summary' => $this->summaryBuilder->build($result['element']),
             'elementCount' => $result['stats']['elements'],
@@ -43,15 +52,30 @@ class PreviewRequestHandler
             'customClassCount' => $result['stats']['customClasses'],
             'customClasses' => $result['customClasses'],
             'hasExtractedCss' => !empty($result['extractedCss']),
+            'hasGlobalCss' => !empty($result['globalCss']),
+            'hasPageScopedCss' => !empty($result['pageScopedCss']),
+            'styleRouting' => is_array($result['styleRouting'] ?? null) ? $result['styleRouting'] : [],
             'warnings' => $result['stats']['warnings'],
             'errors' => $result['stats']['errors'] ?? [],
-            'audit' => $this->auditBuilder->build($result, $options),
+            'designDocument' => $designDocument,
+            'importPlan' => $importPlan,
+            'audit' => $this->auditBuilder->build($resultWithAnalysis, $options),
         ];
 
         return [
             'success' => true,
             'status' => 200,
-            'data' => apply_filters('oxy_html_converter_preview_response', $payload, $result, $html),
+            'data' => apply_filters('oxy_html_converter_preview_response', $payload, $resultWithAnalysis, $html),
         ];
+    }
+
+    private function getDesignDocumentBuilder(): DesignDocumentBuilder
+    {
+        return $this->designDocumentBuilder ?? new DesignDocumentBuilder();
+    }
+
+    private function getImportPlanBuilder(): ImportPlanBuilder
+    {
+        return $this->importPlanBuilder ?? new ImportPlanBuilder();
     }
 }
