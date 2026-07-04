@@ -43,9 +43,17 @@ function parseArgs(argv) {
     baseUrl: process.env.OXY_HTML_CONVERTER_BASE_URL || "",
     outputDir: DEFAULT_OUTPUT_DIR,
     localFixtureDir: DEFAULT_LOCAL_FIXTURE_DIR,
+    fixture: null,
+    refreshBaseline: process.env.OXY_HTML_CONVERTER_VISUAL_REFRESH_BASELINE !== "0",
+    classMode: process.env.OXY_HTML_CONVERTER_CLASS_MODE || "native",
   };
 
   for (const arg of argv) {
+    if (arg === "--no-refresh-baseline") {
+      options.refreshBaseline = false;
+      continue;
+    }
+
     if (!arg.startsWith("--")) {
       continue;
     }
@@ -61,6 +69,12 @@ function parseArgs(argv) {
       options.outputDir = path.resolve(process.cwd(), value);
     } else if (rawKey === "local-fixture-dir") {
       options.localFixtureDir = path.resolve(process.cwd(), value);
+    } else if (rawKey === "fixture") {
+      options.fixture = normalizeFixturePath(value);
+    } else if (rawKey === "refresh-baseline") {
+      options.refreshBaseline = value === "true" || value === "1";
+    } else if (rawKey === "class-mode") {
+      options.classMode = value;
     }
   }
 
@@ -101,21 +115,63 @@ function buildSlug(baseName) {
     .slice(0, 60);
 }
 
-function listMaintainedFixtures(localFixtureDir) {
-  return fs
-    .readdirSync(localFixtureDir, { withFileTypes: true })
-    .filter(
-      (entry) =>
-        entry.isFile() && /^design-[1-5]-.*\.html$/i.test(entry.name)
-    )
-    .map((entry) => entry.name)
-    .sort();
+function normalizeFixturePath(value) {
+  return String(value || "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/")
+    .trim();
+}
+
+function fixtureNameForSlug(fixture) {
+  return String(fixture)
+    .replace(/\\/g, "/")
+    .replace(/\/code\.html$/i, "")
+    .replace(/\.html$/i, "")
+    .replace(/\//g, "-");
+}
+
+function listMaintainedFixtures(localFixtureDir, focusedFixture = null) {
+  if (focusedFixture) {
+    const fixture = normalizeFixturePath(focusedFixture);
+    const sourcePath = path.join(localFixtureDir, ...fixture.split("/"));
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`Focused fixture does not exist: ${sourcePath}`);
+    }
+
+    return [fixture];
+  }
+
+  const fixtures = [];
+
+  for (const entry of fs.readdirSync(localFixtureDir, { withFileTypes: true })) {
+    if (entry.isFile() && /^design-[1-5]-.*\.html$/i.test(entry.name)) {
+      fixtures.push(entry.name);
+    }
+  }
+
+  const maximusDir = path.join(localFixtureDir, "Maximus");
+  if (fs.existsSync(maximusDir)) {
+    for (const entry of fs.readdirSync(maximusDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      const codePath = path.join(maximusDir, entry.name, "code.html");
+      const screenPath = path.join(maximusDir, entry.name, "screen.png");
+      if (fs.existsSync(codePath) && fs.existsSync(screenPath)) {
+        fixtures.push(path.join("Maximus", entry.name, "code.html"));
+      }
+    }
+  }
+
+  return fixtures.sort();
 }
 
 function loadFixturePages(container, fixtureFiles) {
   const fixtures = fixtureFiles.map((fixture) => ({
     fixture,
-    slug: buildSlug(path.basename(fixture, ".html")),
+    slug: buildSlug(fixtureNameForSlug(fixture)),
   }));
   const slugsJson = JSON.stringify(fixtures.map((fixture) => fixture.slug))
     .replace(/\\/g, "\\\\")
@@ -165,6 +221,58 @@ function runVisualCapture(sourcePath, frontendUrl, outSource, outFrontend) {
       outFrontend,
     ])
   );
+}
+
+function refreshFixtureBaseline(options, fixture) {
+  const args = [
+    path.join("tests", "live", "run-fixture-baseline.cjs"),
+    `--container=${options.container}`,
+    `--output-dir=${path.join(options.outputDir, "baseline")}`,
+    `--local-fixture-dir=${options.localFixtureDir}`,
+    `--class-mode=${options.classMode}`,
+    `--fixture=${fixture}`,
+  ];
+
+  runCommand("node", args, { timeout: 180000 });
+}
+
+function readPngSize(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  const buffer = fs.readFileSync(filePath);
+  if (buffer.length < 24 || buffer.toString("ascii", 1, 4) !== "PNG") {
+    return null;
+  }
+
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
+
+function buildReferenceDiff(sourcePath, capture) {
+  const screenPath = path.join(path.dirname(sourcePath), "screen.png");
+  const referenceSize = readPngSize(screenPath);
+  if (!referenceSize) {
+    return null;
+  }
+
+  const frontendSize = {
+    width: capture.frontend?.width ?? null,
+    height: capture.frontend?.height ?? null,
+  };
+
+  return {
+    referenceScreenPath: screenPath,
+    referenceSize,
+    frontendSize,
+    dimensionDelta: {
+      width: typeof frontendSize.width === "number" ? frontendSize.width - referenceSize.width : null,
+      height: typeof frontendSize.height === "number" ? frontendSize.height - referenceSize.height : null,
+    },
+  };
 }
 
 async function runDesign1Smoke(browser, fixtureUrl) {
@@ -308,18 +416,31 @@ async function main() {
   options.baseUrl = options.baseUrl || getHomeUrl(options.container);
   fs.mkdirSync(options.outputDir, { recursive: true });
 
-  const maintainedFixtures = listMaintainedFixtures(options.localFixtureDir);
+  const maintainedFixtures = listMaintainedFixtures(
+    options.localFixtureDir,
+    options.fixture
+  );
   if (!maintainedFixtures.length) {
     throw new Error(
       `No maintained fixtures found in ${options.localFixtureDir}`
     );
   }
 
+  if (options.refreshBaseline) {
+    for (const fixture of maintainedFixtures) {
+      logStep(`Refreshing baseline page for ${fixture}`);
+      refreshFixtureBaseline(options, fixture);
+    }
+  }
+
   const fixturePages = loadFixturePages(options.container, maintainedFixtures);
   const captures = [];
 
   for (const fixturePage of fixturePages) {
-    const sourcePath = path.join(options.localFixtureDir, fixturePage.fixture);
+    const sourcePath = path.join(
+      options.localFixtureDir,
+      ...fixturePage.fixture.replace(/\\/g, "/").split("/")
+    );
     const fixtureDir = path.join(options.outputDir, fixturePage.slug);
     const outSource = path.join(fixtureDir, "source.png");
     const outFrontend = path.join(fixtureDir, "frontend.png");
@@ -340,6 +461,7 @@ async function main() {
       outSource,
       outFrontend,
       capture,
+      referenceDiff: buildReferenceDiff(sourcePath, capture),
     });
   }
 

@@ -22,6 +22,7 @@
   const $includeCss = $("#oxy-include-css");
   const $inlineStyles = $("#oxy-inline-styles");
   const $safeMode = $("#oxy-safe-mode");
+  const $strictNative = $("#oxy-strict-native");
 
   const $previewResult = $("#oxy-preview-result");
   const $previewContent = $("#oxy-preview-content");
@@ -55,6 +56,7 @@
       includeCssElement: $includeCss.is(":checked"),
       inlineStyles: $inlineStyles.is(":checked"),
       safeMode: $safeMode.is(":checked"),
+      strictNative: $strictNative.is(":checked"),
       debugMode: false,
     };
   }
@@ -286,13 +288,15 @@
           wrapInContainer: true,
           includeCssElement: true,
           inlineStyles: true,
-          safeMode: false,
+          safeMode: true,
+          strictNative: false,
         };
 
     $wrapContainer.prop("checked", !!values.wrapInContainer);
     $includeCss.prop("checked", !!values.includeCssElement);
     $inlineStyles.prop("checked", !!values.inlineStyles);
     $safeMode.prop("checked", !!values.safeMode);
+    $strictNative.prop("checked", !!values.strictNative);
     isApplyingPreset = false;
   }
 
@@ -343,6 +347,7 @@
   $includeCss.on("change", handleManualOptionChange);
   $inlineStyles.on("change", handleManualOptionChange);
   $safeMode.on("change", handleManualOptionChange);
+  $strictNative.on("change", handleManualOptionChange);
 
   applyPreset(String($preset.val() || "balanced"));
 

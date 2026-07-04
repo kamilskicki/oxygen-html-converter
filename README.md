@@ -22,13 +22,14 @@ Core is intended for:
 - single-page marketing and landing-page HTML
 - inline styles
 - utility-first markup, especially Tailwind-like classes
-- WindPress-assisted Tailwind rendering
+- native Oxygen conversion of supported utility styling
 - common frontend interactions such as nav toggles, anchor scroll, reveal-on-scroll, counters, and simple inline handlers
 
 Core is not yet a promise of perfect conversion for every arbitrary frontend stack on the web.
 
 Detailed scope:
 - [Supported Scope](docs/SUPPORTED_SCOPE.md)
+- [OxyMade/Oxygen 6 Globals + WindPress Decision](docs/OXYMADE_OXYGEN6_GLOBALS_AND_WINDPRESS_DECISION.md)
 - [Definition of Done for v0.9.0-beta](docs/DOD-0.9.0-BETA.md)
 
 ## Import Methods

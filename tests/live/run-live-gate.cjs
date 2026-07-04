@@ -11,6 +11,13 @@ const DEFAULT_ADMIN_PASSWORD =
 const DEFAULT_TOOL_PATH =
   process.env.OXY_HTML_CONVERTER_TOOL_PATH ||
   "/wp-admin/tools.php?page=oxy-html-converter-tool";
+const DEFAULT_DOCKER_UPLOAD_OWNER =
+  process.env.OXY_HTML_CONVERTER_DOCKER_UPLOAD_OWNER || "www-data:www-data";
+const DEFAULT_OXYGEN_UPLOAD_PATH =
+  process.env.OXY_HTML_CONVERTER_DOCKER_OXYGEN_UPLOAD_PATH ||
+  "/var/www/html/wp-content/uploads/oxygen";
+const DEFAULT_LIVE_SLUG_PREFIX =
+  process.env.OXY_HTML_CONVERTER_LIVE_SLUG_PREFIX || "live-gate-";
 const DEFAULT_SKIP_SYNC =
   process.env.OXY_HTML_CONVERTER_SKIP_SYNC === "1" ||
   process.env.OXY_HTML_CONVERTER_SKIP_SYNC === "true";
@@ -48,6 +55,10 @@ function parseArgs(argv) {
     adminUser: DEFAULT_ADMIN_USER,
     adminPassword: DEFAULT_ADMIN_PASSWORD,
     skipSync: DEFAULT_SKIP_SYNC,
+    fixture: null,
+    localFixtureDir: resolveDefaultLocalFixtureDir(),
+    classMode: "native",
+    slugPrefix: DEFAULT_LIVE_SLUG_PREFIX,
   };
 
   for (const arg of argv) {
@@ -78,6 +89,14 @@ function parseArgs(argv) {
       options.adminUser = value;
     } else if (rawKey === "admin-password") {
       options.adminPassword = value;
+    } else if (rawKey === "fixture") {
+      options.fixture = normalizeFixturePath(value);
+    } else if (rawKey === "local-fixture-dir") {
+      options.localFixtureDir = path.resolve(process.cwd(), value);
+    } else if (rawKey === "class-mode") {
+      options.classMode = value;
+    } else if (rawKey === "slug-prefix") {
+      options.slugPrefix = value;
     }
   }
 
@@ -97,6 +116,10 @@ function logStep(message) {
   process.stdout.write(`[live-gate] ${message}\n`);
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
+}
+
 function isIgnorableRuntimeError(message) {
   return /angular is not defined/i.test(message);
 }
@@ -107,6 +130,10 @@ function isPluginSignal(text) {
   );
 }
 
+function isConvertedAssetRuntimeError(text) {
+  return /ReferenceError:\s*tailwind is not defined|tailwind is not defined/i.test(text);
+}
+
 function runNodeScript(scriptPath, args = []) {
   return runCommand("node", [scriptPath, ...args]);
 }
@@ -115,6 +142,22 @@ function runDockerPhp(container, phpCode) {
   return runCommand("docker", ["exec", container, "php", "-r", phpCode], {
     timeout: 60000,
   });
+}
+
+function normalizeOxygenUploadsPermissions(container) {
+  const path = shellQuote(DEFAULT_OXYGEN_UPLOAD_PATH);
+  const owner = shellQuote(DEFAULT_DOCKER_UPLOAD_OWNER);
+  runCommand(
+    "docker",
+    [
+      "exec",
+      container,
+      "sh",
+      "-lc",
+      `if [ -d ${path} ]; then chown -R ${owner} ${path} && find ${path} -type d -exec chmod 775 {} + && find ${path} -type f -exec chmod 664 {} +; fi`,
+    ],
+    { timeout: 60000 }
+  );
 }
 
 function getHomeUrl(container) {
@@ -133,21 +176,83 @@ function ensureAdminPassword(container, password) {
   );
 }
 
-function buildSlug(baseName) {
-  return `perf-${baseName}`
+function buildSlug(baseName, slugPrefix = "perf-") {
+  return `${slugPrefix}${baseName}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
 }
 
+function getCurrentClassMode(container) {
+  return runDockerPhp(
+    container,
+    "require '/var/www/html/wp-load.php'; echo get_option('oxy_html_converter_class_mode', 'auto');"
+  );
+}
+
+function setClassMode(container, classMode) {
+  return runDockerPhp(
+    container,
+    `require '/var/www/html/wp-load.php'; update_option('oxy_html_converter_class_mode', '${String(classMode).replace(/'/g, "\\'")}'); echo get_option('oxy_html_converter_class_mode', 'auto');`
+  );
+}
+
+function loadWindPressProof(container) {
+  const php = `
+    require '/var/www/html/wp-load.php';
+    include_once ABSPATH . 'wp-admin/includes/plugin.php';
+    $pluginFile = WP_PLUGIN_DIR . '/windpress/windpress.php';
+    $plugin = file_exists($pluginFile) ? get_plugin_data($pluginFile, false, false) : [];
+    echo wp_json_encode([
+      'active' => function_exists('is_plugin_active') && is_plugin_active('windpress/windpress.php'),
+      'version' => isset($plugin['Version']) ? (string) $plugin['Version'] : '',
+      'meetsTestedVersion' => isset($plugin['Version']) && version_compare((string) $plugin['Version'], '3.3.80', '>='),
+    ]);
+  `;
+
+  return JSON.parse(runDockerPhp(container, php));
+}
+
+function assertWindPressProof(proof) {
+  if (!proof.active) {
+    throw new Error("WindPress mode was requested, but WindPress is not active.");
+  }
+
+  if (!proof.meetsTestedVersion) {
+    throw new Error(
+      `WindPress mode requires WindPress >= 3.3.80 for this gate; detected ${proof.version || "unknown"}.`
+    );
+  }
+}
+
+function normalizeFixturePath(value) {
+  return String(value || "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/")
+    .trim();
+}
+
+function localFixturePath(localFixtureDir, fixture) {
+  return path.join(localFixtureDir, ...normalizeFixturePath(fixture).split("/"));
+}
+
+function fixtureNameForSlug(fixture) {
+  return String(fixture)
+    .replace(/\\/g, "/")
+    .replace(/\/code\.html$/i, "")
+    .replace(/\.html$/i, "")
+    .replace(/\//g, "-");
+}
+
 function loadFixtureSummary(jsonPath) {
   return JSON.parse(fs.readFileSync(jsonPath, "utf8"));
 }
 
-function loadFixturePages(container, summary) {
+function loadFixturePages(container, summary, slugPrefix = "perf-") {
   const slugs = summary.fixtures.map((fixture) =>
-    buildSlug(path.basename(fixture.fixture, ".html"))
+    buildSlug(fixtureNameForSlug(fixture.fixture), slugPrefix)
   );
   const slugsJson = JSON.stringify(slugs)
     .replace(/\\/g, "\\\\")
@@ -163,6 +268,7 @@ function loadFixturePages(container, summary) {
           'id' => (int) $post->ID,
           'slug' => $post->post_name,
           'title' => $post->post_title,
+          'url' => get_permalink($post),
         ];
       }
     }
@@ -177,7 +283,7 @@ function classifyObservation(text, blocking, ambient) {
     return;
   }
 
-  if (isPluginSignal(text)) {
+  if (isPluginSignal(text) || isConvertedAssetRuntimeError(text)) {
     blocking.push(text);
     return;
   }
@@ -228,11 +334,290 @@ async function runAdminSmoke(page, baseUrl) {
   }
 }
 
+function isBuilderReadySnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return false;
+  }
+
+  return (
+    snapshot.hasSaveButton === true &&
+    snapshot.saveButtonIdle === true &&
+    snapshot.hasDocumentTree === true &&
+    snapshot.hasEditabilityHelper === true
+  );
+}
+
+function resolveBuilderEditabilityHelperFromWindow(rootWindow) {
+  const candidates = [rootWindow];
+
+  try {
+    if (
+      rootWindow &&
+      rootWindow.parent &&
+      rootWindow.parent !== rootWindow
+    ) {
+      candidates.push(rootWindow.parent);
+    }
+  } catch (error) {
+    // Ignore cross-origin parent access.
+  }
+
+  try {
+    if (
+      rootWindow &&
+      rootWindow.top &&
+      !candidates.includes(rootWindow.top)
+    ) {
+      candidates.push(rootWindow.top);
+    }
+  } catch (error) {
+    // Ignore cross-origin top access.
+  }
+
+  for (const candidate of candidates) {
+    const helper = candidate?.OxyHtmlConverterBuilderEditability || null;
+    if (helper && typeof helper.mutateNativeTextNode === "function") {
+      return helper;
+    }
+  }
+
+  return null;
+}
+
 async function waitForBuilderReady(page) {
   await page.getByRole("button", { name: /^Save$/ }).waitFor({
     timeout: 60000,
   });
-  await page.waitForTimeout(4000);
+  await page
+    .waitForFunction(
+      () => {
+        const rootWindow = window.parent || window;
+        const rootDocument = rootWindow.document || document;
+        const saveButton = Array.from(rootDocument.querySelectorAll("button")).find(
+          (button) => /^save$/i.test(String(button?.innerText || "").trim())
+        );
+        const documentStore =
+          window.Breakdance?.stores?.documentStore ||
+          rootWindow.Breakdance?.stores?.documentStore ||
+          null;
+        const state =
+          rootDocument.querySelector(".v-application")?.__vue__?.$store?.state ||
+          rootDocument.querySelector(".v-application")?.__vue_app__?.config?.globalProperties?.$store?.state ||
+          {};
+        const treeCandidates = [
+          documentStore?.document?.tree,
+          state.tree,
+          state.elements,
+          state.documentTree,
+          state.document?.document?.tree,
+          state.breakdance?.tree,
+          state.breakdanceState?.tree,
+          state.oxygen?.tree,
+          state.builder?.tree,
+          state.document?.tree,
+        ];
+        const helperCandidates = [window, rootWindow];
+        try {
+          if (
+            rootWindow &&
+            rootWindow.top &&
+            !helperCandidates.includes(rootWindow.top)
+          ) {
+            helperCandidates.push(rootWindow.top);
+          }
+        } catch (error) {
+          // Cross-origin top windows are irrelevant for the local builder proof.
+        }
+        const helper = helperCandidates
+          .map((candidate) => candidate?.OxyHtmlConverterBuilderEditability || null)
+          .find(
+            (candidate) =>
+              candidate &&
+              typeof candidate.mutateNativeTextNode === "function"
+          );
+
+        return (
+          saveButton instanceof HTMLElement &&
+          !saveButton.disabled &&
+          saveButton.getAttribute("aria-disabled") !== "true" &&
+          treeCandidates.some((candidate) => candidate && typeof candidate === "object") &&
+          helper &&
+          typeof helper.mutateNativeTextNode === "function"
+        );
+      },
+      null,
+      { timeout: 60000 }
+    )
+    .catch(() => {
+      throw new Error("Oxygen builder did not reach a ready runtime state.");
+    });
+}
+
+async function clickBuilderSave(page, label) {
+  const saveButton = page.getByRole("button", { name: /^Save$/ }).first();
+  await saveButton.waitFor({ state: "attached", timeout: 30000 });
+
+  try {
+    await saveButton.click({ timeout: 10000 });
+    return { strategy: "role-click" };
+  } catch (error) {
+    const reason = String(error?.message || error);
+    const usedFallback = await saveButton.evaluate((button) => {
+      if (!(button instanceof HTMLElement)) {
+        return false;
+      }
+
+      button.scrollIntoView({ block: "center", inline: "center" });
+      button.click();
+      return true;
+    });
+
+    if (!usedFallback) {
+      throw new Error(`${label} could not click the Oxygen save button: ${reason}`);
+    }
+
+    return {
+      strategy: "dom-click",
+      reason: reason.split("\n").slice(0, 2).join(" "),
+    };
+  }
+}
+
+function isBuilderSaveRequestDetails(url, method, postData) {
+  const normalizedUrl = String(url || "");
+  const normalizedMethod = String(method || "").toUpperCase();
+  const normalizedPostData = String(postData || "");
+
+  if (normalizedMethod !== "POST") {
+    return false;
+  }
+
+  if (!/\/wp-admin\/admin-ajax\.php\b/i.test(normalizedUrl)) {
+    return false;
+  }
+
+  return (
+    /(?:^|[?&])action=breakdance_save(?:&|$)/i.test(normalizedUrl) ||
+    /name="action"\s*\r?\n\r?\nbreakdance_save\b/i.test(normalizedPostData) ||
+    /(?:^|[?&])action=breakdance_save(?:&|$)/i.test(normalizedPostData)
+  );
+}
+
+function isBuilderSaveResponsePayloadSuccessful(payloadText) {
+  const normalizedPayload = String(payloadText || "").trim();
+  if (!normalizedPayload) {
+    return true;
+  }
+
+  try {
+    const parsed = JSON.parse(normalizedPayload);
+    if (parsed && typeof parsed === "object") {
+      if (parsed.success === false) {
+        return false;
+      }
+
+      if (
+        typeof parsed.status === "string" &&
+        /error|failed|failure/i.test(parsed.status)
+      ) {
+        return false;
+      }
+    }
+  } catch (error) {
+    // Non-JSON responses still count as successful unless they expose a known builder error.
+  }
+
+  return !/Validation Error|IO-TS decoding failed|\"success\"\s*:\s*false/i.test(
+    normalizedPayload
+  );
+}
+
+async function waitForBuilderSaveButtonIdle(page, label) {
+  await page.getByRole("button", { name: /^Save$/ }).first().waitFor({
+    state: "attached",
+    timeout: 30000,
+  });
+
+  await page
+    .waitForFunction(() => {
+      const buttons = Array.from(document.querySelectorAll("button"));
+      const saveButton = buttons.find((button) =>
+        /^save$/i.test(String(button?.innerText || "").trim())
+      );
+
+      if (!(saveButton instanceof HTMLElement)) {
+        return false;
+      }
+
+      return (
+        !saveButton.disabled &&
+        saveButton.getAttribute("aria-disabled") !== "true"
+      );
+    }, null, { timeout: 30000 })
+    .catch(() => {
+      throw new Error(`${label} did not return to an idle Save state.`);
+    });
+}
+
+async function waitForBuilderSaveCompletion(page, label) {
+  const saveRequestPromise = page
+    .waitForRequest(
+      (request) =>
+        isBuilderSaveRequestDetails(
+          request.url(),
+          request.method(),
+          request.postData() || ""
+        ),
+      { timeout: 30000 }
+    )
+    .catch(() => null);
+
+  const saveResponsePromise = page
+    .waitForResponse(
+      (response) =>
+        isBuilderSaveRequestDetails(
+          response.url(),
+          response.request().method(),
+          response.request().postData() || ""
+        ),
+      { timeout: 30000 }
+    )
+    .catch(() => null);
+
+  const saveResult = await clickBuilderSave(page, label);
+  const saveRequest = await saveRequestPromise;
+  if (!saveRequest) {
+    throw new Error(`${label} did not issue a breakdance_save request.`);
+  }
+
+  const saveResponse = await saveResponsePromise;
+  if (!saveResponse) {
+    throw new Error(`${label} did not receive a breakdance_save response.`);
+  }
+
+  const responseStatus =
+    typeof saveResponse.status === "function" ? saveResponse.status() : 0;
+  if (responseStatus >= 400) {
+    throw new Error(
+      `${label} received HTTP ${responseStatus} from breakdance_save.`
+    );
+  }
+
+  const responsePayload =
+    typeof saveResponse.text === "function"
+      ? await saveResponse.text().catch(() => "")
+      : "";
+
+  if (!isBuilderSaveResponsePayloadSuccessful(responsePayload)) {
+    throw new Error(`${label} returned an unsuccessful breakdance_save payload.`);
+  }
+
+  await waitForBuilderSaveButtonIdle(page, label);
+
+  return {
+    ...saveResult,
+    responseStatus,
+  };
 }
 
 async function assertNoBuilderErrors(page, label) {
@@ -242,8 +627,686 @@ async function assertNoBuilderErrors(page, label) {
   }
 }
 
-async function runBuilderModalSmoke(page, fixtureSlug) {
+async function getBuilderStoreNodeCount(page) {
+  return page.evaluate(() => {
+    const directTree =
+      window.Breakdance?.stores?.documentStore?.document?.tree ||
+      window.parent?.Breakdance?.stores?.documentStore?.document?.tree ||
+      null;
+    const rootDocument = window.parent?.document || document;
+    const app = rootDocument.querySelector(".v-application");
+    const store =
+      app?.__vue__?.$store ||
+      app?.__vue_app__?.config?.globalProperties?.$store ||
+      null;
+    const state = store?.state || {};
+    const candidates = [
+      state.tree,
+      state.elements,
+      state.documentTree,
+      state.document?.document?.tree,
+      state.breakdance?.tree,
+      state.breakdanceState?.tree,
+      state.oxygen?.tree,
+      state.builder?.tree,
+      state.document?.tree,
+    ];
+    const tree =
+      (directTree && typeof directTree === "object" ? directTree : null) ||
+      candidates.find((candidate) => candidate && typeof candidate === "object") ||
+      null;
+
+    if (!tree) {
+      return null;
+    }
+
+    function countNodes(node, seen = new Set()) {
+      if (!node || typeof node !== "object" || seen.has(node)) {
+        return 0;
+      }
+      seen.add(node);
+
+      let count = node.id || node.data?.type ? 1 : 0;
+      const children = Array.isArray(node)
+        ? node
+        : Array.isArray(node.children)
+          ? node.children
+          : Array.isArray(node.root?.children)
+            ? [node.root, ...node.root.children]
+            : Object.values(node);
+
+      for (const child of children) {
+        count += countNodes(child, seen);
+      }
+
+      return count;
+    }
+
+    return countNodes(tree);
+  });
+}
+
+async function waitForBuilderStoreNodeIncrease(page, beforeCount, label) {
+  if (beforeCount === null) {
+    throw new Error(`${label} could not read the Oxygen builder store node count before import.`);
+  }
+
+  const afterCount = await page
+    .waitForFunction(
+      (initialCount) => {
+        const directTree =
+          window.Breakdance?.stores?.documentStore?.document?.tree ||
+          window.parent?.Breakdance?.stores?.documentStore?.document?.tree ||
+          null;
+        const app = document.querySelector(".v-application");
+        const store =
+          app?.__vue__?.$store ||
+          app?.__vue_app__?.config?.globalProperties?.$store ||
+          null;
+        const state = store?.state || {};
+        const candidates = [
+          state.tree,
+          state.elements,
+          state.documentTree,
+          state.document?.document?.tree,
+          state.breakdance?.tree,
+          state.breakdanceState?.tree,
+          state.oxygen?.tree,
+          state.builder?.tree,
+          state.document?.tree,
+        ];
+        const tree =
+          (directTree && typeof directTree === "object" ? directTree : null) ||
+          candidates.find((candidate) => candidate && typeof candidate === "object") ||
+          null;
+
+        if (!tree) {
+          return false;
+        }
+
+        function countNodes(node, seen = new Set()) {
+          if (!node || typeof node !== "object" || seen.has(node)) {
+            return 0;
+          }
+          seen.add(node);
+
+          let count = node.id || node.data?.type ? 1 : 0;
+          const children = Array.isArray(node)
+            ? node
+            : Array.isArray(node.children)
+              ? node.children
+              : Array.isArray(node.root?.children)
+                ? [node.root, ...node.root.children]
+                : Object.values(node);
+
+          for (const child of children) {
+            count += countNodes(child, seen);
+          }
+
+          return count;
+        }
+
+        const nextCount = countNodes(tree);
+        return nextCount > initialCount ? nextCount : false;
+      },
+      beforeCount,
+      { timeout: 30000 }
+    )
+    .then((handle) => handle.jsonValue())
+    .catch(() => null);
+
+  if (afterCount === null) {
+    throw new Error(`${label} did not increase the Oxygen builder store node count.`);
+  }
+
+  return afterCount;
+}
+
+async function assertBuilderTextPresent(page, text, label) {
+  await page
+    .waitForFunction(
+      (expectedText) => {
+        function documentHasText(doc) {
+          return Boolean(doc?.body?.innerText?.includes(expectedText));
+        }
+
+        function collectDocuments(rootDocument, docs = []) {
+          if (!rootDocument || docs.includes(rootDocument)) {
+            return docs;
+          }
+
+          docs.push(rootDocument);
+          for (const frame of rootDocument.querySelectorAll("iframe")) {
+            try {
+              collectDocuments(frame.contentDocument, docs);
+            } catch (error) {
+              // Cross-origin frames are irrelevant for the local builder proof.
+            }
+          }
+
+          return docs;
+        }
+
+        function valueContainsText(value, seen = new Set(), budget = { count: 0 }) {
+          if (budget.count > 30000) {
+            return false;
+          }
+          budget.count += 1;
+
+          if (typeof value === "string") {
+            return value.includes(expectedText);
+          }
+
+          if (!value || typeof value !== "object" || seen.has(value)) {
+            return false;
+          }
+
+          seen.add(value);
+          if (Array.isArray(value)) {
+            return value.some((item) => valueContainsText(item, seen, budget));
+          }
+
+          return Object.values(value).some((item) =>
+            valueContainsText(item, seen, budget)
+          );
+        }
+
+        const rootDocument = window.parent?.document || document;
+        const docs = collectDocuments(rootDocument);
+        if (docs.some(documentHasText)) {
+          return true;
+        }
+
+        if (
+          valueContainsText(window.Breakdance?.stores?.documentStore?.document?.tree || {}) ||
+          valueContainsText(window.parent?.Breakdance?.stores?.documentStore?.document?.tree || {})
+        ) {
+          return true;
+        }
+
+        const app = rootDocument.querySelector(".v-application");
+        const store =
+          app?.__vue__?.$store ||
+          app?.__vue_app__?.config?.globalProperties?.$store ||
+          null;
+
+        return valueContainsText(store?.state || {});
+      },
+      text,
+      { timeout: 30000 }
+    )
+    .catch(() => {
+      throw new Error(`${label} did not find expected builder text: ${text}`);
+    });
+}
+
+async function loadBuilderNodePropertyProof(page, nodeId, propertyPath) {
+  return page.evaluate(
+    ({ targetNodeId, targetPropertyPath }) => {
+      function getRootDocument() {
+        return window.parent?.document || document;
+      }
+
+      function getDocumentStore() {
+        return (
+          window.Breakdance?.stores?.documentStore ||
+          window.parent?.Breakdance?.stores?.documentStore ||
+          null
+        );
+      }
+
+      function getStore() {
+        const rootDocument = getRootDocument();
+        const app = rootDocument.querySelector(".v-application");
+        return (
+          app?.__vue__?.$store ||
+          app?.__vue_app__?.config?.globalProperties?.$store ||
+          null
+        );
+      }
+
+      function getTree() {
+        const documentStore = getDocumentStore();
+        const directTree = documentStore?.document?.tree || null;
+        if (directTree && typeof directTree === "object") {
+          return directTree;
+        }
+
+        const state = getStore()?.state || {};
+        const candidates = [
+          state.tree,
+          state.elements,
+          state.documentTree,
+          state.document?.document?.tree,
+          state.breakdance?.tree,
+          state.breakdanceState?.tree,
+          state.oxygen?.tree,
+          state.builder?.tree,
+          state.document?.tree,
+        ];
+
+        return candidates.find((candidate) => candidate && typeof candidate === "object") || null;
+      }
+
+      function visit(node, visitor, seen = new Set()) {
+        if (!node || typeof node !== "object" || seen.has(node)) {
+          return;
+        }
+
+        seen.add(node);
+        visitor(node);
+
+        const children = Array.isArray(node)
+          ? node
+          : Array.isArray(node.children)
+            ? node.children
+            : Array.isArray(node.root?.children)
+              ? [node.root, ...node.root.children]
+              : [];
+
+        for (const child of children) {
+          visit(child, visitor, seen);
+        }
+      }
+
+      function readPropertyPath(source, path) {
+        return String(path || "")
+          .split(".")
+          .filter(Boolean)
+          .reduce((value, segment) => (value && typeof value === "object" ? value[segment] : undefined), source);
+      }
+
+      const tree = getTree();
+      if (!tree) {
+        return {
+          ok: false,
+          reason: "missing-tree",
+        };
+      }
+
+      let match = null;
+      visit(tree, (node) => {
+        if (match || Number(node?.id) !== Number(targetNodeId)) {
+          return;
+        }
+
+        match = {
+          id: Number(node.id) || 0,
+          type: String(node?.data?.type || ""),
+          value: readPropertyPath(node?.data?.properties || {}, targetPropertyPath),
+        };
+      });
+
+      if (!match) {
+        return {
+          ok: false,
+          reason: "missing-node",
+        };
+      }
+
+      return {
+        ok: true,
+        ...match,
+      };
+    },
+    { targetNodeId: nodeId, targetPropertyPath: propertyPath }
+  );
+}
+
+const FOCUSED_IMPORT_MARKER_TEXT = "Native Maximus Live Proof";
+const FOCUSED_IMPORT_EDITABILITY_TEXT =
+  "Native Maximus Live Proof Editability Anchor";
+const FOCUSED_STYLE_ROUTING_EXPECTATION = {
+  targetText: FOCUSED_IMPORT_MARKER_TEXT,
+  expectedTypeNot: "OxygenElements\\HtmlCode",
+  properties: {
+    "design.spacing.padding": "10px",
+    "design.size.width": "120px",
+    "design.typography.color": "#123456",
+  },
+};
+
+function decodeHtmlEntities(value) {
+  return String(value || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'");
+}
+
+function normalizeCandidateText(value) {
+  return decodeHtmlEntities(value)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractEditabilityTargetText(fixtureHtml) {
+  const sanitizedHtml = String(fixtureHtml || "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ");
+  const candidates = [];
+
+  function collectCandidates(pattern, { requireLeaf = false } = {}) {
+    let match = null;
+
+    while ((match = pattern.exec(sanitizedHtml))) {
+      const innerHtml = match[2] || "";
+      if (requireLeaf && /<[a-z][\w:-]*(?:\s|>)/i.test(innerHtml)) {
+        continue;
+      }
+
+      const text = normalizeCandidateText(innerHtml);
+      if (
+        text.length < 24 ||
+        text === FOCUSED_IMPORT_MARKER_TEXT ||
+        !/[\p{L}\p{N}]/u.test(text)
+      ) {
+        continue;
+      }
+
+      candidates.push(text);
+    }
+  }
+
+  collectCandidates(/<(h1|h2|h3|p|li|a|span|button)\b[^>]*>([\s\S]*?)<\/\1>/gi, {
+    requireLeaf: true,
+  });
+
+  if (candidates.length === 0) {
+    collectCandidates(/<(h1|h2|h3|p|li|a|span|div|section)\b[^>]*>([\s\S]*?)<\/\1>/gi);
+  }
+
+  return candidates[0] || "";
+}
+
+function buildFocusedImportProof(fixtureHtml) {
+  const fixturePresenceText = extractEditabilityTargetText(fixtureHtml);
+  if (!fixturePresenceText) {
+    throw new Error("Focused fixture did not contain a stable text candidate for editability proof.");
+  }
+  const marker = `<section class="maximus-live-proof-marker"><h2 style="padding: 10px; width: 120px; color: #123456;">${FOCUSED_IMPORT_MARKER_TEXT}</h2><p>${FOCUSED_IMPORT_EDITABILITY_TEXT}</p><p>Builder imported Maximus fixture through the plugin.</p></section>`;
+  const editabilityTargetText = fixturePresenceText;
+  const expectedTexts = Array.from(new Set([
+    FOCUSED_IMPORT_MARKER_TEXT,
+    editabilityTargetText,
+    fixturePresenceText,
+  ]));
+  let importHtml = "";
+
+  if (/<body\b[^>]*>/i.test(fixtureHtml)) {
+    importHtml = fixtureHtml.replace(/(<body\b[^>]*>)/i, `$1\n${marker}`);
+  } else {
+    importHtml = [marker, fixtureHtml].join("\n");
+  }
+
+  return {
+    importHtml,
+    expectedTexts,
+    editabilityTargetText,
+    fixturePresenceText,
+    styleRoutingExpectation: FOCUSED_STYLE_ROUTING_EXPECTATION,
+  };
+}
+
+function loadFocusedImportProof(options) {
+  if (!options.fixture) {
+    return null;
+  }
+
+  const fixturePath = localFixturePath(options.localFixtureDir, options.fixture);
+  if (!fs.existsSync(fixturePath)) {
+    throw new Error(`Focused fixture does not exist: ${fixturePath}`);
+  }
+
+  return buildFocusedImportProof(fs.readFileSync(fixturePath, "utf8"));
+}
+
+function buildEditedProofText(sourceText, fixtureSlug) {
+  return `${sourceText} Edited ${fixtureSlug}`;
+}
+
+async function loadBuilderStyleRoutingProof(page, expectation, label) {
+  const proof = await page.evaluate((expected) => {
+    function getRootDocument() {
+      return window.parent?.document || document;
+    }
+
+    function getDocumentStore() {
+      return (
+        window.Breakdance?.stores?.documentStore ||
+        window.parent?.Breakdance?.stores?.documentStore ||
+        null
+      );
+    }
+
+    function getStore() {
+      const rootDocument = getRootDocument();
+      const app = rootDocument.querySelector(".v-application");
+      return (
+        app?.__vue__?.$store ||
+        app?.__vue_app__?.config?.globalProperties?.$store ||
+        null
+      );
+    }
+
+    function getTree() {
+      const documentStore = getDocumentStore();
+      const directTree = documentStore?.document?.tree || null;
+      if (directTree && typeof directTree === "object") {
+        return directTree;
+      }
+
+      const state = getStore()?.state || {};
+      const candidates = [
+        state.tree,
+        state.elements,
+        state.documentTree,
+        state.document?.document?.tree,
+        state.breakdance?.tree,
+        state.breakdanceState?.tree,
+        state.oxygen?.tree,
+        state.builder?.tree,
+        state.document?.tree,
+      ];
+
+      return candidates.find((candidate) => candidate && typeof candidate === "object") || null;
+    }
+
+    function visit(node, visitor, seen = new Set()) {
+      if (!node || typeof node !== "object" || seen.has(node)) {
+        return;
+      }
+
+      seen.add(node);
+      visitor(node);
+
+      const children = Array.isArray(node)
+        ? node
+        : Array.isArray(node.children)
+          ? node.children
+          : Array.isArray(node.root?.children)
+            ? [node.root, ...node.root.children]
+            : [];
+
+      for (const child of children) {
+        visit(child, visitor, seen);
+      }
+    }
+
+    function valueContainsText(value, targetText, seen = new Set()) {
+      if (typeof value === "string") {
+        return value.includes(targetText);
+      }
+
+      if (!value || typeof value !== "object" || seen.has(value)) {
+        return false;
+      }
+
+      seen.add(value);
+
+      if (Array.isArray(value)) {
+        return value.some((item) => valueContainsText(item, targetText, seen));
+      }
+
+      return Object.values(value).some((item) =>
+        valueContainsText(item, targetText, seen)
+      );
+    }
+
+    function readPropertyPath(source, propertyPath) {
+      return String(propertyPath || "")
+        .split(".")
+        .filter(Boolean)
+        .reduce(
+          (value, segment) =>
+            value && typeof value === "object" ? value[segment] : undefined,
+          source
+        );
+    }
+
+    const tree = getTree();
+    if (!tree) {
+      return {
+        ok: false,
+        reason: "missing-tree",
+      };
+    }
+
+    const matches = [];
+    visit(tree, (node) => {
+      const properties = node?.data?.properties || {};
+      if (!valueContainsText(properties, expected.targetText)) {
+        return;
+      }
+
+      const propertyValues = {};
+      for (const propertyPath of Object.keys(expected.properties || {})) {
+        propertyValues[propertyPath] = readPropertyPath(properties, propertyPath);
+      }
+
+      matches.push({
+        id: Number(node.id) || 0,
+        type: String(node?.data?.type || ""),
+        propertyValues,
+      });
+    });
+
+    const nativeMatches = matches.filter(
+      (match) => match.type !== expected.expectedTypeNot
+    );
+    const routedMatch = nativeMatches.find((match) =>
+      Object.entries(expected.properties || {}).every(
+        ([propertyPath, expectedValue]) =>
+          match.propertyValues[propertyPath] === expectedValue
+      )
+    );
+
+    return {
+      ok: Boolean(routedMatch),
+      reason: routedMatch ? "" : "missing-native-style-routed-node",
+      targetText: expected.targetText,
+      expectedTypeNot: expected.expectedTypeNot,
+      expectedProperties: expected.properties || {},
+      id: routedMatch?.id || 0,
+      type: routedMatch?.type || "",
+      propertyValues: routedMatch?.propertyValues || {},
+      matches,
+    };
+  }, expectation);
+
+  if (!proof || proof.ok !== true) {
+    const matches = Array.isArray(proof?.matches)
+      ? proof.matches
+          .map((match) => `${match.type || "unknown"}#${match.id || "?"}`)
+          .join(", ")
+      : "none";
+    throw new Error(
+      `${label} did not route focused inline styles to a native Oxygen node. Matches: ${matches}`
+    );
+  }
+
+  if (proof.type === expectation.expectedTypeNot) {
+    throw new Error(`${label} resolved focused style routing to ${proof.type}.`);
+  }
+
+  return proof;
+}
+
+async function mutateBuilderTextNode(page, expectedText, replacementText, label) {
+  const proof = await page.evaluate(
+    ({ targetText, nextText }) => {
+      const helperCandidates = [window];
+      try {
+        if (window.parent && window.parent !== window) {
+          helperCandidates.push(window.parent);
+        }
+      } catch (error) {
+        // Ignore cross-origin parent access.
+      }
+      try {
+        if (window.top && !helperCandidates.includes(window.top)) {
+          helperCandidates.push(window.top);
+        }
+      } catch (error) {
+        // Ignore cross-origin top access.
+      }
+
+      const helper = helperCandidates
+        .map((candidate) => candidate?.OxyHtmlConverterBuilderEditability || null)
+        .find(
+          (candidate) =>
+            candidate &&
+            typeof candidate.mutateNativeTextNode === "function"
+        );
+
+      if (!helper || typeof helper.mutateNativeTextNode !== "function") {
+        return {
+          ok: false,
+          reason: "missing-editability-helper",
+        };
+      }
+
+      return helper.mutateNativeTextNode({
+        targetText,
+        nextText,
+        allowDirectMutation: false,
+      });
+    },
+    { targetText: expectedText, nextText: replacementText }
+  );
+
+  if (!proof || proof.ok !== true) {
+    throw new Error(
+      `${label} could not mutate a native builder text node for "${expectedText}". Reason: ${proof?.reason || "unknown"}`
+    );
+  }
+
+  if (proof.type === "OxygenElements\\HtmlCode") {
+    throw new Error(`${label} resolved the editability target to HtmlCode.`);
+  }
+
+  if (proof.mutationStrategy === "tree-direct") {
+    throw new Error(
+      `${label} fell back to direct tree mutation instead of a builder store/API path.`
+    );
+  }
+
+  await assertBuilderTextPresent(page, replacementText, label);
+
+  return proof;
+}
+
+async function runBuilderModalSmoke(page, fixtureSlug, importHtml = null, expectedTexts = ["Live Gate"]) {
   logStep(`Running builder modal smoke on ${fixtureSlug}`);
+  const beforeCount = await getBuilderStoreNodeCount(page);
+  const html =
+    importHtml ||
+    '<section class="live-gate-smoke"><h2>Live Gate</h2><p>Builder modal smoke content.</p></section>';
+
   const modalHookReady = await page
     .waitForFunction(
       () => typeof window.oxyHtmlConverterOpenModal === "function",
@@ -262,10 +1325,7 @@ async function runBuilderModalSmoke(page, fixtureSlug) {
   }
 
   await page.locator("#oxy-html-import-input").waitFor({ timeout: 30000 });
-  await page.fill(
-    "#oxy-html-import-input",
-    '<section class="live-gate-smoke"><h2>Live Gate</h2><p>Builder modal smoke content.</p></section>'
-  );
+  await page.fill("#oxy-html-import-input", html);
   await page.click("#oxy-html-import-submit");
   await page.waitForFunction(() => {
     const modal = document.querySelector(
@@ -273,8 +1333,13 @@ async function runBuilderModalSmoke(page, fixtureSlug) {
     );
     return modal && modal.style.display !== "block";
   });
-  await page.waitForTimeout(5000);
+  await waitForBuilderStoreNodeIncrease(page, beforeCount, `Builder modal import for ${fixtureSlug}`);
+  for (const expectedText of expectedTexts) {
+    await assertBuilderTextPresent(page, expectedText, `Builder modal import for ${fixtureSlug}`);
+  }
   await assertNoBuilderErrors(page, `Builder modal import for ${fixtureSlug}`);
+
+  return expectedTexts;
 }
 
 async function writeClipboardHtml(page, html) {
@@ -298,6 +1363,7 @@ async function writeClipboardHtml(page, html) {
 
 async function runBuilderPasteSmoke(page, fixtureSlug) {
   logStep(`Running builder paste smoke on ${fixtureSlug}`);
+  const beforeCount = await getBuilderStoreNodeCount(page);
   const pasteHtml =
     '<section class="live-gate-paste"><h2>Paste Gate</h2><p>Builder paste smoke content.</p></section>';
 
@@ -314,28 +1380,81 @@ async function runBuilderPasteSmoke(page, fixtureSlug) {
 
   const toast = page.locator("#oxy-html-converter-toast");
   await page.keyboard.press("Control+V");
-  await toast.waitFor({ timeout: 30000 });
+  await page.waitForFunction(() => {
+    const toastElement = document.querySelector("#oxy-html-converter-toast");
+    const text = toastElement?.innerText || "";
+    return /converted|failed|unavailable|manual/i.test(text) && !/converting/i.test(text);
+  }, null, { timeout: 60000 });
 
   const toastText = await toast.innerText();
-  if (!/converted|clipboard|ready/i.test(toastText)) {
+  if (!/converted/i.test(toastText)) {
     throw new Error(
-      `Builder paste smoke did not report a converter toast for ${fixtureSlug}.`
+      `Builder paste smoke did not confirm native paste for ${fixtureSlug}. Toast: ${toastText}`
     );
   }
 
-  await page.waitForTimeout(5000);
+  await waitForBuilderStoreNodeIncrease(page, beforeCount, `Builder paste for ${fixtureSlug}`);
+  await assertBuilderTextPresent(page, "Paste Gate", `Builder paste for ${fixtureSlug}`);
   await assertNoBuilderErrors(page, `Builder paste for ${fixtureSlug}`);
+
+  return ["Paste Gate"];
 }
 
-async function runBuilderSmoke(page, baseUrl, fixtures) {
+function htmlToVisibleText(html) {
+  return decodeHtmlEntities(String(html || ""))
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function assertFrontendTextPresent(page, url, text, label) {
+  const deadline = Date.now() + 45000;
+  let lastFrontendText = "";
+  let attempt = 0;
+
+  while (Date.now() < deadline) {
+    const proofUrl = new URL(url);
+    proofUrl.searchParams.set("_oxy_live_gate", `${Date.now()}_${attempt}`);
+    attempt += 1;
+
+    const response = await fetch(proofUrl.toString(), {
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    }).catch(() => null);
+    const html = response && response.ok ? await response.text() : "";
+    lastFrontendText = htmlToVisibleText(html);
+
+    if (lastFrontendText.includes(text)) {
+      return;
+    }
+
+    await page.waitForTimeout(1000);
+  }
+
+  throw new Error(
+    `${label} did not find expected frontend text: ${text}. Last frontend text sample: ${lastFrontendText.slice(0, 240)}`
+  );
+}
+
+async function runBuilderSmoke(page, baseUrl, fixtures, options = {}) {
   if (!fixtures.length) {
     throw new Error("No maintained fixture pages were found for builder smoke.");
   }
 
   let modalSmokeRan = false;
   let pasteSmokeRan = false;
+  let editabilityProof = null;
+  let styleRoutingProof = null;
 
   for (const fixture of fixtures) {
+    const importedMarkers = [];
+    const focusedImportProof = options.focusedImportProof || null;
+
     logStep(`Opening builder for ${fixture.slug} (#${fixture.id})`);
     const builderUrl = `${baseUrl}/?oxygen=builder&id=${fixture.id}`;
     await page.goto(builderUrl, {
@@ -346,18 +1465,60 @@ async function runBuilderSmoke(page, baseUrl, fixtures) {
     await assertNoBuilderErrors(page, `Builder open for ${fixture.slug}`);
 
     if (!modalSmokeRan) {
-      await runBuilderModalSmoke(page, fixture.slug);
+      importedMarkers.push(...await runBuilderModalSmoke(
+        page,
+        fixture.slug,
+        focusedImportProof?.importHtml || null,
+        focusedImportProof?.expectedTexts || ["Live Gate"]
+      ));
+
+      if (focusedImportProof?.styleRoutingExpectation) {
+        styleRoutingProof = await loadBuilderStyleRoutingProof(
+          page,
+          focusedImportProof.styleRoutingExpectation,
+          `Builder style routing proof for ${fixture.slug}`
+        );
+        styleRoutingProof.fixtureSlug = fixture.slug;
+        styleRoutingProof.persistedBuilderNodeMatch = false;
+      }
+
+      const editabilityTargetText =
+        focusedImportProof?.editabilityTargetText || importedMarkers[0];
+      const replacementText = buildEditedProofText(
+        editabilityTargetText,
+        fixture.slug
+      );
+      editabilityProof = await mutateBuilderTextNode(
+        page,
+        editabilityTargetText,
+        replacementText,
+        `Builder editability proof for ${fixture.slug}`
+      );
+      editabilityProof.fixtureSlug = fixture.slug;
+      editabilityProof.persistedBuilderText = false;
+      editabilityProof.persistedBuilderNodeMatch = false;
+      editabilityProof.persistedFrontendText = false;
+      const proofMarkerIndex = importedMarkers.findIndex(
+        (marker) => marker === editabilityTargetText
+      );
+      if (proofMarkerIndex !== -1) {
+        importedMarkers[proofMarkerIndex] = replacementText;
+      }
       modalSmokeRan = true;
     }
 
     if (!pasteSmokeRan) {
-      await runBuilderPasteSmoke(page, fixture.slug);
+      importedMarkers.push(...await runBuilderPasteSmoke(page, fixture.slug));
       pasteSmokeRan = true;
     }
 
     logStep(`Saving builder document for ${fixture.slug}`);
-    await page.getByRole("button", { name: /^Save$/ }).click();
-    await page.waitForTimeout(5000);
+    const saveResult = await waitForBuilderSaveCompletion(
+      page,
+      `Save ${fixture.slug}`
+    );
+    logStep(`Builder save click strategy: ${saveResult.strategy}`);
+    logStep(`Builder save HTTP status: ${saveResult.responseStatus}`);
     logStep(`Reopening builder document for ${fixture.slug}`);
     await page.goto(builderUrl, {
       waitUntil: "domcontentloaded",
@@ -365,44 +1526,205 @@ async function runBuilderSmoke(page, baseUrl, fixtures) {
     });
     await waitForBuilderReady(page);
     await assertNoBuilderErrors(page, `Builder reopen for ${fixture.slug}`);
+
+    for (const marker of importedMarkers) {
+      await assertBuilderTextPresent(page, marker, `Builder reopen for ${fixture.slug}`);
+      if (editabilityProof && marker === editabilityProof.updatedText) {
+        editabilityProof.persistedBuilderText = true;
+      }
+    }
+
+    if (editabilityProof) {
+      const persistedNode = await loadBuilderNodePropertyProof(
+        page,
+        editabilityProof.id,
+        editabilityProof.propertyPath
+      );
+
+      editabilityProof.reopenedNode = persistedNode;
+      editabilityProof.persistedBuilderNodeMatch =
+        persistedNode?.ok === true &&
+        persistedNode.type === editabilityProof.type &&
+        persistedNode.value === editabilityProof.updatedText;
+
+      if (!editabilityProof.persistedBuilderNodeMatch) {
+        throw new Error(
+          `Builder reopen for ${fixture.slug} did not preserve editability proof on node ${editabilityProof.id}.`
+        );
+      }
+    }
+
+    if (styleRoutingProof && focusedImportProof?.styleRoutingExpectation) {
+      const reopenedStyleProof = await loadBuilderStyleRoutingProof(
+        page,
+        focusedImportProof.styleRoutingExpectation,
+        `Builder style routing reopen proof for ${fixture.slug}`
+      );
+      styleRoutingProof.reopenedNode = reopenedStyleProof;
+      styleRoutingProof.persistedBuilderNodeMatch =
+        reopenedStyleProof.ok === true &&
+        reopenedStyleProof.id === styleRoutingProof.id &&
+        reopenedStyleProof.type === styleRoutingProof.type;
+
+      if (!styleRoutingProof.persistedBuilderNodeMatch) {
+        throw new Error(
+          `Builder reopen for ${fixture.slug} did not preserve focused style routing proof on node ${styleRoutingProof.id}.`
+        );
+      }
+    }
+
+    if (fixture.url) {
+      for (const marker of importedMarkers) {
+        await assertFrontendTextPresent(
+          page,
+          fixture.url,
+          marker,
+          `Frontend proof for ${fixture.slug}`
+        );
+        if (editabilityProof && marker === editabilityProof.updatedText) {
+          editabilityProof.persistedFrontendText = true;
+        }
+      }
+    }
+  }
+
+  if (editabilityProof) {
+    editabilityProof.styleRoutingProof = styleRoutingProof;
+  }
+
+  return editabilityProof;
+}
+
+function loadPersistenceProof(container, fixtures) {
+  const ids = fixtures.map((fixture) => Number(fixture.id)).filter(Boolean);
+  const idsJson = JSON.stringify(ids).replace(/'/g, "\\'");
+  const php = `
+    require '/var/www/html/wp-load.php';
+    $ids = json_decode('${idsJson}', true);
+    $metaKey = function_exists('\\Breakdance\\BreakdanceOxygen\\Strings\\__bdox')
+      ? \\Breakdance\\BreakdanceOxygen\\Strings\\__bdox('_meta_prefix') . 'data'
+      : '_oxygen_data';
+    $selectorCount = 0;
+    if (function_exists('\\Breakdance\\BreakdanceOxygen\\Selectors\\getOxySelectors')) {
+      $selectors = \\Breakdance\\BreakdanceOxygen\\Selectors\\getOxySelectors();
+      $selectorCount = is_array($selectors) ? count($selectors) : 0;
+    } elseif (function_exists('\\Breakdance\\Data\\get_global_option')) {
+      $selectors = \\Breakdance\\Data\\get_global_option('oxy_selectors_json_string');
+      if (is_string($selectors)) {
+        $selectors = json_decode($selectors, true);
+      }
+      $selectorCount = is_array($selectors) ? count($selectors) : 0;
+    }
+    $breakdanceClasses = function_exists('\\Breakdance\\Data\\get_global_option')
+      ? \\Breakdance\\Data\\get_global_option('breakdance_classes_json_string')
+      : get_option('breakdance_classes_json_string', '');
+    $pages = [];
+    foreach ($ids as $id) {
+      $raw = get_post_meta((int) $id, $metaKey, true);
+      $hasTree = false;
+      if (is_array($raw)) {
+        $hasTree = isset($raw['tree_json_string']) && is_string($raw['tree_json_string']) && $raw['tree_json_string'] !== '';
+      } elseif (is_string($raw) && $raw !== '') {
+        $decoded = json_decode($raw, true);
+        $hasTree = is_array($decoded) && isset($decoded['tree_json_string']) && is_string($decoded['tree_json_string']) && $decoded['tree_json_string'] !== '';
+      }
+      $pages[] = [
+        'id' => (int) $id,
+        'hasTreeJsonString' => $hasTree,
+      ];
+    }
+    echo wp_json_encode([
+      'metaKey' => $metaKey,
+      'pages' => $pages,
+      'selectorCount' => $selectorCount,
+      'hasBreakdanceClassesJsonString' => is_string($breakdanceClasses) ? trim($breakdanceClasses) !== '' : !empty($breakdanceClasses),
+    ]);
+  `;
+
+  return JSON.parse(runDockerPhp(container, php));
+}
+
+function assertPersistenceProof(proof, options = {}) {
+  const classMode = String(options.classMode || "native");
+  const requiresBreakdanceClassesJsonString =
+    options.requiresBreakdanceClassesJsonString === true;
+  const missingTree = (proof.pages || []).filter((page) => !page.hasTreeJsonString);
+  if (missingTree.length > 0) {
+    throw new Error(`Missing tree_json_string for page IDs: ${missingTree.map((page) => page.id).join(", ")}`);
+  }
+
+  if (classMode === "native" && (!proof.selectorCount || proof.selectorCount < 1)) {
+    throw new Error("No Oxygen selector records were persisted.");
+  }
+
+  if (requiresBreakdanceClassesJsonString && !proof.hasBreakdanceClassesJsonString) {
+    throw new Error("breakdance_classes_json_string was not persisted.");
   }
 }
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   fs.mkdirSync(options.outputDir, { recursive: true });
+  const originalClassMode = getCurrentClassMode(options.container);
 
   let syncResult = {
     ok: true,
     skipped: options.skipSync,
   };
+  let windPressProof = null;
 
-  if (options.skipSync) {
-    logStep("Skipping source sync; using the installed plugin artifact");
-  } else {
-    logStep("Syncing plugin into Docker container");
-    syncResult = JSON.parse(
-      runNodeScript(path.join("tests", "live", "sync-docker-plugin.cjs"))
-    );
-  }
+  try {
+    if (options.skipSync) {
+      logStep("Skipping source sync; using the installed plugin artifact");
+    } else {
+      logStep("Syncing plugin into Docker container");
+      syncResult = JSON.parse(
+        runNodeScript(path.join("tests", "live", "sync-docker-plugin.cjs"))
+      );
+    }
 
-  const localFixtureDir = resolveDefaultLocalFixtureDir();
+    if (options.classMode) {
+      logStep(`Forcing converter class mode to ${options.classMode}`);
+      setClassMode(options.container, options.classMode);
+    }
+
+    if (options.classMode === "windpress") {
+      windPressProof = loadWindPressProof(options.container);
+      assertWindPressProof(windPressProof);
+    }
+
+  const localFixtureDir = options.localFixtureDir;
+  const focusedImportProof = loadFocusedImportProof(options);
 
   logStep("Running fixture baseline parity suite");
-  const fixtureBaselineResult = JSON.parse(
-    runNodeScript(path.join("tests", "live", "run-fixture-baseline.cjs"), [
+  const baselineArgs = [
       `--output-dir=${path.relative(
         process.cwd(),
         path.join(options.outputDir, "fixture-baseline")
       )}`,
       `--local-fixture-dir=${localFixtureDir}`,
       `--container=${options.container}`,
-    ])
+      `--slug-prefix=${options.slugPrefix}`,
+  ];
+  if (options.classMode) {
+    baselineArgs.push(`--class-mode=${options.classMode}`);
+  }
+  if (options.fixture) {
+    baselineArgs.push(`--fixture=${options.fixture}`);
+  }
+  const fixtureBaselineResult = JSON.parse(
+    runNodeScript(path.join("tests", "live", "run-fixture-baseline.cjs"), baselineArgs)
   );
+  logStep("Normalizing Oxygen upload ownership after CLI fixture import");
+  normalizeOxygenUploadsPermissions(options.container);
 
   const fixtureSummary = loadFixtureSummary(fixtureBaselineResult.jsonPath);
   const baseUrl = options.baseUrl || getHomeUrl(options.container);
-  const fixtures = loadFixturePages(options.container, fixtureSummary);
+  const fixtures = loadFixturePages(
+    options.container,
+    fixtureSummary,
+    options.slugPrefix
+  );
 
   logStep(`Resolved base URL: ${baseUrl}`);
   logStep(
@@ -498,7 +1820,9 @@ async function main() {
     logStep("Logging into local WordPress admin");
     await login(page, baseUrl, options.adminUser, options.adminPassword);
     await runAdminSmoke(page, baseUrl);
-    await runBuilderSmoke(page, baseUrl, fixtures);
+    var editabilityProof = await runBuilderSmoke(page, baseUrl, fixtures, {
+      focusedImportProof,
+    });
   } finally {
     await page.close();
     await browser.close();
@@ -520,7 +1844,14 @@ async function main() {
     skipSync: options.skipSync,
     sync: syncResult,
     fixtureBaseline: fixtureBaselineResult,
+    slugPrefix: options.slugPrefix,
     fixtures,
+    editabilityProof: editabilityProof || null,
+    styleRoutingProof: editabilityProof?.styleRoutingProof || null,
+    persistence: loadPersistenceProof(options.container, fixtures),
+    windPress: windPressProof,
+    originalClassMode,
+    effectiveClassMode: options.classMode || originalClassMode,
     observations: {
       blocking: blockingObservations,
       ambient: ambientObservations,
@@ -528,15 +1859,43 @@ async function main() {
     outputDir: options.outputDir,
   };
 
+  assertPersistenceProof(result.persistence, {
+    classMode: result.effectiveClassMode,
+  });
+
   fs.writeFileSync(
     path.join(options.outputDir, "summary.json"),
     JSON.stringify(result, null, 2)
   );
 
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+  } finally {
+    if (options.classMode && originalClassMode !== options.classMode) {
+      logStep(`Restoring converter class mode to ${originalClassMode}`);
+      setClassMode(options.container, originalClassMode);
+    }
+  }
 }
 
-main().catch((error) => {
-  process.stderr.write(String(error && error.stack ? error.stack : error) + "\n");
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(String(error && error.stack ? error.stack : error) + "\n");
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  parseArgs,
+  normalizeFixturePath,
+  buildSlug,
+  isConvertedAssetRuntimeError,
+  isBuilderReadySnapshot,
+  resolveBuilderEditabilityHelperFromWindow,
+  isBuilderSaveRequestDetails,
+  isBuilderSaveResponsePayloadSuccessful,
+  extractEditabilityTargetText,
+  buildFocusedImportProof,
+  buildEditedProofText,
+  loadBuilderStyleRoutingProof,
+  assertPersistenceProof,
+};

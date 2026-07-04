@@ -3,6 +3,15 @@ const assert = require("node:assert/strict");
 const adminClient = require("../../assets/js/lib/admin-request-client.js");
 
 module.exports = function runAdminRequestClientTests() {
+  assert.deepEqual(adminClient.buildRequestFields({}, null), {
+    wrapInContainer: true,
+    includeCssElement: true,
+    inlineStyles: true,
+    safeMode: true,
+    strictNative: false,
+    debugMode: false,
+  });
+
   assert.deepEqual(
     adminClient.buildRequestPayload(
       "oxy_html_convert",
@@ -13,6 +22,7 @@ module.exports = function runAdminRequestClientTests() {
         includeCssElement: false,
         inlineStyles: true,
         safeMode: false,
+        strictNative: true,
         debugMode: false,
       },
       {
@@ -22,6 +32,7 @@ module.exports = function runAdminRequestClientTests() {
             includeCssElement: options.includeCssElement ? "true" : "false",
             inlineStyles: options.inlineStyles ? "true" : "false",
             safeMode: options.safeMode ? "true" : "false",
+            strictNative: options.strictNative ? "true" : "false",
             debugMode: options.debugMode ? "true" : "false",
           };
         },
@@ -35,6 +46,7 @@ module.exports = function runAdminRequestClientTests() {
       includeCssElement: "false",
       inlineStyles: "true",
       safeMode: "false",
+      strictNative: "true",
       debugMode: "false",
     }
   );
@@ -46,6 +58,7 @@ module.exports = function runAdminRequestClientTests() {
         includeCssElement: 0,
         inlineStyles: "x",
         safeMode: "",
+        strictNative: "1",
         debugMode: null,
       },
       null
@@ -55,6 +68,7 @@ module.exports = function runAdminRequestClientTests() {
       includeCssElement: false,
       inlineStyles: true,
       safeMode: false,
+      strictNative: true,
       debugMode: false,
     }
   );

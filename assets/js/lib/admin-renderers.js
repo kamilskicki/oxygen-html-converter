@@ -23,6 +23,8 @@
     const preservedData = audit.preserved || {};
     const summary = audit.summary || {};
     const transformedData = audit.transformed || {};
+    const importPlan = transformedData.importPlan || {};
+    const nativeCoverage = importPlan.nativeCoverage || {};
 
     if (Array.isArray(preservedData.customClasses) && preservedData.customClasses.length) {
       preserved.push(preservedData.customClasses.length + " custom class token(s) preserved.");
@@ -58,6 +60,21 @@
       (transformedData.inlineStyles ? "Mapped" : "Did not map") +
         " supported inline/class styles to Oxygen properties."
     );
+    transformed.push(
+      (transformedData.strictNative ? "Strict native mode enabled." : "Strict native mode disabled.")
+    );
+
+    if (importPlan.status) {
+      transformed.push("Import plan status: " + String(importPlan.status) + ".");
+    }
+
+    if (typeof nativeCoverage.percent !== "undefined") {
+      transformed.push("Native coverage: " + String(nativeCoverage.percent) + "%.");
+    }
+
+    if (Array.isArray(importPlan.fallbacks) && importPlan.fallbacks.length) {
+      transformed.push("Fallback items requiring review: " + String(importPlan.fallbacks.length) + ".");
+    }
 
     if (Array.isArray(transformedData.info) && transformedData.info.length) {
       transformed.push.apply(transformed, transformedData.info);

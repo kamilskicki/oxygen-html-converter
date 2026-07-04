@@ -109,7 +109,7 @@ function release_should_exclude(string $relativePath, array $patterns): bool
  */
 function release_distribution_files(string $root, array $patterns): array
 {
-    $trackedFiles = release_run_command(['git', 'ls-files', '-z'], $root);
+    $trackedFiles = release_run_command(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], $root);
     release_require_success($trackedFiles);
 
     $files = [];
@@ -121,10 +121,11 @@ function release_distribution_files(string $root, array $patterns): array
 
         $absolutePath = $root . '/' . $relativePath;
         if (is_file($absolutePath)) {
-            $files[] = $relativePath;
+            $files[$relativePath] = $relativePath;
         }
     }
 
+    $files = array_values($files);
     sort($files);
 
     return $files;

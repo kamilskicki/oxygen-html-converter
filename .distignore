@@ -18,6 +18,7 @@ docs
 release-audit.md
 scaffolds
 scripts
+skill
 *.zip
 composer.lock
 package.json

@@ -44,6 +44,7 @@ try {
         'oxygen-html-converter/tests/',
         'oxygen-html-converter/docs/',
         'oxygen-html-converter/scripts/',
+        'oxygen-html-converter/skill/',
         'oxygen-html-converter/node_modules/',
         'oxygen-html-converter/vendor/',
         'oxygen-html-converter/.phpunit.cache/',

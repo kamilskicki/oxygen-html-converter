@@ -59,7 +59,7 @@
       modalState.overlay.style.display = "none";
       modalState.input.value = "";
       modalState.error.textContent = "";
-      modalState.safeMode.checked = false;
+      modalState.safeMode.checked = true;
 
       if (lastFocusedElement && typeof lastFocusedElement.focus === "function") {
         lastFocusedElement.focus();
@@ -109,7 +109,7 @@
             <label for="oxy-html-import-input" style="display:block;margin-top:18px;font-weight:600;">HTML</label>
             <textarea id="oxy-html-import-input" placeholder="Paste your HTML here…" style="width:100%;min-height:320px;margin-top:8px;padding:14px 16px;border:1px solid #d7dee7;border-radius:12px;box-sizing:border-box;resize:vertical;font-family:Consolas, 'SFMono-Regular', Menlo, monospace;font-size:13px;"></textarea>
             <label style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;padding:12px 14px;border:1px solid #d7dee7;border-radius:12px;background:#f6f8fb;">
-              <input type="checkbox" id="oxy-html-import-safe-mode" style="margin-top:2px;">
+              <input type="checkbox" id="oxy-html-import-safe-mode" style="margin-top:2px;" checked>
               <span>${strings.safeModeLabel || "Safe mode: strip scripts, event handlers, and external head assets"}</span>
             </label>
             <div id="oxy-html-import-error" aria-live="polite" style="min-height:24px;margin-top:12px;color:#b42318;font-size:13px;"></div>
@@ -134,6 +134,7 @@
         close: container.querySelector("#oxy-html-import-close"),
         safeMode: container.querySelector("#oxy-html-import-safe-mode"),
       };
+      modalState.safeMode.checked = true;
 
       modalState.overlay.addEventListener("click", function (event) {
         if (event.target === modalState.overlay) {

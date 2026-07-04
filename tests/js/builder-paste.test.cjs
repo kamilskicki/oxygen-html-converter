@@ -74,10 +74,12 @@ module.exports = async function runBuilderPasteTests() {
       }
     };
 
+    let cancelledPasteEvent = null;
     assert.equal(
       builderPaste.dispatchConvertedPaste(
         {
-          dispatchEvent() {
+          dispatchEvent(event) {
+            cancelledPasteEvent = event;
             return false;
           },
         },
@@ -85,6 +87,8 @@ module.exports = async function runBuilderPasteTests() {
       ),
       false
     );
+    assert.equal(cancelledPasteEvent.clipboardData.data["text/plain"], '{"element":1}');
+    assert.equal(cancelledPasteEvent.clipboardData.data.text, '{"element":1}');
 
     assert.equal(
       builderPaste.dispatchConvertedPaste(
@@ -96,6 +100,23 @@ module.exports = async function runBuilderPasteTests() {
         '{"element":1}'
       ),
       true
+    );
+
+    assert.equal(
+      await builderPaste.dispatchConvertedPasteAfterDelay(
+        {
+          defaultView: {
+            setTimeout(callback) {
+              callback();
+            },
+          },
+          dispatchEvent() {
+            return false;
+          },
+        },
+        '{"element":1}'
+      ),
+      false
     );
   } finally {
     global.DataTransfer = originalDataTransfer;

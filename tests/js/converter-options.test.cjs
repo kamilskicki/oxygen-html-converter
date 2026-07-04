@@ -7,7 +7,8 @@ module.exports = function runConverterOptionsTests() {
     wrapInContainer: "true",
     includeCssElement: "true",
     inlineStyles: "true",
-    safeMode: "false",
+    safeMode: "true",
+    strictNative: "false",
     debugMode: "false",
   });
 
@@ -17,6 +18,7 @@ module.exports = function runConverterOptionsTests() {
       includeCssElement: "no",
       inlineStyles: "yes",
       safeMode: "yes",
+      strictNative: "on",
       debugMode: 1,
     }),
     {
@@ -24,6 +26,7 @@ module.exports = function runConverterOptionsTests() {
       includeCssElement: "false",
       inlineStyles: "true",
       safeMode: "true",
+      strictNative: "true",
       debugMode: "true",
     }
   );

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OxyHtmlConverter;
 
+use OxyHtmlConverter\Services\GlobalStyleRepository;
+use OxyHtmlConverter\Services\PageStyleRepository;
 use OxyHtmlConverter\Services\UiConfigProvider;
 
 /**
@@ -13,6 +15,8 @@ class Plugin
 {
     private static ?Plugin $instance = null;
     private UiConfigProvider $uiConfigProvider;
+    private GlobalStyleRepository $globalStyleRepository;
+    private PageStyleRepository $pageStyleRepository;
 
     /**
      * @var array<string, bool>
@@ -33,9 +37,14 @@ class Plugin
         return self::$instance;
     }
 
-    private function __construct(?UiConfigProvider $uiConfigProvider = null)
-    {
+    private function __construct(
+        ?UiConfigProvider $uiConfigProvider = null,
+        ?GlobalStyleRepository $globalStyleRepository = null,
+        ?PageStyleRepository $pageStyleRepository = null
+    ) {
         $this->uiConfigProvider = $uiConfigProvider ?: new UiConfigProvider();
+        $this->globalStyleRepository = $globalStyleRepository ?: new GlobalStyleRepository();
+        $this->pageStyleRepository = $pageStyleRepository ?: new PageStyleRepository();
         $this->init();
     }
 
@@ -53,6 +62,102 @@ class Plugin
 
         add_action('wp_enqueue_scripts', [$this, 'enqueueBuilderScripts'], 9999);
         add_action('admin_enqueue_scripts', [$this, 'enqueueBuilderScripts'], 9999);
+        add_action('wp_enqueue_scripts', [$this, 'enqueueGlobalStyles'], 20);
+        add_action('admin_enqueue_scripts', [$this, 'enqueueGlobalStyles'], 20);
+        add_action('wp_footer', [$this, 'printPageScopedStyles'], 9999);
+        add_action('admin_footer', [$this, 'printPageScopedStyles'], 9999);
+    }
+
+    public function enqueueGlobalStyles(string $hook = ''): void
+    {
+        if (!$this->shouldEnqueueGlobalStyles($hook)) {
+            return;
+        }
+
+        $css = trim($this->globalStyleRepository->getCombinedCss());
+
+        if ($css === '') {
+            return;
+        }
+
+        if (function_exists('wp_register_style')) {
+            wp_register_style(
+                'oxy-html-converter-global-styles',
+                false,
+                [],
+                OXY_HTML_CONVERTER_VERSION
+            );
+        }
+
+        wp_enqueue_style(
+            'oxy-html-converter-global-styles',
+            false,
+            [],
+            OXY_HTML_CONVERTER_VERSION
+        );
+
+        if (function_exists('wp_add_inline_style')) {
+            wp_add_inline_style('oxy-html-converter-global-styles', $css);
+        }
+    }
+
+    public function printPageScopedStyles(): void
+    {
+        if (!$this->shouldRenderImportedStylesInCurrentRequest()) {
+            return;
+        }
+
+        $postId = $this->resolveCurrentPostId();
+        $css = $postId > 0 ? trim($this->pageStyleRepository->getCssForPost($postId)) : '';
+
+        if ($css === '') {
+            return;
+        }
+
+        $css = str_replace('</style', '<\/style', $css);
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Generated CSS is not HTML; closing style tags are neutralized above.
+        echo "\n<style id=\"oxy-html-converter-page-styles-inline-css\">\n" . $css . "\n</style>\n";
+    }
+
+    public function shouldEnqueueGlobalStyles(string $hook = ''): bool
+    {
+        unset($hook);
+
+        return $this->shouldRenderImportedStylesInCurrentRequest();
+    }
+
+    private function shouldRenderImportedStylesInCurrentRequest(): bool
+    {
+        if (function_exists('is_admin') && is_admin()) {
+            return $this->isOxygenBuilderRequest();
+        }
+
+        return true;
+    }
+
+    private function resolveCurrentPostId(): int
+    {
+        if (function_exists('get_queried_object_id')) {
+            $postId = (int) get_queried_object_id();
+            if ($postId > 0) {
+                return $postId;
+            }
+        }
+
+        foreach (['post', 'post_id', 'id', 'page_id'] as $key) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only route detection for scoped CSS.
+            if (!isset($_GET[$key])) {
+                continue;
+            }
+
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only route detection for scoped CSS.
+            $postId = absint(wp_unslash((string) $_GET[$key]));
+            if ($postId > 0) {
+                return $postId;
+            }
+        }
+
+        return 0;
     }
 
     /**
@@ -113,6 +218,14 @@ class Plugin
         );
 
         wp_enqueue_script(
+            'oxy-html-converter-builder-editability',
+            OXY_HTML_CONVERTER_URL . 'assets/js/lib/builder-editability.js',
+            [],
+            OXY_HTML_CONVERTER_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'oxy-html-converter',
             OXY_HTML_CONVERTER_URL . 'assets/js/converter.js',
             [
@@ -122,6 +235,7 @@ class Plugin
                 'oxy-html-converter-builder-paste',
                 'oxy-html-converter-builder-toast',
                 'oxy-html-converter-builder-modal',
+                'oxy-html-converter-builder-editability',
             ],
             OXY_HTML_CONVERTER_VERSION,
             true

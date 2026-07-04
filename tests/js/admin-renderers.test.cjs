@@ -21,6 +21,16 @@ module.exports = function runAdminRenderersTests() {
       wrapInContainer: true,
       includeCssElement: false,
       inlineStyles: true,
+      strictNative: true,
+      importPlan: {
+        status: "blocked",
+        nativeCoverage: {
+          percent: 87.5,
+        },
+        fallbacks: [
+          { type: "html_code", count: 1 },
+        ],
+      },
       info: ["Converted counters to native elements."],
     },
     stripped: ["Inline scripts removed."],
@@ -29,6 +39,8 @@ module.exports = function runAdminRenderersTests() {
 
   assert.ok(lists.preserved.some((entry) => entry.includes("custom class token")));
   assert.ok(lists.transformed.some((entry) => entry.includes("Elements converted: 4")));
+  assert.ok(lists.transformed.some((entry) => entry.includes("Import plan status: blocked")));
+  assert.ok(lists.transformed.some((entry) => entry.includes("Native coverage: 87.5%")));
   assert.deepEqual(lists.stripped, ["Inline scripts removed."]);
   assert.deepEqual(lists.followUp, ["Check icon sizes."]);
 

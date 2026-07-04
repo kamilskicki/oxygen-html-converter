@@ -87,6 +87,7 @@ try {
         'docs',
         'release-audit.md',
         'scripts',
+        'skill',
         '*.zip',
         'package-lock.json',
         'phpcs.xml.dist',

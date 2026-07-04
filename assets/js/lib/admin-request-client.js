@@ -8,6 +8,30 @@
 })(typeof globalThis !== "undefined" ? globalThis : window, function () {
   "use strict";
 
+  function coerceBoolean(value, defaultValue) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (value === null || typeof value === "undefined") {
+      return defaultValue;
+    }
+
+    if (typeof value === "number") {
+      return value !== 0;
+    }
+
+    const normalized = String(value).trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) {
+      return true;
+    }
+    if (["0", "false", "no", "off", ""].includes(normalized)) {
+      return false;
+    }
+
+    return defaultValue;
+  }
+
   function buildRequestFields(options, optionUtils) {
     if (optionUtils && typeof optionUtils.buildConvertRequestFields === "function") {
       return optionUtils.buildConvertRequestFields(options || {});
@@ -15,11 +39,12 @@
 
     const normalized = options || {};
     return {
-      wrapInContainer: !!normalized.wrapInContainer,
-      includeCssElement: !!normalized.includeCssElement,
-      inlineStyles: !!normalized.inlineStyles,
-      safeMode: !!normalized.safeMode,
-      debugMode: !!normalized.debugMode,
+      wrapInContainer: coerceBoolean(normalized.wrapInContainer, true),
+      includeCssElement: coerceBoolean(normalized.includeCssElement, true),
+      inlineStyles: coerceBoolean(normalized.inlineStyles, true),
+      safeMode: coerceBoolean(normalized.safeMode, true),
+      strictNative: coerceBoolean(normalized.strictNative, false),
+      debugMode: coerceBoolean(normalized.debugMode, false),
     };
   }
 

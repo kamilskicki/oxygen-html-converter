@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oxygen Builder Browser"
+  short_description: "Operate Oxygen Builder 6 in Browser"
+  default_prompt: "Use $oxygen-builder-browser to open Oxygen Builder 6 and edit a local WordPress page through @Browser."

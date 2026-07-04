@@ -6,6 +6,7 @@ const DEFAULT_CONTAINER = process.env.OXY_HTML_CONVERTER_DOCKER_CONTAINER || "ox
 const DEFAULT_FIXTURE_DIR = process.env.OXY_HTML_CONVERTER_FIXTURE_DIR || "/var/www/html/Import_Tests";
 const DEFAULT_REMOTE_ARTIFACTS = process.env.OXY_HTML_CONVERTER_REMOTE_ARTIFACTS || "/tmp/oxy-parity-suite";
 const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "artifacts", "fixture-baseline");
+const DEFAULT_SLUG_PREFIX = process.env.OXY_HTML_CONVERTER_BASELINE_SLUG_PREFIX || "perf-";
 
 function resolveDefaultLocalFixtureDir() {
   const candidates = [
@@ -32,9 +33,17 @@ function parseArgs(argv) {
     outputDir: DEFAULT_OUTPUT_DIR,
     localFixtureDir: DEFAULT_LOCAL_FIXTURE_DIR,
     classMode: null,
+    includeNested: false,
+    fixture: null,
+    slugPrefix: DEFAULT_SLUG_PREFIX,
   };
 
   for (const arg of argv) {
+    if (arg === "--include-nested" || arg === "--recursive") {
+      options.includeNested = true;
+      continue;
+    }
+
     if (!arg.startsWith("--")) {
       continue;
     }
@@ -54,6 +63,12 @@ function parseArgs(argv) {
       options.localFixtureDir = path.resolve(process.cwd(), value);
     } else if (rawKey === "class-mode") {
       options.classMode = value;
+    } else if (rawKey === "include-nested" || rawKey === "recursive") {
+      options.includeNested = value === "true" || value === "1";
+    } else if (rawKey === "fixture") {
+      options.fixture = normalizeFixturePath(value);
+    } else if (rawKey === "slug-prefix") {
+      options.slugPrefix = value;
     }
   }
 
@@ -76,13 +91,57 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
 }
 
+function normalizeFixturePath(value) {
+  return String(value || "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/")
+    .trim();
+}
+
+function localFixturePath(options, relativeFixture) {
+  return path.join(options.localFixtureDir, ...relativeFixture.split("/"));
+}
+
+function remoteFixturePath(options, relativeFixture) {
+  return `${String(options.fixtureDir).replace(/\/+$/, "")}/${relativeFixture}`;
+}
+
+function ensureFixtureInContainer(options, relativeFixture) {
+  const localPath = localFixturePath(options, relativeFixture);
+  if (!fs.existsSync(localPath)) {
+    throw new Error(`Focused local fixture does not exist: ${localPath}`);
+  }
+
+  const remotePath = remoteFixturePath(options, relativeFixture);
+  const remoteDir = path.posix.dirname(remotePath);
+  runDocker(["exec", options.container, "sh", "-lc", `mkdir -p ${shellQuote(remoteDir)}`]);
+  runDocker(["cp", localPath, `${options.container}:${remotePath}`]);
+
+  return remotePath;
+}
+
+function ensureParityScriptInContainer(options) {
+  const localPath = path.join(process.cwd(), "tests", "live", "fixture-page-parity.php");
+  if (!fs.existsSync(localPath)) {
+    throw new Error(`Local parity script does not exist: ${localPath}`);
+  }
+
+  runDocker(["cp", localPath, `${options.container}:/var/www/html/fixture-page-parity.php`]);
+}
+
 function listFixtures(options) {
+  if (options.fixture) {
+    return [ensureFixtureInContainer(options, options.fixture)];
+  }
+
+  const maxDepth = options.includeNested ? "" : "-maxdepth 1 ";
   const output = runDocker([
     "exec",
     options.container,
     "sh",
     "-lc",
-    `find ${shellQuote(options.fixtureDir)} -maxdepth 1 -type f -name '*.html' | sort`,
+    `find ${shellQuote(options.fixtureDir)} ${maxDepth}-type f -name '*.html' | sort`,
   ]);
 
   return output
@@ -91,8 +150,27 @@ function listFixtures(options) {
     .filter(Boolean);
 }
 
-function buildSlug(baseName) {
-  return `perf-${baseName}`
+function relativeFixturePath(options, fixturePath) {
+  const root = String(options.fixtureDir).replace(/\/+$/, "");
+  const normalized = String(fixturePath).replace(/\\/g, "/");
+
+  if (normalized.startsWith(`${root}/`)) {
+    return normalized.slice(root.length + 1);
+  }
+
+  return path.posix.basename(normalized);
+}
+
+function fixtureNameForSlug(relativeFixture) {
+  return relativeFixture
+    .replace(/\\/g, "/")
+    .replace(/\/code\.html$/i, "")
+    .replace(/\.html$/i, "")
+    .replace(/\//g, "-");
+}
+
+function buildSlug(baseName, slugPrefix = DEFAULT_SLUG_PREFIX) {
+  return `${slugPrefix}${baseName}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -100,9 +178,10 @@ function buildSlug(baseName) {
 }
 
 function loadReport(options, fixturePath) {
-  const baseName = path.basename(fixturePath, ".html");
-  const slug = buildSlug(baseName);
-  const title = `Fixture ${baseName}`;
+  const relativeFixture = relativeFixturePath(options, fixturePath);
+  const fixtureName = fixtureNameForSlug(relativeFixture);
+  const slug = buildSlug(fixtureName, options.slugPrefix);
+  const title = `Fixture ${fixtureName}`;
 
   const output = runDocker([
     "exec",
@@ -126,6 +205,8 @@ function loadReport(options, fixturePath) {
 
   return {
     fixturePath,
+    relativeFixture,
+    fixtureName,
     benchmark: loadBenchmark(options, fixturePath),
     cli: result,
     report: JSON.parse(reportJson),
@@ -133,7 +214,11 @@ function loadReport(options, fixturePath) {
 }
 
 function loadBenchmark(options, fixturePath) {
-  const localFixturePath = path.join(options.localFixtureDir, path.basename(fixturePath));
+  const relativeFixture = relativeFixturePath(options, fixturePath);
+  const localFixturePath = path.join(
+    options.localFixtureDir,
+    ...relativeFixture.split("/")
+  );
   const output = execFileSync(
     "php",
     [path.join("tests", "live", "benchmark-fixture.php"), localFixturePath],
@@ -177,7 +262,7 @@ function summarizeEntry(entry) {
   const delta = entry.report.delta || {};
 
   return {
-    fixture: path.basename(entry.fixturePath),
+    fixture: entry.relativeFixture || path.basename(entry.fixturePath),
     convertTimeMs: entry.benchmark.convertTimeMs ?? null,
     renderProbeOk: Boolean(render.ok),
     domToElementRatio: delta.domToElementRatio ?? null,
@@ -186,6 +271,15 @@ function summarizeEntry(entry) {
     topExtraStructureDelta: Array.isArray(structure)
       ? structure.filter((item) => Number(item.delta || 0) > 0).slice(0, 5)
       : [],
+    selectorCount: delta.selectorCount ?? entry.report.summary?.selectorCount ?? null,
+    metaClassRefCount: residual.metaClassRefCount ?? null,
+    nativeResidualClassCount: residual.nativeResidualClassCount ?? null,
+    unmirroredNativeResidualClassCount:
+      residual.unmirroredNativeResidualClassCount ?? null,
+    htmlCode: residual.elementTypes?.["OxygenElements\\HtmlCode"] ?? 0,
+    cssCode: residual.elementTypes?.["OxygenElements\\CssCode"] ?? 0,
+    mappedUtilityResidualCount: residual.mappedUtilityResidualCount ?? 0,
+    selectorPersistence: entry.report.selectorPersistence || null,
     styleCategoryDeltas: parity.styleCategoryDeltas || {},
     topResidualClasses: Array.isArray(entry.report.topResidualClasses)
       ? entry.report.topResidualClasses.slice(0, 10)
@@ -274,6 +368,14 @@ function buildMarkdown(summary) {
     lines.push(`- dom to element ratio: ${fixture.domToElementRatio ?? "n/a"}`);
     lines.push(`- residual ratio: ${fixture.residualRatio ?? "n/a"}`);
     lines.push(`- rendered class inflation: ${fixture.renderedClassInflation ?? "n/a"}`);
+    lines.push(`- selectors: ${fixture.selectorCount ?? "n/a"}`);
+    lines.push(`- meta class refs: ${fixture.metaClassRefCount ?? "n/a"}`);
+    lines.push(`- native residual classes: ${fixture.nativeResidualClassCount ?? "n/a"}`);
+    lines.push(
+      `- unmirrored native residual classes: ${fixture.unmirroredNativeResidualClassCount ?? "n/a"}`
+    );
+    lines.push(`- HtmlCode/CssCode: ${fixture.htmlCode ?? 0}/${fixture.cssCode ?? 0}`);
+    lines.push(`- mapped utility residuals: ${fixture.mappedUtilityResidualCount ?? 0}`);
     lines.push(`- warnings: ${fixture.warningCount}`);
     lines.push(`- top extra structure delta: ${fixture.topExtraStructureDelta.map((item) => `${item.tag}:${item.delta}`).join(", ") || "none"}`);
     lines.push(`- top residual classes: ${fixture.topResidualClasses.map((item) => `${item.class}:${item.count}`).join(", ") || "none"}`);
@@ -294,6 +396,8 @@ function main() {
   const originalClassMode = getCurrentClassMode(options);
 
   try {
+    ensureParityScriptInContainer(options);
+
     if (options.classMode) {
       setClassMode(options, options.classMode);
     }
@@ -310,6 +414,9 @@ function main() {
       fixtureDir: options.fixtureDir,
       localFixtureDir: options.localFixtureDir,
       remoteArtifactsDir: options.remoteArtifactsDir,
+      includeNested: options.includeNested,
+      fixture: options.fixture,
+      slugPrefix: options.slugPrefix,
       originalClassMode,
       effectiveClassMode: options.classMode || originalClassMode,
       fixtures: reports,

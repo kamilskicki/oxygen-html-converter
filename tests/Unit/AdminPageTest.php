@@ -24,7 +24,7 @@ class AdminPageTest extends TestCase
         $page = new AdminPage();
 
         $this->assertSame('native', $page->sanitizeClassHandlingMode('oxygen'));
-        $this->assertSame('auto', $page->sanitizeClassHandlingMode('invalid'));
+        $this->assertSame('native', $page->sanitizeClassHandlingMode('invalid'));
     }
 
     public function testRegisterSettingsUsesDedicatedSanitizers(): void
@@ -36,7 +36,7 @@ class AdminPageTest extends TestCase
         $this->assertArrayHasKey('oxy_html_converter_element_mapping_mode', $GLOBALS['__wp_registered_settings']);
 
         $classMode = $GLOBALS['__wp_registered_settings']['oxy_html_converter_class_mode'];
-        $this->assertSame('auto', $classMode['args']['default']);
+        $this->assertSame('native', $classMode['args']['default']);
         $this->assertIsArray($classMode['args']['sanitize_callback']);
     }
 
@@ -62,6 +62,7 @@ class AdminPageTest extends TestCase
         $this->assertStringContainsString('Conversion audit', $output);
         $this->assertStringContainsString('Load sample HTML', $output);
         $this->assertStringContainsString('Import output', $output);
+        $this->assertStringContainsString('Strict native', $output);
     }
 
     public function testUiConfigDocsUrlsTargetCurrentRepositoryPaths(): void
@@ -81,5 +82,14 @@ class AdminPageTest extends TestCase
             'https://github.com/kamilskicki/oxygen-html-converter/blob/master/docs/RELEASE_CHECKLIST.md',
             $ui['docs']['releaseChecklist']
         );
+    }
+
+    public function testAdminViewEscapesDynamicContractStatusClasses(): void
+    {
+        $view = file_get_contents(dirname(__DIR__, 2) . '/src/Views/admin-page.php');
+
+        $this->assertIsString($view);
+        $this->assertStringContainsString('echo esc_attr($contractStatusClass);', $view);
+        $this->assertStringContainsString("echo esc_attr(\$isEssentialPluginActive ? 'is-success' : 'is-danger');", $view);
     }
 }

@@ -45,7 +45,7 @@ class AdminPage
         register_setting('oxy_html_converter_options', 'oxy_html_converter_class_mode', [
             'type' => 'string',
             'sanitize_callback' => [$this, 'sanitizeClassHandlingMode'],
-            'default' => 'auto',
+            'default' => 'native',
         ]);
 
         register_setting('oxy_html_converter_options', 'oxy_html_converter_element_mapping_mode', [
@@ -66,7 +66,7 @@ class AdminPage
         }
 
         if (!in_array($value, ['auto', 'windpress', 'native'], true)) {
-            return 'auto';
+            return 'native';
         }
 
         return $value;
@@ -207,7 +207,7 @@ class AdminPage
             wp_die(esc_html__('You do not have permission to access this page.', 'oxygen-html-converter'));
         }
 
-        $classMode = $this->sanitizeClassHandlingMode(get_option('oxy_html_converter_class_mode', 'auto'));
+        $classMode = $this->sanitizeClassHandlingMode(get_option('oxy_html_converter_class_mode', 'native'));
         $elementMappingMode = $this->sanitizeElementMappingMode(get_option('oxy_html_converter_element_mapping_mode', 'auto'));
         $viewData = $this->viewDataBuilder->build($classMode, $elementMappingMode, $this->getUiConfig());
         $this->renderer->render($viewData);

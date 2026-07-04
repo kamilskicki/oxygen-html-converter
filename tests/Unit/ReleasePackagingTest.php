@@ -18,5 +18,6 @@ class ReleasePackagingTest extends TestCase
         $this->assertTrue(release_should_exclude('.tmp-page-86-oxygen-data.json', $patterns));
         $this->assertTrue(release_should_exclude('.gitattributes', $patterns));
         $this->assertTrue(release_should_exclude('release-audit.md', $patterns));
+        $this->assertTrue(release_should_exclude('skill/oxygen-builder-browser/SKILL.md', $patterns));
     }
 }

@@ -59,7 +59,9 @@ add_action('plugins_loaded', function () {
     
     if (!$oxygenActive) {
         add_action('admin_notices', function () {
-            echo '<div class="error"><p>Oxygen HTML Converter requires Oxygen Builder 6 to be active.</p></div>';
+            echo '<div class="notice notice-error"><p>'
+                . esc_html__('Oxygen HTML Converter requires Oxygen Builder 6 to be active.', 'oxygen-html-converter')
+                . '</p></div>';
         });
         return;
     }

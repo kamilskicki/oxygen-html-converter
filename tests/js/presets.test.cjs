@@ -7,14 +7,24 @@ module.exports = function runPresetsTests() {
     wrapInContainer: true,
     includeCssElement: true,
     inlineStyles: true,
-    safeMode: false,
+    safeMode: true,
+    strictNative: false,
   });
 
   assert.deepEqual(presets.getPresetValues("unknown-value"), {
     wrapInContainer: true,
     includeCssElement: true,
     inlineStyles: true,
-    safeMode: false,
+    safeMode: true,
+    strictNative: false,
+  });
+
+  assert.deepEqual(presets.getPresetValues("strict"), {
+    wrapInContainer: true,
+    includeCssElement: false,
+    inlineStyles: true,
+    safeMode: true,
+    strictNative: true,
   });
 
   assert.equal(
@@ -23,8 +33,20 @@ module.exports = function runPresetsTests() {
       includeCssElement: true,
       inlineStyles: false,
       safeMode: true,
+      strictNative: false,
     }),
     "safe"
+  );
+
+  assert.equal(
+    presets.resolvePresetFromOptions({
+      wrapInContainer: true,
+      includeCssElement: false,
+      inlineStyles: true,
+      safeMode: true,
+      strictNative: true,
+    }),
+    "strict"
   );
 
   assert.equal(
@@ -33,6 +55,7 @@ module.exports = function runPresetsTests() {
       includeCssElement: true,
       inlineStyles: true,
       safeMode: false,
+      strictNative: false,
     }),
     "fidelity"
   );
@@ -43,6 +66,7 @@ module.exports = function runPresetsTests() {
       includeCssElement: false,
       inlineStyles: true,
       safeMode: false,
+      strictNative: false,
     }),
     "custom"
   );

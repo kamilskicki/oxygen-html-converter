@@ -3,7 +3,16 @@
 declare(strict_types=1);
 
 use OxyHtmlConverter\TreeBuilder;
+use OxyHtmlConverter\Services\GlobalStyleRepository;
 use OxyHtmlConverter\Services\OxygenDocumentTree;
+use OxyHtmlConverter\Services\PageStyleRepository;
+use OxyHtmlConverter\Services\TailwindDetector;
+use OxyHtmlConverter\Services\TailwindPropertyMapper;
+use OxyHtmlConverter\Services\WindPressCacheResetService;
+
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+ob_start();
 
 // Run inside WP container context
 $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_HOST'] ?? '127.0.0.1';
@@ -40,6 +49,7 @@ $pageOptions = [
     'postStatus' => is_string($cliOptions['post-status'] ?? null) && trim((string) $cliOptions['post-status']) !== ''
         ? trim((string) $cliOptions['post-status'])
         : 'publish',
+    'pageScopedCss' => '',
 ];
 
 $GLOBALS['oxyParityStylesheetFetchLog'] = [];
@@ -72,6 +82,10 @@ $baseName = pathinfo($inputFile, PATHINFO_FILENAME);
 $timestamp = gmdate('Ymd_His');
 
 $sourceStats = sourceStatsFromHtml($html);
+$selectorPersistence = persistSelectorPayload($result['selectorPayload'] ?? []);
+$globalStylePersistence = (new GlobalStyleRepository())->saveFromPayload($result);
+$windPressCacheReset = (new WindPressCacheResetService())->resetIfAvailable();
+$pageOptions['pageScopedCss'] = (string) ($result['pageScopedCss'] ?? '');
 $renderableTree = buildRenderableTreeForProbe($result);
 $outputStats = outputStatsFromElementTree($renderableTree);
 $delta = buildDelta($sourceStats, $outputStats, $result);
@@ -84,6 +98,17 @@ $report = [
     'source' => $sourceStats,
     'output' => $outputStats,
     'delta' => $delta,
+    'selectorPersistence' => $selectorPersistence,
+    'globalStylePersistence' => [
+        'saved' => (bool) ($globalStylePersistence['saved'] ?? false),
+        'changes' => (int) ($globalStylePersistence['changes'] ?? 0),
+    ],
+    'windPressCacheReset' => [
+        'attempted' => (bool) ($windPressCacheReset['attempted'] ?? false),
+        'active' => (bool) ($windPressCacheReset['active'] ?? false),
+        'cacheFileDeleted' => (bool) ($windPressCacheReset['cacheFileDeleted'] ?? false),
+        'objectCacheFlushed' => (bool) ($windPressCacheReset['objectCacheFlushed'] ?? false),
+    ],
     'topResidualClasses' => $outputStats['topResidualClasses'],
     'renderProbe' => $renderProbe,
     'page' => [
@@ -103,7 +128,7 @@ $report = [
 $reportPath = sprintf('%s/%s-%s.parity.json', rtrim($artifactsDir, '/'), $baseName, $timestamp);
 file_put_contents($reportPath, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-echo json_encode([
+$cliJson = json_encode([
     'ok' => true,
     'reportPath' => $reportPath,
     'summary' => [
@@ -113,6 +138,25 @@ echo json_encode([
         'sourceClassTokens' => $sourceStats['classTokenCount'],
         'residualClassTokens' => $outputStats['residualClassTokenCount'],
         'residualRatio' => $delta['residualClassRatio'],
+        'selectorCount' => $delta['selectorCount'],
+        'metaClassRefCount' => $outputStats['metaClassRefCount'],
+        'nativeResidualClassCount' => $outputStats['nativeResidualClassCount'],
+        'unmirroredNativeResidualClassCount' => $outputStats['unmirroredNativeResidualClassCount'],
+        'htmlCode' => $outputStats['elementTypes']['OxygenElements\\HtmlCode'] ?? 0,
+        'cssCode' => $outputStats['elementTypes']['OxygenElements\\CssCode'] ?? 0,
+        'mappedUtilityResidualCount' => $outputStats['mappedUtilityResidualCount'],
+        'selectorPersistence' => [
+            'saved' => $selectorPersistence['saved'],
+            'total' => $selectorPersistence['total'],
+        ],
+        'globalStylePersistence' => [
+            'saved' => (bool) ($globalStylePersistence['saved'] ?? false),
+            'changes' => (int) ($globalStylePersistence['changes'] ?? 0),
+        ],
+        'windPressCacheReset' => [
+            'attempted' => (bool) ($windPressCacheReset['attempted'] ?? false),
+            'active' => (bool) ($windPressCacheReset['active'] ?? false),
+        ],
         'renderProbeOk' => $renderProbe['ok'],
     ],
     'topResidualClasses' => $outputStats['topResidualClasses'],
@@ -130,7 +174,13 @@ echo json_encode([
         'topStructureDeltas' => $renderProbe['parity']['topStructureDeltas'] ?? [],
         'styleCategoryDeltas' => $renderProbe['parity']['styleCategoryDeltas'] ?? [],
     ],
-], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
+
+echo $cliJson . PHP_EOL;
 
 exit(0);
 
@@ -258,6 +308,13 @@ function outputStatsFromElementTree(array $root): array
     $stack = [$root];
     $elementCount = 0;
     $residualTokens = [];
+    $elementTypes = [];
+    $metaClassRefCount = 0;
+    $nativeResidualClassCount = 0;
+    $unmirroredNativeResidualClassCount = 0;
+    $mappedUtilityResiduals = [];
+    $tailwindMapper = new TailwindPropertyMapper();
+    $tailwindDetector = new TailwindDetector();
 
     while ($stack) {
         $node = array_pop($stack);
@@ -266,11 +323,21 @@ function outputStatsFromElementTree(array $root): array
         }
 
         $elementCount++;
+        $type = $node['data']['type'] ?? null;
+        if (is_string($type) && $type !== '') {
+            $elementTypes[$type] = ($elementTypes[$type] ?? 0) + 1;
+        }
 
         $properties = $node['data']['properties'] ?? [];
         $advancedClasses = $properties['settings']['advanced']['classes'] ?? [];
+        $metaClasses = $properties['meta']['classes'] ?? [];
+
+        if (is_array($metaClasses)) {
+            $metaClassRefCount += count(array_filter($metaClasses, 'is_string'));
+        }
 
         if (is_array($advancedClasses)) {
+            $nodeNativeResidualCount = 0;
             foreach ($advancedClasses as $className) {
                 if (!is_string($className)) {
                     continue;
@@ -280,6 +347,25 @@ function outputStatsFromElementTree(array $root): array
                     continue;
                 }
                 $residualTokens[] = $className;
+                if ($tailwindMapper->mapClass($className) !== []) {
+                    $mappedUtilityResiduals[$className] = ($mappedUtilityResiduals[$className] ?? 0) + 1;
+                }
+
+                if (
+                    preg_match('/^[A-Za-z_-][A-Za-z0-9_-]*$/', $className) === 1
+                    && preg_match('/^ohc-native-\d+$/', $className) !== 1
+                    && !$tailwindDetector->isTailwindClass($className)
+                ) {
+                    $nativeResidualClassCount++;
+                    $nodeNativeResidualCount++;
+                }
+            }
+
+            if ($nodeNativeResidualCount > 0) {
+                $nodeMetaClassRefCount = is_array($metaClasses)
+                    ? count(array_filter($metaClasses, 'is_string'))
+                    : 0;
+                $unmirroredNativeResidualClassCount += max(0, $nodeNativeResidualCount - $nodeMetaClassRefCount);
             }
         }
 
@@ -303,8 +389,18 @@ function outputStatsFromElementTree(array $root): array
 
     return [
         'elementCount' => $elementCount,
+        'elementTypes' => $elementTypes,
         'residualClassTokenCount' => count($residualTokens),
         'uniqueResidualClassTokenCount' => count(array_unique($residualTokens)),
+        'metaClassRefCount' => $metaClassRefCount,
+        'nativeResidualClassCount' => $nativeResidualClassCount,
+        'unmirroredNativeResidualClassCount' => $unmirroredNativeResidualClassCount,
+        'mappedUtilityResidualCount' => array_sum($mappedUtilityResiduals),
+        'mappedUtilityResiduals' => array_map(
+            static fn(string $className, int $count): array => ['class' => $className, 'count' => $count],
+            array_keys($mappedUtilityResiduals),
+            array_values($mappedUtilityResiduals)
+        ),
         'topResidualClasses' => $topResidual,
     ];
 }
@@ -316,15 +412,203 @@ function buildDelta(array $source, array $output, array $conversionResult): arra
 
     $outputElements = (int) ($output['elementCount'] ?? 0);
     $residual = (int) ($output['residualClassTokenCount'] ?? 0);
-    $classDefinitionsCount = is_array($conversionResult['classDefinitions'] ?? null)
-        ? count($conversionResult['classDefinitions'])
+    $selectorPayload = is_array($conversionResult['selectorPayload'] ?? null)
+        ? $conversionResult['selectorPayload']
+        : [];
+    $selectorCount = is_array($selectorPayload['selectors'] ?? null)
+        ? count($selectorPayload['selectors'])
         : 0;
 
     return [
         'domToElementRatio' => round($outputElements / $domNodes, 3),
         'residualClassRatio' => round($residual / $sourceClassTokens, 3),
-        'mappedClassDefinitions' => $classDefinitionsCount,
+        'selectorCount' => $selectorCount,
+        'mappedClassDefinitions' => $selectorCount,
     ];
+}
+
+function persistSelectorPayload($selectorPayload): array
+{
+    if (!is_array($selectorPayload)) {
+        return [
+            'saved' => 0,
+            'total' => count(getExistingOxySelectorsForParity()),
+            'collections' => [],
+        ];
+    }
+
+    $incomingSelectors = normalizeSelectorRecordsForParity($selectorPayload['selectors'] ?? []);
+    if ($incomingSelectors === []) {
+        return [
+            'saved' => 0,
+            'total' => count(getExistingOxySelectorsForParity()),
+            'collections' => [],
+        ];
+    }
+
+    $mergedSelectors = mergeSelectorsByIdForParity(getExistingOxySelectorsForParity(), $incomingSelectors);
+    $collections = mergeSelectorCollectionsForParity($mergedSelectors, $selectorPayload['collections'] ?? []);
+    persistOxySelectorsForParity($mergedSelectors, $collections);
+
+    return [
+        'saved' => count($incomingSelectors),
+        'total' => count($mergedSelectors),
+        'collections' => $collections,
+    ];
+}
+
+function normalizeSelectorRecordsForParity($records): array
+{
+    if (!is_array($records)) {
+        return [];
+    }
+
+    $selectors = [];
+    foreach ($records as $record) {
+        if (!is_array($record)) {
+            continue;
+        }
+
+        $id = is_string($record['id'] ?? null) ? trim($record['id']) : '';
+        $name = is_string($record['name'] ?? null) ? trim($record['name']) : '';
+        if ($id === '' || $name === '') {
+            continue;
+        }
+
+        $properties = is_array($record['properties'] ?? null) ? $record['properties'] : [];
+
+        $selectors[] = [
+            'id' => $id,
+            'name' => $name,
+            'type' => 'class',
+            'collection' => is_string($record['collection'] ?? null) && trim($record['collection']) !== ''
+                ? trim($record['collection'])
+                : 'Imported HTML',
+            'locked' => (bool) ($record['locked'] ?? false),
+            'children' => is_array($record['children'] ?? null) ? $record['children'] : [],
+            'properties' => $properties === [] ? new stdClass() : $properties,
+        ];
+    }
+
+    return $selectors;
+}
+
+function getExistingOxySelectorsForParity(): array
+{
+    if (function_exists('\\Breakdance\\BreakdanceOxygen\\Selectors\\getOxySelectors')) {
+        $selectors = \Breakdance\BreakdanceOxygen\Selectors\getOxySelectors();
+        return is_array($selectors) ? normalizeSelectorRecordsForParity($selectors) : [];
+    }
+
+    if (function_exists('\\Breakdance\\Data\\get_global_option')) {
+        $selectors = \Breakdance\Data\get_global_option('oxy_selectors_json_string');
+        if (is_string($selectors)) {
+            $selectors = json_decode($selectors, true);
+        }
+        if (is_array($selectors)) {
+            return normalizeSelectorRecordsForParity($selectors);
+        }
+    }
+
+    $raw = get_option('oxygen_oxy_selectors_json_string', '[]');
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+
+    return is_array($decoded) ? normalizeSelectorRecordsForParity($decoded) : [];
+}
+
+function mergeSelectorsByIdForParity(array $existing, array $incoming): array
+{
+    $merged = [];
+    foreach (array_merge($existing, $incoming) as $selector) {
+        if (!is_array($selector) || !is_string($selector['id'] ?? null)) {
+            continue;
+        }
+
+        $merged[$selector['id']] = $selector;
+    }
+
+    return array_values($merged);
+}
+
+function mergeSelectorCollectionsForParity(array $selectors, $incomingCollections): array
+{
+    $collections = [];
+    if (is_array($incomingCollections)) {
+        foreach ($incomingCollections as $collection) {
+            if (is_string($collection) && trim($collection) !== '') {
+                $collections[] = trim($collection);
+            }
+        }
+    }
+
+    foreach ($selectors as $selector) {
+        if (is_string($selector['collection'] ?? null) && trim($selector['collection']) !== '') {
+            $collections[] = trim($selector['collection']);
+        }
+    }
+
+    return array_values(array_unique($collections ?: ['Imported HTML']));
+}
+
+function persistOxySelectorsForParity(array $selectors, array $collections): void
+{
+    $breakdanceClassesPayload = encodeJsonForParity(buildBreakdanceSelectorRecordsForParity($selectors));
+
+    if (function_exists('\\Breakdance\\BreakdanceOxygen\\Selectors\\saveSelectors')) {
+        \Breakdance\BreakdanceOxygen\Selectors\saveSelectors(encodeJsonForParity([
+            'selectors' => $selectors,
+            'collections' => $collections,
+        ]));
+        persistBreakdanceClassesPayloadForParity($breakdanceClassesPayload);
+        return;
+    }
+
+    if (function_exists('\\Breakdance\\Data\\set_global_option')) {
+        \Breakdance\Data\set_global_option('oxy_selectors_collections_json_string', $collections);
+        \Breakdance\Data\set_global_option('oxy_selectors_json_string', $selectors);
+        \Breakdance\Data\set_global_option('breakdance_classes_json_string', $breakdanceClassesPayload);
+        return;
+    }
+
+    update_option('oxygen_oxy_selectors_collections_json_string', encodeJsonForParity($collections));
+    update_option('oxygen_oxy_selectors_json_string', encodeJsonForParity($selectors));
+    update_option('breakdance_classes_json_string', $breakdanceClassesPayload);
+}
+
+function persistBreakdanceClassesPayloadForParity(string $payloadJson): void
+{
+    if (function_exists('\\Breakdance\\Data\\set_global_option')) {
+        \Breakdance\Data\set_global_option('breakdance_classes_json_string', $payloadJson);
+        return;
+    }
+
+    update_option('breakdance_classes_json_string', $payloadJson);
+}
+
+function buildBreakdanceSelectorRecordsForParity(array $selectors): array
+{
+    $records = [];
+
+    foreach ($selectors as $selector) {
+        $name = is_string($selector['name'] ?? null) ? trim($selector['name']) : '';
+        if ($name === '') {
+            continue;
+        }
+
+        $records[] = [
+            'name' => '.' . ltrim($name, '.'),
+            'type' => 'class',
+            'properties' => new stdClass(),
+        ];
+    }
+
+    return $records;
+}
+
+function encodeJsonForParity($value): string
+{
+    $encoded = wp_json_encode($value);
+    return is_string($encoded) ? $encoded : '[]';
 }
 
 function probeRenderedFrontend(array $elementTree, string $sourceHtml, string $slugBase, array $pageOptions = []): array
@@ -401,6 +685,10 @@ function probeRenderedFrontend(array $elementTree, string $sourceHtml, string $s
     ];
 
     try {
+        $pageStylePersistence = (new PageStyleRepository())->saveForPost((int) $postId, [
+            'pageScopedCss' => (string) ($pageOptions['pageScopedCss'] ?? ''),
+        ]);
+        $probe['pageStylePersistence'] = $pageStylePersistence;
         $renderResult = tryRenderWithOxygenMetaVariants((int) $postId, $elementTree);
 
         if (!$renderResult['ok']) {

@@ -61,6 +61,7 @@ declare(strict_types=1);
                         <select id="oxy-convert-preset">
                             <option value="balanced" selected><?php echo esc_html__('Balanced (recommended)', 'oxygen-html-converter'); ?></option>
                             <option value="safe"><?php echo esc_html__('Safe import', 'oxygen-html-converter'); ?></option>
+                            <option value="strict"><?php echo esc_html__('Strict native', 'oxygen-html-converter'); ?></option>
                             <option value="fidelity"><?php echo esc_html__('Max fidelity', 'oxygen-html-converter'); ?></option>
                             <option value="custom"><?php echo esc_html__('Custom', 'oxygen-html-converter'); ?></option>
                         </select>
@@ -80,6 +81,10 @@ declare(strict_types=1);
                     <label class="oxy-toggle">
                         <input type="checkbox" id="oxy-safe-mode">
                         <span><?php echo esc_html__('Safe mode: remove scripts, event handlers, and external head assets', 'oxygen-html-converter'); ?></span>
+                    </label>
+                    <label class="oxy-toggle">
+                        <input type="checkbox" id="oxy-strict-native">
+                        <span><?php echo esc_html__('Strict native: block import when fallback CSS, HTML, or scripts are required', 'oxygen-html-converter'); ?></span>
                     </label>
                 </div>
 
@@ -174,9 +179,9 @@ declare(strict_types=1);
                     <?php settings_fields('oxy_html_converter_options'); ?>
                     <label for="oxy_html_converter_class_mode"><?php echo esc_html__('Class handling mode', 'oxygen-html-converter'); ?></label>
                     <select name="oxy_html_converter_class_mode" id="oxy_html_converter_class_mode">
+                        <option value="native" <?php selected($classMode, 'native'); ?>><?php echo esc_html__('Native Oxygen mode', 'oxygen-html-converter'); ?></option>
                         <option value="auto" <?php selected($classMode, 'auto'); ?>><?php echo esc_html__('Auto-detect (WindPress if available)', 'oxygen-html-converter'); ?></option>
                         <option value="windpress" <?php selected($classMode, 'windpress'); ?>><?php echo esc_html__('Force WindPress mode', 'oxygen-html-converter'); ?></option>
-                        <option value="native" <?php selected($classMode, 'native'); ?>><?php echo esc_html__('Force native Oxygen mode', 'oxygen-html-converter'); ?></option>
                     </select>
 
                     <label for="oxy_html_converter_element_mapping_mode"><?php echo esc_html__('Button mapping mode', 'oxygen-html-converter'); ?></label>
@@ -195,7 +200,7 @@ declare(strict_types=1);
                 <dl class="oxy-health-list">
                     <div><dt><?php echo esc_html__('Configured button mode', 'oxygen-html-converter'); ?></dt><dd><code><?php echo esc_html($elementMappingMode); ?></code></dd></div>
                     <div><dt><?php echo esc_html__('Effective button mapping', 'oxygen-html-converter'); ?></dt><dd><code><?php echo esc_html($effectiveButtonMapping); ?></code></dd></div>
-                    <div><dt><?php echo esc_html__('Breakdance Elements for Oxygen', 'oxygen-html-converter'); ?></dt><dd class="<?php echo $isEssentialPluginActive ? 'is-success' : 'is-danger'; ?>"><?php echo esc_html($isEssentialPluginActive ? __('Detected', 'oxygen-html-converter') : __('Not detected', 'oxygen-html-converter')); ?></dd></div>
+                    <div><dt><?php echo esc_html__('Breakdance Elements for Oxygen', 'oxygen-html-converter'); ?></dt><dd class="<?php echo esc_attr($isEssentialPluginActive ? 'is-success' : 'is-danger'); ?>"><?php echo esc_html($isEssentialPluginActive ? __('Detected', 'oxygen-html-converter') : __('Not detected', 'oxygen-html-converter')); ?></dd></div>
                     <div><dt><?php echo esc_html__('Essential button contract', 'oxygen-html-converter'); ?></dt><dd class="<?php echo esc_attr($contractStatusClass); ?>"><?php echo esc_html($contractStatusText); ?></dd></div>
                 </dl>
 

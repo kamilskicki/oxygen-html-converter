@@ -47,7 +47,7 @@ class EnvironmentService
     public function getClassHandlingMode(): string
     {
         if (function_exists('get_option')) {
-            $mode = (string) get_option('oxy_html_converter_class_mode', 'auto');
+            $mode = (string) get_option('oxy_html_converter_class_mode', 'native');
             if ($mode === 'oxygen') {
                 return 'native';
             }
@@ -55,7 +55,7 @@ class EnvironmentService
                 return $mode;
             }
         }
-        return 'auto';
+        return 'native';
     }
 
     /**

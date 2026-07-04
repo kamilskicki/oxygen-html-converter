@@ -42,7 +42,8 @@
       true
     );
     const inlineStyles = coerceBoolean(options && options.inlineStyles, true);
-    const safeMode = coerceBoolean(options && options.safeMode, false);
+    const safeMode = coerceBoolean(options && options.safeMode, true);
+    const strictNative = coerceBoolean(options && options.strictNative, false);
     const debugMode = coerceBoolean(options && options.debugMode, false);
 
     return {
@@ -50,6 +51,7 @@
       includeCssElement: includeCssElement ? "true" : "false",
       inlineStyles: inlineStyles ? "true" : "false",
       safeMode: safeMode ? "true" : "false",
+      strictNative: strictNative ? "true" : "false",
       debugMode: debugMode ? "true" : "false",
     };
   }

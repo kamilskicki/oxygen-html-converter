@@ -26,9 +26,9 @@ class EnvironmentServiceTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_auto_as_default_class_handling_mode()
+    public function it_returns_native_as_default_class_handling_mode()
     {
-        $this->assertEquals('auto', $this->service->getClassHandlingMode());
+        $this->assertEquals('native', $this->service->getClassHandlingMode());
     }
 
     #[Test]

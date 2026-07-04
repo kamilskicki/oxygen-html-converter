@@ -13,19 +13,29 @@
       wrapInContainer: true,
       includeCssElement: true,
       inlineStyles: true,
-      safeMode: false,
+      safeMode: true,
+      strictNative: false,
     },
     safe: {
       wrapInContainer: true,
       includeCssElement: true,
       inlineStyles: false,
       safeMode: true,
+      strictNative: false,
+    },
+    strict: {
+      wrapInContainer: true,
+      includeCssElement: false,
+      inlineStyles: true,
+      safeMode: true,
+      strictNative: true,
     },
     fidelity: {
       wrapInContainer: false,
       includeCssElement: true,
       inlineStyles: true,
       safeMode: false,
+      strictNative: false,
     },
   };
 
@@ -61,6 +71,7 @@
       includeCssElement: preset.includeCssElement,
       inlineStyles: preset.inlineStyles,
       safeMode: preset.safeMode,
+      strictNative: preset.strictNative,
     };
   }
 
@@ -69,7 +80,8 @@
       wrapInContainer: coerceBoolean(options && options.wrapInContainer, true),
       includeCssElement: coerceBoolean(options && options.includeCssElement, true),
       inlineStyles: coerceBoolean(options && options.inlineStyles, true),
-      safeMode: coerceBoolean(options && options.safeMode, false),
+      safeMode: coerceBoolean(options && options.safeMode, true),
+      strictNative: coerceBoolean(options && options.strictNative, false),
     };
 
     const names = Object.keys(PRESET_VALUES);
@@ -79,7 +91,8 @@
         preset.wrapInContainer === normalized.wrapInContainer &&
         preset.includeCssElement === normalized.includeCssElement &&
         preset.inlineStyles === normalized.inlineStyles &&
-        preset.safeMode === normalized.safeMode
+        preset.safeMode === normalized.safeMode &&
+        preset.strictNative === normalized.strictNative
       ) {
         return name;
       }

@@ -52,19 +52,47 @@
     }
 
     try {
-      const dt = new DataTransfer();
-      dt.setData("text/plain", json);
+      const win = doc.defaultView || (typeof window !== "undefined" ? window : null);
+      const DataTransferConstructor =
+        (win && win.DataTransfer) ||
+        (typeof DataTransfer !== "undefined" ? DataTransfer : null);
+      const ClipboardEventConstructor =
+        (win && win.ClipboardEvent) ||
+        (typeof ClipboardEvent !== "undefined" ? ClipboardEvent : null);
 
-      const pasteEvent = new ClipboardEvent("paste", {
+      if (!DataTransferConstructor || !ClipboardEventConstructor) {
+        return false;
+      }
+
+      const dt = new DataTransferConstructor();
+      dt.setData("text/plain", json);
+      dt.setData("text", json);
+
+      const pasteEvent = new ClipboardEventConstructor("paste", {
         clipboardData: dt,
         bubbles: true,
         cancelable: true,
       });
 
-      return doc.dispatchEvent(pasteEvent);
+      return doc.dispatchEvent(pasteEvent) !== false;
     } catch (error) {
       return false;
     }
+  }
+
+  function dispatchConvertedPasteAfterDelay(doc, json, delay) {
+    const win = doc.defaultView || (typeof window !== "undefined" ? window : null);
+    const timeout = win && typeof win.setTimeout === "function"
+      ? function (callback, milliseconds) {
+          win.setTimeout(callback, milliseconds);
+        }
+      : setTimeout;
+
+    return new Promise(function (resolve) {
+      timeout(function () {
+        resolve(dispatchConvertedPaste(doc, json));
+      }, typeof delay === "number" ? delay : 50);
+    });
   }
 
   async function fallbackToClipboard(navigatorRef, json) {
@@ -87,6 +115,7 @@
     extractClipboardHtml: extractClipboardHtml,
     canInterceptPasteTarget: canInterceptPasteTarget,
     dispatchConvertedPaste: dispatchConvertedPaste,
+    dispatchConvertedPasteAfterDelay: dispatchConvertedPasteAfterDelay,
     fallbackToClipboard: fallbackToClipboard,
   };
 });
