@@ -37,10 +37,44 @@ class GlobalStyleRepositoryTest extends TestCase
         $result = (new GlobalStyleRepository())->saveFromPayload([
             'styleRouting' => [
                 'globalCss' => '@font-face { font-family: "Material Symbols Outlined"; }',
+                'routes' => [[
+                    'type' => 'global_asset',
+                    'destination' => 'global_styles',
+                    'label' => 'Material Symbols global style',
+                    'owner' => 'global',
+                    'cascadeOrder' => 20,
+                    'exportBehavior' => 'export_with_global_styles',
+                    'rollbackStore' => 'global_styles',
+                    'hash' => 'route-hash',
+                ]],
             ],
         ]);
 
         $this->assertTrue($result['saved']);
         $this->assertSame('@font-face { font-family: "Material Symbols Outlined"; }', $result['library']['styles'][0]['css']);
+        $this->assertSame('global', $result['library']['styles'][0]['owner']);
+        $this->assertSame(20, $result['library']['styles'][0]['cascadeOrder']);
+        $this->assertSame('export_with_global_styles', $result['library']['styles'][0]['exportBehavior']);
+        $this->assertSame('global_styles', $result['library']['styles'][0]['rollbackStore']);
+    }
+
+    public function testGetCombinedCssSortsByCascadeOrder(): void
+    {
+        $GLOBALS['__wp_options'][GlobalStyleRepository::OPTION_NAME] = wp_json_encode([
+            'version' => 1,
+            'styles' => [[
+                'id' => 'b',
+                'css' => '.b { color: blue; }',
+                'cascadeOrder' => 20,
+            ], [
+                'id' => 'a',
+                'css' => '.a { color: red; }',
+                'cascadeOrder' => 10,
+            ]],
+        ]);
+
+        $css = (new GlobalStyleRepository())->getCombinedCss();
+
+        $this->assertLessThan(strpos($css, '.b'), strpos($css, '.a'));
     }
 }

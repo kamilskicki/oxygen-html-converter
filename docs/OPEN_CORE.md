@@ -40,7 +40,7 @@ These named boundaries are reserved for Core-safe extension without moving publi
 | Boundary | Core hook or module surface | Intended extension owner |
 | --- | --- | --- |
 | Tailwind mode selection | `oxy_html_converter_convert_options`; `oxy_html_converter_feature_flags` | Core for common native mapping, Pro/future for full utility parity |
-| WindPress integration | `oxy_html_converter_feature_flags`; `OxyHtmlConverter\Services\WindPressCacheResetService` | Pro |
+| WindPress integration | `oxy_html_converter_feature_flags` (`windpress_integration`, `windpress_class_mode`, `windpress_cache_reset`); `OxyHtmlConverter\Services\WindPressCacheResetService` | Pro |
 | site-kit automation | `oxy_html_converter_conversion_result`; `oxy_html_converter_convert_response` | Pro |
 | advanced components | `oxy_html_converter_tree_builder`; `oxy_html_converter_conversion_result` | Future/Core when fixture-proven, otherwise Pro |
 | forms | `oxy_html_converter_tree_builder`; conversion audit/report hooks | Future safe Core strategy or Pro integration |

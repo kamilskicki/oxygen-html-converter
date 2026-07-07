@@ -88,6 +88,108 @@ class ClassStrategyServiceTest extends TestCase
         $this->assertSame('inline-block', $element['data']['properties']['design']['layout']['display']);
     }
 
+    public function testBuildSemanticClassProfileDeduplicatesRepeatedStylePatterns(): void
+    {
+        $profile = ClassStrategyService::buildSemanticClassProfile(
+            [
+                [
+                    'selector' => '.pricing-card',
+                    'declarations' => [
+                        'color' => '#123456',
+                        'padding' => '24px',
+                    ],
+                ],
+                [
+                    'selector' => '.feature-card',
+                    'declarations' => [
+                        'padding' => '24px',
+                        'color' => '#123456',
+                    ],
+                ],
+                [
+                    'selector' => '.hero',
+                    'declarations' => [
+                        'color' => '#654321',
+                    ],
+                ],
+            ],
+            ['pricing-card', 'feature-card', 'feature-card', 'hero']
+        );
+
+        $this->assertSame('ohc-card', $profile['aliases']['pricing-card']);
+        $this->assertSame('ohc-card', $profile['aliases']['feature-card']);
+        $this->assertSame(['feature-card', 'pricing-card'], $profile['duplicateStylePatterns'][0]['sourceClasses']);
+        $this->assertSame(3, $profile['duplicateStylePatterns'][0]['occurrences']);
+        $this->assertSame(2, $profile['duplicateStylePatterns'][0]['threshold']['minOccurrences']);
+        $this->assertSame(0.9, $profile['duplicateStylePatterns'][0]['threshold']['minConfidence']);
+        $this->assertSame(1, $profile['selectorCountReduction']);
+        $this->assertSame('dedupe_selector', $profile['classMap'][0]['action']);
+    }
+
+    public function testBuildSemanticClassProfileDoesNotDedupeWhenStateStylesDiffer(): void
+    {
+        $profile = ClassStrategyService::buildSemanticClassProfile(
+            [
+                [
+                    'selector' => '.primary-card',
+                    'declarations' => ['color' => '#123456'],
+                ],
+                [
+                    'selector' => '.secondary-card',
+                    'declarations' => ['color' => '#123456'],
+                ],
+                [
+                    'selector' => '.primary-card:hover',
+                    'declarations' => ['color' => '#000000'],
+                ],
+            ],
+            ['primary-card', 'secondary-card']
+        );
+
+        $this->assertSame([], $profile['aliases']);
+        $this->assertSame('state_or_responsive_mismatch', $profile['skippedPatterns'][0]['reason']);
+        $this->assertSame(2, $profile['skippedPatterns'][0]['threshold']['minOccurrences']);
+        $this->assertSame(0.9, $profile['skippedPatterns'][0]['threshold']['minConfidence']);
+    }
+
+    public function testBuildSemanticClassProfileNormalizesEquivalentSpacingPatterns(): void
+    {
+        $profile = ClassStrategyService::buildSemanticClassProfile(
+            [
+                [
+                    'selector' => '.pricing-card',
+                    'declarations' => ['padding' => '24px'],
+                ],
+                [
+                    'selector' => '.feature-card',
+                    'declarations' => [
+                        'padding-top' => '24px',
+                        'padding-right' => '24px',
+                        'padding-bottom' => '24px',
+                        'padding-left' => '24px',
+                    ],
+                ],
+            ],
+            ['pricing-card', 'feature-card']
+        );
+
+        $this->assertSame('ohc-card', $profile['aliases']['pricing-card']);
+        $this->assertSame('ohc-card', $profile['aliases']['feature-card']);
+    }
+
+    public function testOxygenNativeModeAppliesSemanticClassAliases(): void
+    {
+        $service = $this->createServiceWithWindPressMode(false);
+        $service->setClassAliases([
+            'pricing-card' => 'ohc-card',
+        ]);
+        $element = ['data' => ['properties' => []]];
+
+        $service->processClasses(['pricing-card'], $element);
+
+        $this->assertSame(['ohc-card'], $element['data']['properties']['settings']['advanced']['classes']);
+    }
+
     public function testOxygenNativeModePreservesUnsupportedFlexWrapUtilities(): void
     {
         $service = $this->createServiceWithWindPressMode(false);

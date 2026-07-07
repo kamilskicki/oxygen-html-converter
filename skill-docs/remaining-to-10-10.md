@@ -14,6 +14,8 @@ Current score for the Maximus site-kit workflow:
 
 This does not mean the commercial product is finished. The remaining items are productization and broader coverage, not blockers for the current Maximus native workflow.
 
+For the generic Core remediation status, use the PRD milestone notes and `quality-gates.md`; this file is specifically a Maximus proof retrospective.
+
 ## Completed 10/10 Items
 
 - Pages are rebuilt from Maximus fixtures.
@@ -30,7 +32,7 @@ This does not mean the commercial product is finished. The remaining items are p
 
 Current caveat:
 
-- `npm run test:maximus:matrix` still fails on baseline converter gates unrelated to the rebuilt Maximus site. Do not claim the matrix is fully green until those baseline converter cases are fixed or intentionally rescoped.
+- Treat the Maximus 10/10 score as a local site-kit proof, not as a promise of pixel-perfect output or full product completion for all HTML sources.
 
 ## Product Hardening Still Worth Doing
 

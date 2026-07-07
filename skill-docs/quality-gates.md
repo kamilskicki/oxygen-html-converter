@@ -2,9 +2,46 @@
 
 Use this checklist before claiming an Oxygen-native import is complete.
 
+## Current Core Remediation Gates
+
+Run from `D:\WordPress\Html to Oxygen\oxygen-html-converter-dev\plugins\core` before claiming Core PRD remediation is complete:
+
+```powershell
+composer install
+vendor\bin\phpunit
+vendor\bin\phpstan analyse --configuration=phpstan.neon.dist
+vendor\bin\phpcs --runtime-set ignore_warnings_on_exit 1 --standard=phpcs.xml.dist
+npm run test:js
+npm run test:fixtures:local
+npm run sync:docker
+npm run test:live
+npm run test:visual
+npm run check
+```
+
+Current M8-03 gate evidence, used by the M8-04 skill alignment:
+
+```text
+PHPUnit aggregate through npm run check: 794 tests, 6105 assertions
+JS suites: 12/12 passed
+PHPStan: OK
+PHPCS: OK
+Local fixture audit: 35 indexed fixtures
+Live gate: npm run test:live OK on oxyconvo6.localhost / oxyconvo6-wordpress-1
+Visual gate: npm run test:visual OK for 13 maintained fixtures
+```
+
+Failure artifacts:
+
+```text
+artifacts/live-gate
+artifacts/visual-review
+artifacts/visual-review/capture-failures
+```
+
 ## Structural Gates
 
-Required:
+Required for supported/no-code Core surfaces and fixtures whose `fixture-index.json` expectation has `codeBlocks.total = 0`:
 
 - 0 `HtmlCode` elements.
 - 0 `CssCode` elements.
@@ -15,6 +52,8 @@ Required:
 - No WordPress critical error.
 - Oxygen Builder opens target page/header/component.
 - Builder iframe contains expected content.
+
+For documented unsupported, form, or product-boundary fixtures, match the explicit `fixture-index.json` expected `HtmlCode`/fallback/unsupported counts instead of forcing zero. Safe Mode still forbids executable JavaScript fallback unless an unsafe mode has been intentionally enabled and verified.
 
 Useful shell check:
 
@@ -149,6 +188,8 @@ Expected:
 
 ## Test Gates
 
+For Maximus-specific site-kit work, also run the relevant Maximus commands. The older values below are example-specific and not the generic Core gate.
+
 Run:
 
 ```powershell
@@ -159,7 +200,7 @@ composer lint:phpstan
 composer lint:phpcs
 ```
 
-Current latest results:
+Historical Maximus example results:
 
 ```text
 PHPUnit: 384 tests, 1109 assertions

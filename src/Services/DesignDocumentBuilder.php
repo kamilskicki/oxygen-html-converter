@@ -6,10 +6,31 @@ namespace OxyHtmlConverter\Services;
 
 use DOMDocument;
 use DOMElement;
+use OxyHtmlConverter\ElementTypes;
 
 class DesignDocumentBuilder
 {
     private const TOKEN_LIMIT = 16;
+    private const COMPONENT_MIN_OCCURRENCES = 3;
+    private const COMPONENT_MIN_CONFIDENCE = 0.75;
+    private const COMPONENT_MIN_EDITABLE_PROPERTIES = 1;
+
+    /**
+     * @var array<string, string>
+     */
+    private const COMPONENT_NODE_TYPE_TAGS = [
+        ElementTypes::CONTAINER => 'div',
+        ElementTypes::CONTAINER_LINK => 'a',
+        ElementTypes::TEXT => 'p',
+        ElementTypes::TEXT_LINK => 'a',
+        ElementTypes::RICH_TEXT => 'div',
+        ElementTypes::IMAGE => 'img',
+        ElementTypes::SVG_ICON => 'svg',
+        ElementTypes::HTML5_VIDEO => 'video',
+        ElementTypes::HTML_CODE => 'html',
+        ElementTypes::CSS_CODE => 'style',
+        ElementTypes::JAVASCRIPT_CODE => 'script',
+    ];
 
     public function __construct(
         private readonly ?TailwindDetector $tailwindDetector = null
@@ -26,11 +47,21 @@ class DesignDocumentBuilder
         $document = $this->loadDocument($html);
         $cssText = $document instanceof DOMDocument ? $this->extractCssText($document) : '';
         $classTokens = $document instanceof DOMDocument ? $this->extractClassTokens($document) : [];
-        $surface = $this->summarizeConvertedSurface($result['element'] ?? []);
+        $surface = $this->summarizeConversionResultSurface($result);
         $sections = $document instanceof DOMDocument ? $this->buildSections($document) : [];
-        $componentCandidates = $document instanceof DOMDocument ? $this->detectComponentCandidates($document) : [];
+        $convertedRoot = is_array($result['element'] ?? null) ? $result['element'] : [];
+        $componentCandidates = $document instanceof DOMDocument ? $this->detectComponentCandidates($document, $convertedRoot) : [];
         $tokens = $this->buildTokens($cssText, $classTokens, $document);
-        $classStrategy = $this->buildClassStrategy($result, $classTokens);
+        $semanticClassProfile = ClassStrategyService::buildSemanticClassProfile((new CssParser())->parse($cssText), $classTokens);
+        $classApplications = $document instanceof DOMDocument
+            ? $this->buildSemanticClassApplications($document, $semanticClassProfile['aliases'])
+            : [];
+        $classStrategy = array_merge($this->buildClassStrategy($result, $classTokens), $semanticClassProfile);
+        $oxygenGlobalSettings = (new OxygenGlobalSettingsInferenceService())->infer($tokens, $cssText);
+        $selectorPayload = is_array($result['selectorPayload'] ?? null) ? $result['selectorPayload'] : [];
+        $selectors = is_array($selectorPayload['selectors'] ?? null) ? $selectorPayload['selectors'] : [];
+        $stats = is_array($result['stats'] ?? null) ? $result['stats'] : [];
+        $unsupportedItems = is_array($stats['unsupportedItems'] ?? null) ? $stats['unsupportedItems'] : [];
 
         $summary = [
             'sectionCount' => count($sections),
@@ -38,10 +69,26 @@ class DesignDocumentBuilder
             'colorTokenCount' => count($tokens['colors']),
             'fontTokenCount' => count($tokens['fonts']),
             'spacingTokenCount' => count($tokens['spacing']),
+            'imageTokenCount' => count($tokens['images']),
+            'measurementTokenCount' => count($tokens['measurements']),
+            'numberTokenCount' => count($tokens['numbers']),
+            'semanticClassCount' => count($semanticClassProfile['classMap']),
+            'duplicateStylePatternCount' => count($semanticClassProfile['duplicateStylePatterns']),
+            'classApplicationCount' => count($classApplications),
             'buttonVariantCount' => $this->countButtonVariants($document),
             'fallbackCss' => $surface['cssCodeBlocks'] > 0 || trim((string) ($result['extractedCss'] ?? '')) !== '',
+            'totalNodes' => $surface['totalNodes'],
+            'codeBlocksTotal' => $surface['htmlCodeBlocks'] + $surface['cssCodeBlocks'] + $surface['javascriptCodeBlocks'],
             'htmlCodeBlocks' => $surface['htmlCodeBlocks'],
             'cssCodeBlocks' => $surface['cssCodeBlocks'],
+            'javascriptCodeBlocks' => $surface['javascriptCodeBlocks'],
+            'componentNodes' => $surface['componentNodes'],
+            'assetNodes' => $surface['assetNodes'],
+            'imageNodes' => $surface['imageNodes'],
+            'videoNodes' => $surface['videoNodes'],
+            'classAssignments' => $surface['classAssignments'],
+            'selectorCount' => count($selectors),
+            'unsupportedCount' => count($unsupportedItems),
         ];
 
         $designDocument = [
@@ -58,6 +105,20 @@ class DesignDocumentBuilder
             'classStrategy' => $classStrategy,
             'followUp' => $this->buildFollowUp($summary, $componentCandidates, $tokens, $classStrategy),
         ];
+
+        if ($semanticClassProfile['classMap'] !== [] || $classApplications !== []) {
+            $designDocument['designProfile'] = [
+                'version' => 1,
+                'semanticClasses' => $semanticClassProfile['classMap'],
+                'duplicateStylePatterns' => $semanticClassProfile['duplicateStylePatterns'],
+                'skippedStylePatterns' => $semanticClassProfile['skippedPatterns'],
+                'elementApplications' => $classApplications,
+            ];
+        }
+
+        if ($oxygenGlobalSettings !== []) {
+            $designDocument['oxygenGlobalSettings'] = $oxygenGlobalSettings;
+        }
 
         if (function_exists('apply_filters')) {
             $filtered = apply_filters('oxy_html_converter_design_document', $designDocument, $html, $result);
@@ -263,42 +324,17 @@ class DesignDocumentBuilder
     /**
      * @return list<array<string, mixed>>
      */
-    private function detectComponentCandidates(DOMDocument $document): array
+    private function detectComponentCandidates(DOMDocument $document, array $convertedRoot): array
     {
         $structures = [];
 
-        foreach ($document->getElementsByTagName('*') as $element) {
-            if (!$element instanceof DOMElement || !$this->canBecomeReusableComponent($element)) {
-                continue;
-            }
-
-            $childTags = $this->directChildElementTags($element);
-
-            if (count($childTags) < 2) {
-                continue;
-            }
-
-            $signature = strtolower($element->tagName) . '[' . implode(',', $childTags) . ']';
-
-            if (!isset($structures[$signature])) {
-                $structures[$signature] = [
-                    'signature' => $signature,
-                    'tag' => strtolower($element->tagName),
-                    'count' => 0,
-                    'classes' => [],
-                ];
-            }
-
-            $structures[$signature]['count']++;
-            $structures[$signature]['classes'] = array_values(array_unique(array_merge(
-                $structures[$signature]['classes'],
-                array_slice($this->classesForElement($element), 0, 5)
-            )));
+        if ($convertedRoot !== []) {
+            $this->collectComponentStructuresFromTree($convertedRoot, $structures);
         }
 
         $candidates = array_values(array_filter(
             $structures,
-            static fn (array $structure): bool => $structure['count'] >= 3
+            static fn (array $structure): bool => $structure['count'] >= self::COMPONENT_MIN_OCCURRENCES
         ));
 
         usort($candidates, static function (array $left, array $right): int {
@@ -306,35 +342,248 @@ class DesignDocumentBuilder
         });
 
         return array_map(function (array $candidate): array {
-            return [
+            $count = (int) $candidate['count'];
+
+            $record = [
                 'signature' => $candidate['signature'],
                 'tag' => $candidate['tag'],
-                'count' => $candidate['count'],
+                'role' => (string) ($candidate['role'] ?? ''),
+                'count' => $count,
+                'occurrences' => $count,
+                'confidence' => 1.0,
+                'threshold' => [
+                    'minOccurrences' => self::COMPONENT_MIN_OCCURRENCES,
+                    'minConfidence' => self::COMPONENT_MIN_CONFIDENCE,
+                    'minEditableProperties' => self::COMPONENT_MIN_EDITABLE_PROPERTIES,
+                ],
                 'suggestedName' => $this->suggestComponentName($candidate['tag'], $candidate['classes']),
                 'classes' => array_slice($candidate['classes'], 0, 8),
+                'instances' => array_values(is_array($candidate['instances'] ?? null) ? $candidate['instances'] : []),
             ];
+
+            $record['documentTree'] = $candidate['documentTree'];
+            $record['componentProperties'] = (new OxygenBlockRepository())->buildComponentPropertiesFromTree(
+                $record['documentTree'],
+                $record
+            );
+            $record['editablePropertyCount'] = count($record['componentProperties']['targets']);
+            $record['editablePropertiesSufficient'] = $record['editablePropertyCount'] >= self::COMPONENT_MIN_EDITABLE_PROPERTIES;
+            $record['eligible'] = $record['editablePropertiesSufficient'];
+            $record['reason'] = $record['eligible'] ? '' : 'insufficient_editable_properties';
+            $record['reasons'] = $record['eligible'] ? [] : ['insufficient_editable_properties'];
+
+            return $record;
         }, array_slice($candidates, 0, 12));
     }
 
-    private function canBecomeReusableComponent(DOMElement $element): bool
-    {
-        return in_array(strtolower($element->tagName), ['article', 'aside', 'div', 'li', 'section'], true);
-    }
-
     /**
-     * @return list<string>
+     * @param array<string, mixed> $node
+     * @param array<string, array<string, mixed>> $structures
      */
-    private function directChildElementTags(DOMElement $element): array
+    private function collectComponentStructuresFromTree(array $node, array &$structures, array $path = []): void
     {
-        $tags = [];
+        if ($this->treeNodeCanBecomeReusableComponent($node)) {
+            $signature = $this->componentSignatureForTreeNode($node);
+            if ($signature !== '') {
+                $classes = array_slice($this->classesForTreeNode($node), 0, 5);
+                $role = $this->componentRoleForClasses($classes);
+                $structureKey = $this->componentStructureKey($signature, $role);
+                $tag = explode('[', $signature)[0];
+                if (!isset($structures[$structureKey])) {
+                    $structures[$structureKey] = [
+                        'signature' => $signature,
+                        'tag' => $tag,
+                        'role' => $role,
+                        'count' => 0,
+                        'classes' => [],
+                        'documentTree' => $this->componentDocumentTreeFromNode($node),
+                        'instances' => [],
+                    ];
+                }
 
-        foreach ($element->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                $tags[] = strtolower($child->tagName);
+                $structures[$structureKey]['count']++;
+                $structures[$structureKey]['classes'] = array_values(array_unique(array_merge(
+                    is_array($structures[$structureKey]['classes'] ?? null) ? $structures[$structureKey]['classes'] : [],
+                    $classes
+                )));
+                $nodeId = $node['id'] ?? null;
+                $structures[$structureKey]['instances'][] = [
+                    'nodeId' => is_int($nodeId) ? $nodeId : 0,
+                    'tag' => $tag,
+                    'classes' => $classes,
+                    'path' => implode('.', $path),
+                ];
             }
         }
 
-        return $tags;
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $index => $child) {
+            if (is_array($child)) {
+                $this->collectComponentStructuresFromTree($child, $structures, array_merge($path, [(int) $index]));
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function componentDocumentTreeFromNode(array $node): array
+    {
+        return [
+            'root' => [
+                'id' => 0,
+                'data' => [
+                    'type' => 'root',
+                    'properties' => [],
+                ],
+                'children' => [
+                    $node,
+                ],
+            ],
+            '_nextNodeId' => $this->nextNodeIdForTree($node),
+            'exportedLookupTable' => [],
+            'status' => 'exported',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function componentSignatureForTreeNode(array $node): string
+    {
+        $tag = $this->tagForTreeNode($node);
+        if ($tag === '' || $tag === 'root') {
+            return '';
+        }
+
+        $childTags = [];
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+
+            $childTag = $this->tagForTreeNode($child);
+            if ($childTag !== '') {
+                $childTags[] = $childTag;
+            }
+        }
+
+        if ($childTags === []) {
+            return '';
+        }
+
+        return $tag . '[' . implode(',', $childTags) . ']';
+    }
+
+    private function componentStructureKey(string $signature, string $role): string
+    {
+        return $role === '' ? $signature : $signature . '|role:' . $role;
+    }
+
+    /**
+     * @param list<string> $classes
+     */
+    private function componentRoleForClasses(array $classes): string
+    {
+        $signature = strtolower(implode(' ', $classes));
+
+        foreach ([
+            'card' => ['card', 'tile', 'panel'],
+            'testimonial' => ['testimonial', 'review'],
+            'pricing' => ['pricing', 'price'],
+            'feature' => ['feature', 'benefit'],
+            'nav' => ['nav', 'menu'],
+            'team' => ['team'],
+            'logo' => ['logo'],
+        ] as $role => $needles) {
+            foreach ($needles as $needle) {
+                if (str_contains($signature, $needle)) {
+                    return $role;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function tagForTreeNode(array $node): string
+    {
+        foreach ([
+            $node['data']['properties']['settings']['advanced']['tag'] ?? null,
+            $node['data']['properties']['design']['tag'] ?? null,
+        ] as $tag) {
+            if (is_string($tag) && trim($tag) !== '') {
+                return strtolower(trim($tag));
+            }
+        }
+
+        $type = is_string($node['data']['type'] ?? null) ? (string) $node['data']['type'] : '';
+        if ($type === 'root') {
+            return 'root';
+        }
+
+        return self::COMPONENT_NODE_TYPE_TAGS[$type] ?? '';
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function treeNodeCanBecomeReusableComponent(array $node): bool
+    {
+        return in_array($this->tagForTreeNode($node), ['article', 'aside', 'div', 'li', 'section'], true);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @return list<string>
+     */
+    private function classesForTreeNode(array $node): array
+    {
+        $classes = [];
+        foreach ([
+            $node['data']['properties']['settings']['advanced']['classes'] ?? null,
+            $node['data']['properties']['meta']['classes'] ?? null,
+        ] as $source) {
+            if (!is_array($source)) {
+                continue;
+            }
+
+            foreach ($source as $className) {
+                if (is_string($className) && trim($className) !== '') {
+                    $classes[] = trim($className);
+                }
+            }
+        }
+
+        return array_values(array_unique($classes));
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function nextNodeIdForTree(array $node): int
+    {
+        $maxId = $this->maxNodeId($node);
+
+        return max(1, $maxId + 1);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function maxNodeId(array $node): int
+    {
+        $max = is_int($node['id'] ?? null) ? (int) $node['id'] : 0;
+
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (is_array($child)) {
+                $max = max($max, $this->maxNodeId($child));
+            }
+        }
+
+        return $max;
     }
 
     /**
@@ -344,8 +593,12 @@ class DesignDocumentBuilder
     {
         $signature = strtolower(implode(' ', $classes));
 
-        foreach (['card', 'testimonial', 'review', 'feature', 'service', 'price', 'pricing', 'team', 'logo', 'item'] as $needle) {
+        foreach (['card', 'testimonial', 'review', 'feature', 'service', 'price', 'pricing', 'team', 'logo', 'nav', 'menu', 'item'] as $needle) {
             if (str_contains($signature, $needle)) {
+                if ($needle === 'nav' || $needle === 'menu') {
+                    return 'nav-item';
+                }
+
                 return $needle === 'price' ? 'pricing-card' : $needle;
             }
         }
@@ -356,7 +609,7 @@ class DesignDocumentBuilder
     /**
      * @param list<string> $classTokens
      *
-     * @return array{colors: list<array<string, mixed>>, fonts: list<array<string, mixed>>, spacing: list<array<string, mixed>>}
+     * @return array{colors: list<array<string, mixed>>, fonts: list<array<string, mixed>>, spacing: list<array<string, mixed>>, images: list<array<string, mixed>>, measurements: list<array<string, mixed>>, numbers: list<array<string, mixed>>}
      */
     private function buildTokens(string $cssText, array $classTokens, ?DOMDocument $document): array
     {
@@ -372,6 +625,18 @@ class DesignDocumentBuilder
             'spacing' => $this->buildTokenList(
                 $this->extractSpacingValues($cssText),
                 static fn (string $value): string => 'space-' . strtolower(str_replace(['.', '%'], ['-', 'pct'], $value))
+            ),
+            'images' => $this->buildTokenList(
+                $this->extractImageValues($cssText, $document),
+                fn (string $value): string => 'image-' . $this->slugForImageUrl($value)
+            ),
+            'measurements' => $this->buildTokenList(
+                $this->extractMeasurementValues($cssText),
+                static fn (string $value): string => 'measure-' . strtolower(str_replace(['.', '%'], ['-', 'pct'], $value))
+            ),
+            'numbers' => $this->buildTokenList(
+                $this->extractNumberValues($cssText),
+                static fn (string $value): string => 'number-' . strtolower(str_replace(['.', '+'], ['-', 'plus'], ltrim($value, '+')))
             ),
         ];
     }
@@ -510,6 +775,191 @@ class DesignDocumentBuilder
     }
 
     /**
+     * @return list<string>
+     */
+    private function extractImageValues(string $cssText, ?DOMDocument $document): array
+    {
+        $values = [];
+
+        if (preg_match_all('/url\(\s*(["\']?)(.*?)\1\s*\)/i', $cssText, $matches)) {
+            foreach ($matches[2] as $url) {
+                $url = trim($url);
+                if ($this->isSupportedImageTokenUrl($url)) {
+                    $values[] = $url;
+                }
+            }
+        }
+
+        if ($document instanceof DOMDocument) {
+            foreach ($document->getElementsByTagName('img') as $image) {
+                if ($image instanceof DOMElement && $this->isSupportedImageTokenUrl($image->getAttribute('src'))) {
+                    $values[] = trim($image->getAttribute('src'));
+                }
+            }
+
+            foreach ($document->getElementsByTagName('source') as $source) {
+                if (!$source instanceof DOMElement) {
+                    continue;
+                }
+
+                foreach ($this->extractSrcsetUrls($source->getAttribute('srcset')) as $url) {
+                    if ($this->isSupportedImageTokenUrl($url)) {
+                        $values[] = $url;
+                    }
+                }
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractMeasurementValues(string $cssText): array
+    {
+        $values = [];
+        $properties = [
+            'font-size',
+            'line-height',
+            'letter-spacing',
+            'text-indent',
+            'border-radius',
+            'border-top-left-radius',
+            'border-top-right-radius',
+            'border-bottom-right-radius',
+            'border-bottom-left-radius',
+            'width',
+            'max-width',
+            'min-width',
+            'height',
+            'max-height',
+            'min-height',
+            'top',
+            'right',
+            'bottom',
+            'left',
+        ];
+
+        $pattern = '/(?:' . implode('|', array_map('preg_quote', $properties)) . ')\s*:\s*([^;}{]+)/i';
+        if (!preg_match_all($pattern, $cssText, $matches)) {
+            return [];
+        }
+
+        foreach ($matches[1] as $declarationValue) {
+            if (!preg_match_all('/-?\d*\.?\d+(?:px|rem|em|vw|vh|%|ch|fr)/i', $declarationValue, $valueMatches)) {
+                continue;
+            }
+
+            foreach ($valueMatches[0] as $value) {
+                $normalized = strtolower($value);
+                if ($normalized !== '0px' && $normalized !== '0rem' && $normalized !== '0em') {
+                    $values[] = $normalized;
+                }
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractNumberValues(string $cssText): array
+    {
+        $values = [];
+        $properties = [
+            'opacity',
+            'z-index',
+            'font-weight',
+            'flex-grow',
+            'flex-shrink',
+            'order',
+            'orphans',
+            'widows',
+        ];
+
+        $pattern = '/(?:' . implode('|', array_map('preg_quote', $properties)) . ')\s*:\s*([+-]?\d*\.?\d+)\s*(?:!important)?\s*(?:;|$)/i';
+        if (!preg_match_all($pattern, $cssText, $matches)) {
+            return [];
+        }
+
+        foreach ($matches[1] as $number) {
+            $normalized = $this->normalizeNumberTokenValue($number);
+            if ($normalized !== null) {
+                $values[] = $normalized;
+            }
+        }
+
+        return $values;
+    }
+
+    private function normalizeNumberTokenValue(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '' || !is_numeric($value)) {
+            return null;
+        }
+
+        $number = (float) $value;
+        if (!is_finite($number)) {
+            return null;
+        }
+
+        if ($number == (int) $number) {
+            return (string) (int) $number;
+        }
+
+        $normalized = rtrim(rtrim(sprintf('%.6F', $number), '0'), '.');
+
+        return $normalized === '-0' ? '0' : $normalized;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractSrcsetUrls(string $srcset): array
+    {
+        $urls = [];
+
+        foreach (explode(',', $srcset) as $candidate) {
+            $parts = preg_split('/\s+/', trim($candidate)) ?: [];
+            $url = trim((string) ($parts[0] ?? ''));
+            if ($url !== '') {
+                $urls[] = $url;
+            }
+        }
+
+        return $urls;
+    }
+
+    private function isSupportedImageTokenUrl(string $url): bool
+    {
+        $url = trim($url);
+        if ($url === '' || preg_match('/[\s<>{}]/', $url) === 1) {
+            return false;
+        }
+
+        if (preg_match('/^(?:javascript|vbscript|data):/i', $url) === 1) {
+            return false;
+        }
+
+        return preg_match('#^https?://#i', $url) === 1
+            || preg_match('#^/(?!/)#', $url) === 1
+            || preg_match('#^[A-Za-z0-9_.~/-]+\.(?:avif|gif|jpe?g|png|svg|webp)(?:[?\#].*)?$#i', $url) === 1;
+    }
+
+    private function slugForImageUrl(string $url): string
+    {
+        $path = (string) (parse_url($url, PHP_URL_PATH) ?: $url);
+        $base = pathinfo($path, PATHINFO_FILENAME);
+        $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $base) ?? '');
+        $slug = trim($slug, '-');
+
+        return $slug === '' ? substr(sha1($url), 0, 8) : $slug;
+    }
+
+    /**
      * @param list<string> $values
      * @param callable(string): string $nameBuilder
      *
@@ -536,6 +986,7 @@ class DesignDocumentBuilder
         $tokens = [];
 
         foreach (array_slice($counts, 0, self::TOKEN_LIMIT, true) as $value => $uses) {
+            $value = (string) $value;
             $tokens[] = [
                 'value' => $value,
                 'uses' => $uses,
@@ -560,7 +1011,7 @@ class DesignDocumentBuilder
         $selectorPayload = is_array($result['selectorPayload'] ?? null) ? $result['selectorPayload'] : [];
         $selectorCount = count(is_array($selectorPayload['selectors'] ?? null) ? $selectorPayload['selectors'] : []);
 
-        if ($tailwindClassCount >= 20 && $tailwindClassCount > $customClassCount) {
+        if ($tailwindClassCount >= 20 && $tailwindClassCount > $customClassCount && $this->isWindPressRecommendationEnabled()) {
             $recommendation = 'windpress';
         } elseif ($selectorCount > 0 && $customClassCount >= $tailwindClassCount) {
             $recommendation = 'native';
@@ -574,6 +1025,21 @@ class DesignDocumentBuilder
             'tailwindClassCount' => $tailwindClassCount,
             'recommendation' => $recommendation,
         ];
+    }
+
+    private function isWindPressRecommendationEnabled(): bool
+    {
+        if (!function_exists('apply_filters')) {
+            return false;
+        }
+
+        $flags = (array) apply_filters('oxy_html_converter_feature_flags', [
+            'windpress_integration' => false,
+            'windpress_class_mode' => false,
+        ]);
+
+        return !empty($flags['windpress_integration'])
+            && !empty($flags['windpress_class_mode']);
     }
 
     /**
@@ -591,6 +1057,52 @@ class DesignDocumentBuilder
         }
 
         return $count;
+    }
+
+    /**
+     * @param array<string, string> $aliases
+     * @return list<array<string, mixed>>
+     */
+    private function buildSemanticClassApplications(DOMDocument $document, array $aliases): array
+    {
+        if ($aliases === []) {
+            return [];
+        }
+
+        $applications = [];
+        $index = 0;
+
+        foreach ($document->getElementsByTagName('*') as $element) {
+            if (!$element instanceof DOMElement || !$element->hasAttribute('class')) {
+                continue;
+            }
+
+            $sourceClasses = [];
+            $appliedClasses = [];
+            foreach ($this->classesForElement($element) as $className) {
+                if (!isset($aliases[$className])) {
+                    continue;
+                }
+
+                $sourceClasses[] = $className;
+                $appliedClasses[] = $aliases[$className];
+            }
+
+            if ($sourceClasses === []) {
+                continue;
+            }
+
+            $index++;
+            $applications[] = [
+                'index' => $index,
+                'tag' => strtolower($element->tagName),
+                'id' => $element->getAttribute('id'),
+                'sourceClasses' => array_values(array_unique($sourceClasses)),
+                'appliedClasses' => array_values(array_unique($appliedClasses)),
+            ];
+        }
+
+        return $applications;
     }
 
     private function countButtonVariants(?DOMDocument $document): int
@@ -621,26 +1133,48 @@ class DesignDocumentBuilder
     }
 
     /**
-     * @param mixed $element
+     * @param array<string, mixed> $result
      *
-     * @return array{htmlCodeBlocks: int, cssCodeBlocks: int, totalNodes: int}
+     * @return array{htmlCodeBlocks: int, cssCodeBlocks: int, javascriptCodeBlocks: int, componentNodes: int, assetNodes: int, imageNodes: int, videoNodes: int, classAssignments: int, totalNodes: int}
      */
-    private function summarizeConvertedSurface(mixed $element): array
+    private function summarizeConversionResultSurface(array $result): array
     {
         $summary = [
             'htmlCodeBlocks' => 0,
             'cssCodeBlocks' => 0,
+            'javascriptCodeBlocks' => 0,
+            'componentNodes' => 0,
+            'assetNodes' => 0,
+            'imageNodes' => 0,
+            'videoNodes' => 0,
+            'classAssignments' => 0,
             'totalNodes' => 0,
         ];
 
-        $this->walkConvertedElement($element, $summary);
+        $this->walkConvertedElement($result['element'] ?? null, $summary);
+
+        foreach (['cssElement', 'headLinkElements', 'headScriptElements', 'iconScriptElements'] as $key) {
+            $value = $result[$key] ?? null;
+            if ($key === 'cssElement') {
+                $this->walkConvertedElement($value, $summary);
+                continue;
+            }
+
+            if (!is_array($value)) {
+                continue;
+            }
+
+            foreach ($value as $node) {
+                $this->walkConvertedElement($node, $summary);
+            }
+        }
 
         return $summary;
     }
 
     /**
      * @param mixed $element
-     * @param array{htmlCodeBlocks: int, cssCodeBlocks: int, totalNodes: int} $summary
+     * @param array{htmlCodeBlocks: int, cssCodeBlocks: int, javascriptCodeBlocks: int, componentNodes: int, assetNodes: int, imageNodes: int, videoNodes: int, classAssignments: int, totalNodes: int} $summary
      */
     private function walkConvertedElement(mixed $element, array &$summary): void
     {
@@ -649,7 +1183,8 @@ class DesignDocumentBuilder
         }
 
         $summary['totalNodes']++;
-        $type = (string) ($element['type'] ?? '');
+        $data = is_array($element['data'] ?? null) ? $element['data'] : [];
+        $type = (string) ($data['type'] ?? $element['type'] ?? '');
 
         if (str_ends_with($type, 'HtmlCode')) {
             $summary['htmlCodeBlocks']++;
@@ -657,6 +1192,29 @@ class DesignDocumentBuilder
 
         if (str_ends_with($type, 'CssCode')) {
             $summary['cssCodeBlocks']++;
+        }
+
+        if (str_ends_with($type, 'JavaScriptCode')) {
+            $summary['javascriptCodeBlocks']++;
+        }
+
+        if ($type === ElementTypes::COMPONENT || str_ends_with($type, 'Component')) {
+            $summary['componentNodes']++;
+        }
+
+        if ($type === ElementTypes::IMAGE || str_ends_with($type, 'Image')) {
+            $summary['imageNodes']++;
+            $summary['assetNodes']++;
+        }
+
+        if ($type === ElementTypes::HTML5_VIDEO || str_ends_with($type, 'Html5Video')) {
+            $summary['videoNodes']++;
+            $summary['assetNodes']++;
+        }
+
+        $classes = $element['data']['properties']['settings']['advanced']['classes'] ?? [];
+        if (is_array($classes)) {
+            $summary['classAssignments'] += count(array_filter($classes, 'is_string'));
         }
 
         $children = $element['children'] ?? [];
@@ -686,7 +1244,14 @@ class DesignDocumentBuilder
             $items[] = 'Review reusable component candidates before saving them into the brand library.';
         }
 
-        if (($tokens['colors'] ?? []) !== [] || ($tokens['fonts'] ?? []) !== [] || ($tokens['spacing'] ?? []) !== []) {
+        if (
+            ($tokens['colors'] ?? []) !== []
+            || ($tokens['fonts'] ?? []) !== []
+            || ($tokens['spacing'] ?? []) !== []
+            || ($tokens['images'] ?? []) !== []
+            || ($tokens['measurements'] ?? []) !== []
+            || ($tokens['numbers'] ?? []) !== []
+        ) {
             $items[] = 'Map detected design tokens to Oxygen global colors, fonts, spacing, and selector variables.';
         }
 

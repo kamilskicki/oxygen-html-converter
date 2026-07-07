@@ -86,15 +86,12 @@ class AnimationDetector
     /**
      * Get consumed classes that are safe to remove from the element.
      *
-     * Scroll-reveal base classes are kept because source CSS and JS may still
-     * depend on them for the final visual state and timing.
+     * Scroll-reveal classes are removed because Core safe mode strips the
+     * source JavaScript that would otherwise flip them into the visible state.
      */
     public function getRemovableConsumedClasses(): array
     {
-        return array_values(array_filter(
-            $this->lastConsumedClasses,
-            static fn (string $class): bool => !in_array($class, self::SCROLL_REVEAL_CLASSES, true)
-        ));
+        return array_values(array_unique($this->lastConsumedClasses));
     }
 
     /**
@@ -168,8 +165,12 @@ class AnimationDetector
             return null;
         }
 
-        // Look up CSS declarations for this class
+        // Look up CSS declarations for this class. Class names alone are too
+        // broad; require the hidden-state CSS that makes this a reveal pattern.
         $declarations = $this->cssRulesBySelector['.' . $matchedClass] ?? [];
+        if (!$this->hasScrollRevealEvidence($matchedClass, $declarations)) {
+            return null;
+        }
 
         // Determine animation type and distance from transform
         $type = 'fade';
@@ -198,11 +199,11 @@ class AnimationDetector
             }
         }
 
-        // Delay from stagger classes
+        // Delay from stagger/reveal-delay classes
         $delay = 0;
         foreach ($classes as $cls) {
-            if (preg_match('/^stagger-(\d+)$/', $cls, $m)) {
-                $delay = (int) $m[1] * self::STAGGER_DELAY_MS;
+            if (preg_match('/^(?:stagger|reveal-delay|delay)-(\d+)$/', $cls, $m)) {
+                $delay = $this->parseDelayForClass($cls, (int) $m[1]);
                 $this->lastConsumedClasses[] = $cls;
                 $this->consumedCssSelectors[] = '.' . $cls;
             }
@@ -211,8 +212,10 @@ class AnimationDetector
         // Mark consumed
         $this->lastConsumedClasses[] = $matchedClass;
         $this->consumedCssSelectors[] = '.' . $matchedClass;
-        // Also consume the .visible variant
-        $this->consumedCssSelectors[] = '.' . $matchedClass . '.visible';
+        // Also consume common JS-visible state variants.
+        foreach (['visible', 'is-visible', 'in-view', 'active', 'show', 'shown'] as $stateClass) {
+            $this->consumedCssSelectors[] = '.' . $matchedClass . '.' . $stateClass;
+        }
 
         return [
             'type' => $type,
@@ -222,6 +225,42 @@ class AnimationDetector
             'distance' => $distance,
             'once' => true,
         ];
+    }
+
+    /**
+     * @param array<string, string> $declarations
+     */
+    private function hasScrollRevealEvidence(string $matchedClass, array $declarations): bool
+    {
+        if (isset($declarations['opacity']) && trim((string) $declarations['opacity']) === '0') {
+            return true;
+        }
+
+        if (isset($declarations['visibility']) && strtolower(trim((string) $declarations['visibility'])) === 'hidden') {
+            return true;
+        }
+
+        foreach (['visible', 'is-visible', 'in-view', 'active', 'show', 'shown'] as $stateClass) {
+            if (isset($this->cssRulesBySelector['.' . $matchedClass . '.' . $stateClass])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function parseDelayForClass(string $className, int $index): int
+    {
+        $declarations = $this->cssRulesBySelector['.' . $className] ?? [];
+        $transitionDelay = $declarations['transition-delay'] ?? null;
+        if (is_string($transitionDelay)) {
+            $parsed = $this->parseTransitionDuration($transitionDelay);
+            if ($parsed > 0) {
+                return $parsed;
+            }
+        }
+
+        return $index * self::STAGGER_DELAY_MS;
     }
 
     /**

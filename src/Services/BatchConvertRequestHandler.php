@@ -17,7 +17,8 @@ class BatchConvertRequestHandler
         private readonly ConversionAuditBuilder $auditBuilder,
         private readonly OutputValidator $outputValidator,
         private readonly ?DesignDocumentBuilder $designDocumentBuilder = null,
-        private readonly ?ImportPlanBuilder $importPlanBuilder = null
+        private readonly ?ImportPlanBuilder $importPlanBuilder = null,
+        private readonly ?OxygenTokenBindingService $tokenBindingService = null
     )
     {
     }
@@ -47,6 +48,9 @@ class BatchConvertRequestHandler
 
             if (!empty($result['success'])) {
                 $designDocument = $this->getDesignDocumentBuilder()->build($html, $result);
+                $result = $this->getTokenBindingService()->applyToConversionResult($result, [
+                    'designDocument' => $designDocument,
+                ]);
                 $validationErrors = $this->validatePayload($result);
                 $resultForPlan = $validationErrors !== []
                     ? array_merge($result, ['validationErrors' => $validationErrors])
@@ -102,6 +106,7 @@ class BatchConvertRequestHandler
                         'tree_json_string' => wp_json_encode($documentTree),
                     ], JSON_PRETTY_PRINT),
                     'stats' => $result['stats'],
+                    'tokenUsage' => is_array($result['tokenUsage'] ?? null) ? $result['tokenUsage'] : [],
                     'designDocument' => $designDocument,
                     'importPlan' => $importPlan,
                     'audit' => $this->auditBuilder->build($resultWithAnalysis, $options),
@@ -121,6 +126,7 @@ class BatchConvertRequestHandler
                 'success' => false,
                 'message' => $result['error'] ?? __('Batch conversion failed.', 'oxygen-html-converter'),
                 'errors' => $result['errors'] ?? [],
+                'stats' => is_array($result['stats'] ?? null) ? $result['stats'] : [],
                 'audit' => $this->auditBuilder->build($result, $options),
             ];
             $totalStats['errors'] = array_merge($totalStats['errors'], $result['errors'] ?? []);
@@ -176,5 +182,10 @@ class BatchConvertRequestHandler
     private function getImportPlanBuilder(): ImportPlanBuilder
     {
         return $this->importPlanBuilder ?? new ImportPlanBuilder();
+    }
+
+    private function getTokenBindingService(): OxygenTokenBindingService
+    {
+        return $this->tokenBindingService ?? new OxygenTokenBindingService();
     }
 }

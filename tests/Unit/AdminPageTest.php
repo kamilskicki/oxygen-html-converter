@@ -17,6 +17,7 @@ class AdminPageTest extends TestCase
         $GLOBALS['__wp_localized_scripts'] = [];
         $GLOBALS['__wp_options'] = [];
         $GLOBALS['__wp_current_user_can'] = true;
+        remove_all_filters();
     }
 
     public function testClassHandlingModeSanitizerMapsLegacyAliasToNative(): void
@@ -63,6 +64,29 @@ class AdminPageTest extends TestCase
         $this->assertStringContainsString('Load sample HTML', $output);
         $this->assertStringContainsString('Import output', $output);
         $this->assertStringContainsString('Strict native', $output);
+    }
+
+    public function testRenderPageHidesWindPressClassModesUntilIntegrationFlagIsEnabled(): void
+    {
+        $page = new AdminPage();
+
+        ob_start();
+        $page->renderPage();
+        $output = (string) ob_get_clean();
+
+        $this->assertStringNotContainsString('Force WindPress mode', $output);
+
+        add_filter('oxy_html_converter_feature_flags', static function (array $flags): array {
+            $flags['windpress_integration'] = true;
+            $flags['windpress_class_mode'] = true;
+            return $flags;
+        });
+
+        ob_start();
+        $page->renderPage();
+        $output = (string) ob_get_clean();
+
+        $this->assertStringContainsString('Force WindPress mode', $output);
     }
 
     public function testUiConfigDocsUrlsTargetCurrentRepositoryPaths(): void

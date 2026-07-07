@@ -17,7 +17,8 @@ class ConvertPayloadBuilder
         private readonly ConversionAuditBuilder $auditBuilder,
         private readonly OutputValidator $outputValidator,
         private readonly ?DesignDocumentBuilder $designDocumentBuilder = null,
-        private readonly ?ImportPlanBuilder $importPlanBuilder = null
+        private readonly ?ImportPlanBuilder $importPlanBuilder = null,
+        private readonly ?OxygenTokenBindingService $tokenBindingService = null
     )
     {
     }
@@ -31,9 +32,18 @@ class ConvertPayloadBuilder
     {
         $rootElement = $this->buildRootElement($result, $options);
         $this->reindexElementTree($rootElement, (int) ($options['startingNodeId'] ?? 1));
+        $visibleCssElement = $this->findFirstElementOfType($rootElement, ElementTypes::CSS_CODE);
+        $resultForPlanBase = array_merge($result, [
+            'element' => $rootElement,
+            'cssElement' => $visibleCssElement,
+        ]);
+        $designDocument = $this->getDesignDocumentBuilder()->build($html, $resultForPlanBase);
+        $resultForPlanBase = $this->getTokenBindingService()->applyToConversionResult($resultForPlanBase, [
+            'designDocument' => $designDocument,
+        ]);
+        $rootElement = is_array($resultForPlanBase['element'] ?? null) ? $resultForPlanBase['element'] : $rootElement;
+        $result = array_merge($result, $resultForPlanBase);
         $validationErrors = $this->validatePayload($rootElement, $result);
-        $designDocument = $this->getDesignDocumentBuilder()->build($html, $result);
-        $resultForPlanBase = array_merge($result, ['element' => $rootElement]);
         $resultForPlan = $validationErrors !== []
             ? array_merge($resultForPlanBase, ['validationErrors' => $validationErrors])
             : $resultForPlanBase;
@@ -76,7 +86,7 @@ class ConvertPayloadBuilder
         }
 
         $documentTree = $this->documentTree->build($rootElement);
-        $cssElement = $this->findFirstElementOfType($rootElement, ElementTypes::CSS_CODE) ?? $result['cssElement'];
+        $cssElement = $this->findFirstElementOfType($rootElement, ElementTypes::CSS_CODE);
         $audit = $this->auditBuilder->build($resultWithAnalysis, $options);
         $selectorPayload = is_array($result['selectorPayload'] ?? null)
             ? $result['selectorPayload']
@@ -97,6 +107,7 @@ class ConvertPayloadBuilder
                 'selectorPayload' => $selectorPayload,
                 'selectorJson' => json_encode($selectorPayload, JSON_PRETTY_PRINT),
                 'stats' => $result['stats'],
+                'tokenUsage' => is_array($result['tokenUsage'] ?? null) ? $result['tokenUsage'] : [],
                 'designDocument' => $designDocument,
                 'importPlan' => $importPlan,
                 'json' => json_encode([
@@ -255,5 +266,10 @@ class ConvertPayloadBuilder
     private function getImportPlanBuilder(): ImportPlanBuilder
     {
         return $this->importPlanBuilder ?? new ImportPlanBuilder();
+    }
+
+    private function getTokenBindingService(): OxygenTokenBindingService
+    {
+        return $this->tokenBindingService ?? new OxygenTokenBindingService();
     }
 }

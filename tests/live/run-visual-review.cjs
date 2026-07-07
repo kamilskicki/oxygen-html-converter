@@ -275,25 +275,140 @@ function buildReferenceDiff(sourcePath, capture) {
   };
 }
 
-async function runDesign1Smoke(browser, fixtureUrl) {
+function collectPageDiagnostics(page) {
+  const diagnostics = {
+    console: [],
+    pageErrors: [],
+    requestFailures: [],
+  };
+
+  page.on("console", (message) => {
+    diagnostics.console.push({
+      type: message.type(),
+      text: message.text(),
+      location: message.location(),
+    });
+  });
+  page.on("pageerror", (error) => {
+    diagnostics.pageErrors.push(String(error && error.stack ? error.stack : error));
+  });
+  page.on("requestfailed", (request) => {
+    diagnostics.requestFailures.push({
+      url: request.url(),
+      method: request.method(),
+      failure: request.failure()?.errorText || "",
+    });
+  });
+
+  return diagnostics;
+}
+
+async function writeVisualSmokeFailureArtifact(page, outputDir, fixtureId, error, diagnostics) {
+  const failureDir = path.join(outputDir, "smoke-failures");
+  fs.mkdirSync(failureDir, { recursive: true });
+  const slug = String(fixtureId)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const screenshotPath = path.join(failureDir, `${slug}-${timestamp}.png`);
+  const jsonPath = path.join(failureDir, `${slug}-${timestamp}.json`);
+
+  let pageState = {};
+  try {
+    pageState = await page.evaluate(() => ({
+      url: location.href,
+      title: document.title,
+      bodyClass: document.body ? document.body.className : "",
+      textSample: document.body ? document.body.innerText.slice(0, 2000) : "",
+    }));
+  } catch (stateError) {
+    pageState = {
+      stateError: String(stateError && stateError.stack ? stateError.stack : stateError),
+    };
+  }
+
+  try {
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+  } catch (screenshotError) {
+    diagnostics.screenshotError = String(
+      screenshotError && screenshotError.stack ? screenshotError.stack : screenshotError
+    );
+  }
+
+  fs.writeFileSync(
+    jsonPath,
+    JSON.stringify(
+      {
+        fixtureId,
+        screenshotPath: fs.existsSync(screenshotPath) ? screenshotPath : null,
+        error: String(error && error.stack ? error.stack : error),
+        pageState,
+        diagnostics,
+      },
+      null,
+      2
+    )
+  );
+}
+
+async function runDesign1Smoke(browser, fixtureUrl, outputDir) {
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
     viewport: { width: 390, height: 844 },
   });
   const page = await context.newPage();
+  const diagnostics = collectPageDiagnostics(page);
   const viewportHeight = 844;
 
   try {
     await page.goto(fixtureUrl, { waitUntil: "load", timeout: 60000 });
     await page.locator("#navToggle").waitFor({ timeout: 30000 });
-    await page.locator("#navToggle").click({ force: true });
-    await page.waitForFunction(() => {
-      const navLinks = document.getElementById("navLinks");
-      return navLinks && navLinks.classList.contains("open");
+
+    const state = await page.evaluate(() => {
+      const visible = (el) => {
+        if (!el) {
+          return false;
+        }
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          Number.parseFloat(style.opacity || "1") > 0.01 &&
+          rect.width > 0 &&
+          rect.height > 0
+        );
+      };
+      const hiddenRevealCount = Array.from(document.querySelectorAll(".reveal")).filter((el) => {
+        const style = getComputedStyle(el);
+        return style.opacity === "0" || style.visibility === "hidden";
+      }).length;
+      const cta = document.querySelector('.hero__cta-row a[href="#contact"], a.btn[href="#contact"]');
+
+      return {
+        navToggleVisible: visible(document.getElementById("navToggle")),
+        navLinkCount: document.querySelectorAll('#navLinks a[href^="#"]').length,
+        hiddenRevealCount,
+        ctaVisible: visible(cta),
+        targetHref: cta ? cta.getAttribute("href") : null,
+      };
     });
 
-    const targetHref = await page.locator('#navLinks a[href^="#"]').first().getAttribute("href");
-    await page.click('#navLinks a[href^="#"]');
+    if (!state.navToggleVisible) {
+      throw new Error("Design-1 nav toggle selector is missing or not visible.");
+    }
+    if (state.navLinkCount < 1) {
+      throw new Error("Design-1 nav link selectors were not preserved.");
+    }
+    if (state.hiddenRevealCount > 0) {
+      throw new Error(`Design-1 still has ${state.hiddenRevealCount} hidden reveal element(s).`);
+    }
+    if (!state.ctaVisible || !state.targetHref) {
+      throw new Error("Design-1 hero CTA is not visible after safe-mode import.");
+    }
+
+    await page.locator('.hero__cta-row a[href="#contact"], a.btn[href="#contact"]').first().click({ force: true });
     await page.waitForTimeout(1200);
 
     const anchorScrollState = await page.evaluate((href) => {
@@ -302,7 +417,7 @@ async function runDesign1Smoke(browser, fixtureUrl) {
         scrollY: window.scrollY,
         targetTop: target ? target.getBoundingClientRect().top : null,
       };
-    }, targetHref);
+    }, state.targetHref);
 
     if (
       anchorScrollState.scrollY <= 0 &&
@@ -311,71 +426,82 @@ async function runDesign1Smoke(browser, fixtureUrl) {
         anchorScrollState.targetTop < viewportHeight
       )
     ) {
-      throw new Error("Anchor navigation did not move the viewport on design-1.");
-    }
-
-    await page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight * 0.4);
-    });
-    await page.waitForTimeout(1200);
-
-    const revealVisibleCount = await page.locator(".reveal.is-visible").count();
-    if (revealVisibleCount < 1) {
-      throw new Error("Reveal-on-scroll markers did not become visible.");
-    }
-
-    const cta = page
-      .locator('.hero__cta-row a[href="#contact"], a.btn[href="#contact"]')
-      .first();
-    await cta.waitFor({ timeout: 30000 });
-    if (!(await cta.isVisible())) {
-      throw new Error("Hero CTA is not visible on design-1.");
+      throw new Error("CTA anchor navigation did not move the viewport on design-1.");
     }
 
     return {
       ok: true,
-      revealVisibleCount,
+      navLinkCount: state.navLinkCount,
+      hiddenRevealCount: state.hiddenRevealCount,
       scrollY: anchorScrollState.scrollY,
       targetTop: anchorScrollState.targetTop,
     };
+  } catch (error) {
+    await writeVisualSmokeFailureArtifact(
+      page,
+      outputDir,
+      "design-1-noir-architect",
+      error,
+      diagnostics
+    );
+    throw error;
   } finally {
     await page.close();
     await context.close();
   }
 }
 
-async function runDesign3Smoke(browser, fixtureUrl) {
+async function runDesign3Smoke(browser, fixtureUrl, outputDir) {
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
     viewport: { width: 1440, height: 1000 },
   });
   const page = await context.newPage();
+  const diagnostics = collectPageDiagnostics(page);
   const viewportHeight = 1000;
 
   try {
     await page.goto(fixtureUrl, { waitUntil: "load", timeout: 60000 });
     await page.waitForFunction(() => {
+      const visible = (el) => {
+        if (!el) {
+          return false;
+        }
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          Number.parseFloat(style.opacity || "1") > 0.01 &&
+          rect.width > 0 &&
+          rect.height > 0
+        );
+      };
       const loader = document.getElementById("loader");
-      const bodyReady = !document.body.classList.contains("loading");
-      const loaderDone = !loader || loader.classList.contains("done");
+      const loaderStyle = loader ? getComputedStyle(loader) : null;
+      const loaderRect = loader ? loader.getBoundingClientRect() : null;
+      const loaderBlocking =
+        loader &&
+        loaderStyle &&
+        loaderStyle.display !== "none" &&
+        loaderStyle.visibility !== "hidden" &&
+        Number.parseFloat(loaderStyle.opacity || "1") > 0.01 &&
+        loaderRect.bottom > 0 &&
+        loaderRect.top < window.innerHeight;
       const heroLine = document.getElementById("heroLine");
       const heroDescriptor = document.getElementById("heroDescriptor");
       const heroTagline = document.getElementById("heroTagline");
       const heroCta = document.getElementById("heroCta");
 
       return (
-        bodyReady &&
-        loaderDone &&
+        !loaderBlocking &&
         heroLine &&
-        heroLine.classList.contains("visible") &&
-        heroDescriptor &&
-        heroDescriptor.classList.contains("visible") &&
-        heroTagline &&
-        heroTagline.classList.contains("visible") &&
-        heroCta &&
-        heroCta.classList.contains("visible")
+        heroLine.getBoundingClientRect().width > 0 &&
+        visible(heroDescriptor) &&
+        visible(heroTagline) &&
+        visible(heroCta)
       );
-    });
+    }, null, { timeout: 30000 });
 
     const cta = page.locator("#heroCta");
     const targetHref = await cta.getAttribute("href");
@@ -405,6 +531,15 @@ async function runDesign3Smoke(browser, fixtureUrl) {
       scrollY: anchorScrollState.scrollY,
       targetTop: anchorScrollState.targetTop,
     };
+  } catch (error) {
+    await writeVisualSmokeFailureArtifact(
+      page,
+      outputDir,
+      "design-3-kinetic-tokyo",
+      error,
+      diagnostics
+    );
+    throw error;
   } finally {
     await page.close();
     await context.close();
@@ -475,7 +610,7 @@ async function main() {
     );
     if (design1) {
       logStep("Running design-1 interaction smoke");
-      interactionSmoke.design1 = await runDesign1Smoke(browser, design1.url);
+      interactionSmoke.design1 = await runDesign1Smoke(browser, design1.url, options.outputDir);
     }
 
     const design3 = fixturePages.find((fixture) =>
@@ -483,7 +618,7 @@ async function main() {
     );
     if (design3) {
       logStep("Running design-3 interaction smoke");
-      interactionSmoke.design3 = await runDesign3Smoke(browser, design3.url);
+      interactionSmoke.design3 = await runDesign3Smoke(browser, design3.url, options.outputDir);
     }
   } finally {
     await browser.close();

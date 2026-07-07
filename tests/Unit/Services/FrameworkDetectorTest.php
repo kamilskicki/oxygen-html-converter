@@ -64,6 +64,40 @@ class FrameworkDetectorTest extends TestCase
         $this->assertFalse($this->detector->isFrameworkAttribute('data-other'));
     }
 
+    public function testDetectDocumentReturnsUniqueSortedFrameworksAndDedupesWarnings(): void
+    {
+        $document = new DOMDocument();
+        @$document->loadHTML(
+            '<html><body>'
+            . '<div x-data="{ open: false }"></div>'
+            . '<button x-on:click="open = true" hx-get="/fragment"></button>'
+            . '<section data-controller="tabs"></section>'
+            . '</body></html>',
+            LIBXML_NOERROR | LIBXML_NOWARNING
+        );
+
+        $detected = $this->detector->detectDocument($document);
+        $warnings = $this->report->toArray()['warnings'];
+
+        $this->assertSame(['Alpine.js', 'HTMX', 'Stimulus.js'], $detected);
+        $this->assertCount(3, $warnings);
+    }
+
+    public function testResetReportedFrameworksAllowsWarningsAfterReportReset(): void
+    {
+        $document = new DOMDocument();
+        @$document->loadHTML('<html><body><div x-data="{ open: false }"></div></body></html>');
+
+        $this->detector->detectDocument($document);
+        $this->assertCount(1, $this->report->toArray()['warnings']);
+
+        $this->report->reset();
+        $this->detector->resetReportedFrameworks();
+        $this->detector->detectDocument($document);
+
+        $this->assertCount(1, $this->report->toArray()['warnings']);
+    }
+
     public function testHasAlpineAttributes()
     {
         $parsed1 = $this->parser->parse('<div x-show="true"></div>');

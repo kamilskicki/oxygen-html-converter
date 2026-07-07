@@ -21,6 +21,17 @@ const DEFAULT_LIVE_SLUG_PREFIX =
 const DEFAULT_SKIP_SYNC =
   process.env.OXY_HTML_CONVERTER_SKIP_SYNC === "1" ||
   process.env.OXY_HTML_CONVERTER_SKIP_SYNC === "true";
+const DEFAULT_SITE_KIT_MANIFEST =
+  process.env.OXY_HTML_CONVERTER_SITE_KIT_MANIFEST || "site-kit/manifest.json";
+const DEFAULT_SKIP_SITE_KIT =
+  process.env.OXY_HTML_CONVERTER_SKIP_SITE_KIT === "1" ||
+  process.env.OXY_HTML_CONVERTER_SKIP_SITE_KIT === "true";
+const SITE_KIT_EXPECTED_TEXTS = {
+  home: "M5 Site Kit Home",
+  header: "M5 Site Kit Header",
+  footer: "M5 Site Kit Footer",
+  template: "M5 Site Kit Single Template",
+};
 
 function loadPlaywright() {
   const explicitModule = process.env.OXY_HTML_CONVERTER_PLAYWRIGHT_MODULE;
@@ -56,6 +67,8 @@ function parseArgs(argv) {
     adminPassword: DEFAULT_ADMIN_PASSWORD,
     skipSync: DEFAULT_SKIP_SYNC,
     fixture: null,
+    siteKitManifest: DEFAULT_SITE_KIT_MANIFEST,
+    skipSiteKit: DEFAULT_SKIP_SITE_KIT,
     localFixtureDir: resolveDefaultLocalFixtureDir(),
     classMode: "native",
     slugPrefix: DEFAULT_LIVE_SLUG_PREFIX,
@@ -69,6 +82,11 @@ function parseArgs(argv) {
 
     if (arg === "--sync") {
       options.skipSync = false;
+      continue;
+    }
+
+    if (arg === "--skip-site-kit") {
+      options.skipSiteKit = true;
       continue;
     }
 
@@ -91,6 +109,8 @@ function parseArgs(argv) {
       options.adminPassword = value;
     } else if (rawKey === "fixture") {
       options.fixture = normalizeFixturePath(value);
+    } else if (rawKey === "site-kit-manifest") {
+      options.siteKitManifest = value;
     } else if (rawKey === "local-fixture-dir") {
       options.localFixtureDir = path.resolve(process.cwd(), value);
     } else if (rawKey === "class-mode") {
@@ -104,12 +124,25 @@ function parseArgs(argv) {
 }
 
 function runCommand(command, args, options = {}) {
-  return execFileSync(command, args, {
-    cwd: process.cwd(),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    ...options,
-  }).trim();
+  try {
+    return execFileSync(command, args, {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      ...options,
+    }).trim();
+  } catch (error) {
+    const stdout = error.stdout ? String(error.stdout).trim() : "";
+    const stderr = error.stderr ? String(error.stderr).trim() : "";
+    const details = [
+      error.message,
+      stdout ? `stdout:\n${stdout}` : "",
+      stderr ? `stderr:\n${stderr}` : "",
+    ].filter(Boolean);
+    const enriched = new Error(details.join("\n"));
+    enriched.cause = error;
+    throw enriched;
+  }
 }
 
 function logStep(message) {
@@ -226,6 +259,302 @@ function assertWindPressProof(proof) {
   }
 }
 
+function cleanupSiteKitSmokeArtifacts(options) {
+  const markersJson = JSON.stringify([
+    ...Object.values(SITE_KIT_EXPECTED_TEXTS),
+    "M5 Site Kit Live Post",
+    "M5 Site Kit live template target.",
+  ]);
+  const php = `
+    require '/var/www/html/wp-load.php';
+    $markers = json_decode(${JSON.stringify(markersJson)}, true);
+    $markers = is_array($markers) ? array_values(array_filter($markers, 'is_string')) : [];
+    $postTypes = ['page', 'post', 'oxygen_template', 'oxygen_header', 'oxygen_footer', 'oxygen_part'];
+    $posts = get_posts([
+      'post_type' => $postTypes,
+      'post_status' => 'any',
+      'numberposts' => -1,
+      'fields' => 'ids',
+    ]);
+    $deleted = [];
+    foreach (is_array($posts) ? $posts : [] as $postId) {
+      $postId = (int) $postId;
+      if ($postId < 1) {
+        continue;
+      }
+      $post = get_post($postId);
+      if (!$post instanceof WP_Post) {
+        continue;
+      }
+      $haystack = (string) $post->post_title . "\n" . (string) $post->post_content . "\n" . (string) $post->post_name;
+      foreach (['_oxygen_data', '_oxygen_template_settings', '_oxy_html_converter_import_manifest'] as $metaKey) {
+        $raw = get_post_meta($postId, $metaKey, true);
+        if (is_scalar($raw)) {
+          $haystack .= "\n" . (string) $raw;
+          continue;
+        }
+        $encoded = function_exists('wp_json_encode') ? wp_json_encode($raw) : json_encode($raw);
+        $haystack .= "\n" . (is_string($encoded) ? $encoded : '');
+      }
+      $matches = false;
+      foreach ($markers as $marker) {
+        if ($marker !== '' && strpos($haystack, $marker) !== false) {
+          $matches = true;
+          break;
+        }
+      }
+      if (!$matches) {
+        continue;
+      }
+      wp_delete_post($postId, true);
+      $deleted[] = $postId;
+    }
+    $frontPageId = (int) get_option('page_on_front');
+    if ($frontPageId > 0 && get_post($frontPageId) === null) {
+      update_option('show_on_front', 'posts');
+      update_option('page_on_front', 0);
+    }
+    if (function_exists('wp_cache_flush')) {
+      wp_cache_flush();
+    }
+    echo wp_json_encode([
+      'ok' => true,
+      'deleted' => $deleted,
+    ]);
+  `;
+
+  return JSON.parse(runDockerPhp(options.container, php));
+}
+
+function importSiteKitFixture(options) {
+  const cleanup = cleanupSiteKitSmokeArtifacts(options);
+  const manifest = ensureSiteKitManifestInContainer(options);
+  const php = `
+    require '/var/www/html/wp-load.php';
+    $admin = get_user_by('login', ${JSON.stringify(options.adminUser)});
+    $adminId = $admin instanceof WP_User ? (int) $admin->ID : 1;
+    wp_set_current_user($adminId);
+    $manifestPath = ${JSON.stringify(manifest.remotePath)};
+    $raw = file_get_contents($manifestPath);
+    $manifest = is_string($raw) ? json_decode($raw, true) : null;
+    if (!is_array($manifest)) {
+      echo wp_json_encode([
+        'ok' => false,
+        'message' => 'Site-kit manifest JSON could not be decoded.',
+        'manifestPath' => $manifestPath,
+      ]);
+      return;
+    }
+    if (!class_exists('\\\\OxyHtmlConverter\\\\Services\\\\OxygenPageImporter')) {
+      echo wp_json_encode([
+        'ok' => false,
+        'message' => 'OxygenPageImporter is not loaded in WordPress.',
+        'manifestPath' => $manifestPath,
+      ]);
+      return;
+    }
+    $importer = new \\OxyHtmlConverter\\Services\\OxygenPageImporter();
+    $result = $importer->importSiteKit($manifest);
+    if (empty($result['success'])) {
+      echo wp_json_encode([
+        'ok' => false,
+        'message' => (string) ($result['message'] ?? 'Site-kit import failed.'),
+        'result' => $result,
+        'manifestPath' => $manifestPath,
+      ]);
+      return;
+    }
+
+    $objects = is_array($result['objects'] ?? null) ? $result['objects'] : [];
+    $pageId = (int) ($objects['pages'][0]['postId'] ?? 0);
+    $templateId = (int) ($objects['templates'][0]['postId'] ?? 0);
+    $headerId = (int) ($objects['headers'][0]['postId'] ?? 0);
+    $footerId = (int) ($objects['footers'][0]['postId'] ?? 0);
+    $partId = (int) ($objects['parts'][0]['postId'] ?? 0);
+
+    $postSlug = 'm5-site-kit-live-post-' . time() . '-' . wp_generate_password(6, false, false);
+    $postId = wp_insert_post([
+      'post_type' => 'post',
+      'post_status' => 'publish',
+      'post_title' => 'M5 Site Kit Live Post',
+      'post_name' => $postSlug,
+      'post_content' => 'M5 Site Kit live template target.',
+    ], true);
+    $postId = is_wp_error($postId) ? 0 : (int) $postId;
+
+    $templateSettings = static function (int $postId): array {
+      if ($postId < 1) {
+        return [];
+      }
+      $raw = get_post_meta($postId, '_oxygen_template_settings', true);
+      foreach (is_string($raw) && $raw !== '' ? [$raw, stripslashes($raw)] : [] as $candidate) {
+        $decoded = json_decode($candidate, true);
+        if (is_string($decoded) && $decoded !== '') {
+          $decoded = json_decode($decoded, true);
+        }
+        if (is_array($decoded)) {
+          return $decoded;
+        }
+      }
+      return [];
+    };
+    $hasTree = static function (int $postId): bool {
+      if ($postId < 1) {
+        return false;
+      }
+      $raw = get_post_meta($postId, '_oxygen_data', true);
+      if (is_array($raw)) {
+        return isset($raw['tree_json_string']) && is_string($raw['tree_json_string']) && $raw['tree_json_string'] !== '';
+      }
+      $decoded = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+      return is_array($decoded) && isset($decoded['tree_json_string']) && is_string($decoded['tree_json_string']) && $decoded['tree_json_string'] !== '';
+    };
+
+    $locations = get_theme_mod('nav_menu_locations', []);
+    $locations = is_array($locations) ? $locations : [];
+    $primaryMenuId = (int) ($locations['primary'] ?? 0);
+    $menuItems = $primaryMenuId > 0 ? wp_get_nav_menu_items($primaryMenuId) : [];
+    $menuItems = is_array($menuItems) ? array_map(static function ($item): array {
+      return [
+        'id' => (int) ($item->ID ?? 0),
+        'title' => (string) ($item->title ?? ''),
+        'type' => (string) ($item->type ?? ''),
+        'objectId' => (int) ($item->object_id ?? 0),
+        'url' => (string) ($item->url ?? ''),
+      ];
+    }, $menuItems) : [];
+
+    $ids = [
+      'page' => $pageId,
+      'template' => $templateId,
+      'header' => $headerId,
+      'footer' => $footerId,
+      'part' => $partId,
+      'post' => $postId,
+    ];
+
+    echo wp_json_encode([
+      'ok' => true,
+      'manifestPath' => $manifestPath,
+      'localManifestPath' => ${JSON.stringify(manifest.localPath)},
+      'import' => $result,
+      'ids' => $ids,
+      'urls' => [
+        'home' => home_url('/'),
+        'page' => $pageId > 0 ? get_permalink($pageId) : '',
+        'post' => $postId > 0 ? get_permalink($postId) : '',
+      ],
+      'builderUrls' => [
+        'page' => $pageId > 0 ? home_url('/?oxygen=builder&id=' . $pageId) : '',
+        'template' => $templateId > 0 ? home_url('/?oxygen=builder&id=' . $templateId) : '',
+        'header' => $headerId > 0 ? home_url('/?oxygen=builder&id=' . $headerId) : '',
+        'footer' => $footerId > 0 ? home_url('/?oxygen=builder&id=' . $footerId) : '',
+      ],
+      'siteOptions' => [
+        'show_on_front' => get_option('show_on_front'),
+        'page_on_front' => (int) get_option('page_on_front'),
+        'page_for_posts' => (int) get_option('page_for_posts'),
+      ],
+      'menu' => [
+        'locations' => $locations,
+        'primaryMenuId' => $primaryMenuId,
+        'items' => array_values($menuItems),
+      ],
+      'templateSettings' => [
+        'template' => $templateSettings($templateId),
+        'header' => $templateSettings($headerId),
+        'footer' => $templateSettings($footerId),
+        'part' => $templateSettings($partId),
+      ],
+      'hasTree' => [
+        'page' => $hasTree($pageId),
+        'template' => $hasTree($templateId),
+        'header' => $hasTree($headerId),
+        'footer' => $hasTree($footerId),
+        'part' => $hasTree($partId),
+      ],
+    ]);
+  `;
+
+  return {
+    ...JSON.parse(runDockerPhp(options.container, php)),
+    cleanup,
+  };
+}
+
+function assertSiteKitImportProof(proof) {
+  if (!proof || proof.ok !== true) {
+    const result = proof?.result || {};
+    const errors = [
+      ...(Array.isArray(result.errors) ? result.errors : []),
+      ...(Array.isArray(result.restore?.errors) ? result.restore.errors : []),
+    ];
+    throw new Error(
+      [
+        `Site-kit import failed: ${proof?.message || "unknown error"}`,
+        errors.length ? `Errors: ${errors.join(" | ")}` : "",
+      ].filter(Boolean).join("\n")
+    );
+  }
+
+  const ids = proof.ids || {};
+  for (const key of ["page", "template", "header", "footer", "part", "post"]) {
+    if (!Number.isInteger(Number(ids[key])) || Number(ids[key]) < 1) {
+      throw new Error(`Site-kit proof is missing ${key} ID.`);
+    }
+  }
+
+  const objects = proof.import?.objects || {};
+  for (const section of ["pages", "templates", "headers", "footers", "parts"]) {
+    if (!Array.isArray(objects[section]) || objects[section].length < 1) {
+      throw new Error(`Site-kit import did not report ${section}.`);
+    }
+  }
+
+  if (proof.siteOptions?.show_on_front !== "page") {
+    throw new Error("Site-kit import did not set show_on_front to page.");
+  }
+
+  if (Number(proof.siteOptions?.page_on_front) !== Number(ids.page)) {
+    throw new Error("Site-kit import did not assign the imported page as homepage.");
+  }
+
+  if (Number(proof.menu?.locations?.primary) !== Number(proof.menu?.primaryMenuId)) {
+    throw new Error("Site-kit import did not assign a primary menu location.");
+  }
+
+  const hasHomeMenuItem = (proof.menu?.items || []).some((item) =>
+    Number(item.objectId) === Number(ids.page) && item.type === "post_type"
+  );
+  if (!hasHomeMenuItem) {
+    throw new Error("Site-kit primary menu does not target the imported homepage.");
+  }
+
+  if (proof.templateSettings?.template?.type !== "all-singles") {
+    throw new Error("Site-kit single template settings were not persisted.");
+  }
+
+  if (proof.templateSettings?.header?.type !== "everywhere") {
+    throw new Error("Site-kit header settings were not persisted.");
+  }
+
+  if (proof.templateSettings?.footer?.type !== "everywhere") {
+    throw new Error("Site-kit footer settings were not persisted.");
+  }
+
+  for (const key of ["page", "template", "header", "footer", "part"]) {
+    if (proof.hasTree?.[key] !== true) {
+      throw new Error(`Site-kit ${key} is missing persisted Oxygen tree data.`);
+    }
+  }
+
+  for (const key of ["home", "page", "post"]) {
+    if (typeof proof.urls?.[key] !== "string" || proof.urls[key] === "") {
+      throw new Error(`Site-kit proof is missing ${key} URL.`);
+    }
+  }
+}
+
 function normalizeFixturePath(value) {
   return String(value || "")
     .replace(/\\/g, "/")
@@ -238,6 +567,30 @@ function localFixturePath(localFixtureDir, fixture) {
   return path.join(localFixtureDir, ...normalizeFixturePath(fixture).split("/"));
 }
 
+function resolveSiteKitManifestPath(options) {
+  const configured = String(options.siteKitManifest || DEFAULT_SITE_KIT_MANIFEST);
+  if (path.isAbsolute(configured)) {
+    return configured;
+  }
+
+  return localFixturePath(options.localFixtureDir, configured);
+}
+
+function ensureSiteKitManifestInContainer(options) {
+  const localPath = resolveSiteKitManifestPath(options);
+  if (!fs.existsSync(localPath)) {
+    throw new Error(`Site-kit manifest does not exist: ${localPath}`);
+  }
+
+  const remotePath = `/tmp/oxy-html-converter-site-kit-${Date.now()}-${process.pid}.json`;
+  runCommand("docker", ["cp", localPath, `${options.container}:${remotePath}`]);
+
+  return {
+    localPath,
+    remotePath,
+  };
+}
+
 function fixtureNameForSlug(fixture) {
   return String(fixture)
     .replace(/\\/g, "/")
@@ -248,6 +601,24 @@ function fixtureNameForSlug(fixture) {
 
 function loadFixtureSummary(jsonPath) {
   return JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+}
+
+function sortFixturePagesBySlugOrder(pages, orderedSlugs) {
+  const order = new Map();
+  orderedSlugs.forEach((slug, index) => {
+    order.set(slug, index);
+  });
+
+  return [...pages].sort((left, right) => {
+    const leftOrder = order.has(left.slug) ? order.get(left.slug) : Number.MAX_SAFE_INTEGER;
+    const rightOrder = order.has(right.slug) ? order.get(right.slug) : Number.MAX_SAFE_INTEGER;
+
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+
+    return String(left.slug || "").localeCompare(String(right.slug || ""));
+  });
 }
 
 function loadFixturePages(container, summary, slugPrefix = "perf-") {
@@ -275,7 +646,7 @@ function loadFixturePages(container, summary, slugPrefix = "perf-") {
     echo wp_json_encode($matches);
   `;
 
-  return JSON.parse(runDockerPhp(container, php));
+  return sortFixturePagesBySlugOrder(JSON.parse(runDockerPhp(container, php)), slugs);
 }
 
 function classifyObservation(text, blocking, ambient) {
@@ -840,6 +1211,78 @@ async function assertBuilderTextPresent(page, text, label) {
     });
 }
 
+async function assertBuilderVisibleTextPresent(page, text, label) {
+  await page
+    .waitForFunction(
+      (expectedText) => {
+        function collectDocuments(rootDocument, docs = []) {
+          if (!rootDocument || docs.includes(rootDocument)) {
+            return docs;
+          }
+
+          docs.push(rootDocument);
+          for (const frame of rootDocument.querySelectorAll("iframe")) {
+            try {
+              collectDocuments(frame.contentDocument, docs);
+            } catch (error) {
+              // Cross-origin frames are irrelevant for the local builder proof.
+            }
+          }
+
+          return docs;
+        }
+
+        function isVisibleElement(element) {
+          const view = element?.ownerDocument?.defaultView || window;
+          if (!(element instanceof view.HTMLElement)) {
+            return false;
+          }
+
+          const tagName = String(element.tagName || "").toUpperCase();
+          if (["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "HEAD"].includes(tagName)) {
+            return false;
+          }
+
+          const style = view.getComputedStyle(element);
+          if (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            Number(style.opacity || "1") === 0
+          ) {
+            return false;
+          }
+
+          const rect = element.getBoundingClientRect();
+          return rect.width > 1 && rect.height > 1;
+        }
+
+        const rootDocument = window.parent?.document || document;
+        const docs = collectDocuments(rootDocument);
+        for (const doc of docs) {
+          const elements = Array.from(doc.querySelectorAll("body, body *")).reverse();
+          if (
+            elements.some((element) => {
+              if (!isVisibleElement(element)) {
+                return false;
+              }
+
+              return String(element.innerText || "").includes(expectedText);
+            })
+          ) {
+            return true;
+          }
+        }
+
+        return false;
+      },
+      text,
+      { timeout: 30000 }
+    )
+    .catch(() => {
+      throw new Error(`${label} did not render visible Builder canvas text: ${text}`);
+    });
+}
+
 async function loadBuilderNodePropertyProof(page, nodeId, propertyPath) {
   return page.evaluate(
     ({ targetNodeId, targetPropertyPath }) => {
@@ -960,9 +1403,9 @@ const FOCUSED_STYLE_ROUTING_EXPECTATION = {
   targetText: FOCUSED_IMPORT_MARKER_TEXT,
   expectedTypeNot: "OxygenElements\\HtmlCode",
   properties: {
-    "design.spacing.padding": "10px",
-    "design.size.width": "120px",
-    "design.typography.color": "#123456",
+    "design.spacing.spacing.padding.top.style": "var(--ohc-space-10px)",
+    "design.size.width.style": "var(--ohc-measure-120px)",
+    "design.typography.color": "var(--ohc-color-123456)",
   },
 };
 
@@ -983,6 +1426,10 @@ function normalizeCandidateText(value) {
     .trim();
 }
 
+function minimumEditabilityCandidateLength(tagName) {
+  return /^h[1-3]$/i.test(String(tagName || "")) ? 16 : 24;
+}
+
 function extractEditabilityTargetText(fixtureHtml) {
   const sanitizedHtml = String(fixtureHtml || "")
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
@@ -1000,8 +1447,9 @@ function extractEditabilityTargetText(fixtureHtml) {
       }
 
       const text = normalizeCandidateText(innerHtml);
+      const tagName = match[1] || "";
       if (
-        text.length < 24 ||
+        text.length < minimumEditabilityCandidateLength(tagName) ||
         text === FOCUSED_IMPORT_MARKER_TEXT ||
         !/[\p{L}\p{N}]/u.test(text)
       ) {
@@ -1413,6 +1861,7 @@ function htmlToVisibleText(html) {
 async function assertFrontendTextPresent(page, url, text, label) {
   const deadline = Date.now() + 45000;
   let lastFrontendText = "";
+  let lastStatus = "no response";
   let attempt = 0;
 
   while (Date.now() < deadline) {
@@ -1426,10 +1875,13 @@ async function assertFrontendTextPresent(page, url, text, label) {
         Pragma: "no-cache",
       },
     }).catch(() => null);
-    const html = response && response.ok ? await response.text() : "";
+    lastStatus = response
+      ? `${response.status} ${response.statusText || ""}`.trim()
+      : "no response";
+    const html = response ? await response.text().catch(() => "") : "";
     lastFrontendText = htmlToVisibleText(html);
 
-    if (lastFrontendText.includes(text)) {
+    if (response && response.ok && lastFrontendText.includes(text)) {
       return;
     }
 
@@ -1437,8 +1889,202 @@ async function assertFrontendTextPresent(page, url, text, label) {
   }
 
   throw new Error(
-    `${label} did not find expected frontend text: ${text}. Last frontend text sample: ${lastFrontendText.slice(0, 240)}`
+    `${label} did not find expected frontend text: ${text}. Last status: ${lastStatus}. Last frontend text sample: ${lastFrontendText.slice(0, 240)}`
   );
+}
+
+async function assertSiteKitBuilderTarget(page, target) {
+  logStep(`Opening site-kit Builder target ${target.label} (#${target.id})`);
+  await page.goto(target.url, {
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
+  });
+  await waitForBuilderReady(page);
+  await assertBuilderVisibleTextPresent(page, target.expectedText, `Site-kit Builder ${target.label}`);
+  await assertBuilderTextPresent(page, target.expectedText, `Site-kit Builder ${target.label}`);
+  await assertNoBuilderErrors(page, `Site-kit Builder ${target.label}`);
+
+  const saveResult = await waitForBuilderSaveCompletion(
+    page,
+    `Site-kit Builder save ${target.label}`
+  );
+  logStep(`Site-kit Builder ${target.label} save HTTP status: ${saveResult.responseStatus}`);
+
+  await page.goto(target.url, {
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
+  });
+  await waitForBuilderReady(page);
+  await assertBuilderVisibleTextPresent(page, target.expectedText, `Site-kit Builder reopen ${target.label}`);
+  await assertBuilderTextPresent(page, target.expectedText, `Site-kit Builder reopen ${target.label}`);
+  await assertNoBuilderErrors(page, `Site-kit Builder reopen ${target.label}`);
+
+  return {
+    label: target.label,
+    id: target.id,
+    url: target.url,
+    expectedText: target.expectedText,
+    initialVisibleText: true,
+    initialStoreText: true,
+    saveResponseStatus: saveResult.responseStatus,
+    reopenedVisibleText: true,
+    reopenedStoreText: true,
+  };
+}
+
+async function runSiteKitSmoke(page, options) {
+  logStep("Importing site-kit manifest for live site configuration smoke");
+  const failureArtifact = path.join(options.outputDir, "site-kit-failure.json");
+  let proof = null;
+  try {
+    proof = importSiteKitFixture(options);
+    assertSiteKitImportProof(proof);
+    normalizeOxygenUploadsPermissions(options.container);
+
+    await assertFrontendTextPresent(
+      page,
+      proof.urls.home,
+      SITE_KIT_EXPECTED_TEXTS.home,
+      "Site-kit homepage content"
+    );
+    await assertFrontendTextPresent(
+      page,
+      proof.urls.home,
+      SITE_KIT_EXPECTED_TEXTS.header,
+      "Site-kit homepage header"
+    );
+    await assertFrontendTextPresent(
+      page,
+      proof.urls.home,
+      SITE_KIT_EXPECTED_TEXTS.footer,
+      "Site-kit homepage footer"
+    );
+    await assertFrontendTextPresent(
+      page,
+      proof.urls.post,
+      SITE_KIT_EXPECTED_TEXTS.template,
+      "Site-kit single post template"
+    );
+    await assertFrontendTextPresent(
+      page,
+      proof.urls.post,
+      SITE_KIT_EXPECTED_TEXTS.header,
+      "Site-kit single post header"
+    );
+    await assertFrontendTextPresent(
+      page,
+      proof.urls.post,
+      SITE_KIT_EXPECTED_TEXTS.footer,
+      "Site-kit single post footer"
+    );
+
+    const builderTargets = [
+      {
+        label: "page",
+        id: proof.ids.page,
+        url: proof.builderUrls.page,
+        expectedText: SITE_KIT_EXPECTED_TEXTS.home,
+      },
+      {
+        label: "header",
+        id: proof.ids.header,
+        url: proof.builderUrls.header,
+        expectedText: SITE_KIT_EXPECTED_TEXTS.header,
+      },
+      {
+        label: "footer",
+        id: proof.ids.footer,
+        url: proof.builderUrls.footer,
+        expectedText: SITE_KIT_EXPECTED_TEXTS.footer,
+      },
+      {
+        label: "template",
+        id: proof.ids.template,
+        url: proof.builderUrls.template,
+        expectedText: SITE_KIT_EXPECTED_TEXTS.template,
+      },
+    ];
+
+    const builderProofs = [];
+    for (const target of builderTargets) {
+      if (!target.url) {
+        throw new Error(`Site-kit Builder URL is missing for ${target.label}.`);
+      }
+      builderProofs.push(await assertSiteKitBuilderTarget(page, target));
+    }
+    proof.builderProofs = builderProofs;
+  } catch (error) {
+    const screenshotPath = path.join(options.outputDir, "site-kit-failure.png");
+    await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => null);
+    const observations = options.observations || {};
+    fs.writeFileSync(
+      failureArtifact,
+      JSON.stringify(
+        {
+          error: String(error && error.stack ? error.stack : error),
+          screenshotPath,
+          proof: proof || null,
+          observations: {
+            blocking: observations.blocking || {},
+            ambient: observations.ambient || {},
+          },
+        },
+        null,
+        2
+      )
+    );
+    throw error;
+  }
+
+  return proof;
+}
+
+async function writeLiveGateFailureArtifact(page, options, error, context = {}) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const screenshotPath = path.join(
+    options.outputDir,
+    `live-gate-failure-${timestamp}.png`
+  );
+  const artifactPath = path.join(
+    options.outputDir,
+    `live-gate-failure-${timestamp}.json`
+  );
+  const pageSnapshot = {
+    url: "",
+    title: "",
+    bodyTextSample: "",
+  };
+
+  if (page && typeof page.screenshot === "function") {
+    await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => null);
+
+    pageSnapshot.url = typeof page.url === "function" ? page.url() : "";
+    pageSnapshot.title = await page.title().catch(() => "");
+    pageSnapshot.bodyTextSample = await page
+      .locator("body")
+      .innerText({ timeout: 2000 })
+      .then((text) => String(text || "").slice(0, 2000))
+      .catch(() => "");
+  }
+
+  fs.writeFileSync(
+    artifactPath,
+    JSON.stringify(
+      {
+        error: String(error && error.stack ? error.stack : error),
+        screenshotPath,
+        page: pageSnapshot,
+        context,
+      },
+      null,
+      2
+    )
+  );
+
+  return {
+    artifactPath,
+    screenshotPath,
+  };
 }
 
 async function runBuilderSmoke(page, baseUrl, fixtures, options = {}) {
@@ -1527,14 +2173,17 @@ async function runBuilderSmoke(page, baseUrl, fixtures, options = {}) {
     await waitForBuilderReady(page);
     await assertNoBuilderErrors(page, `Builder reopen for ${fixture.slug}`);
 
+    const editabilityProofApplies = editabilityProof?.fixtureSlug === fixture.slug;
+    const styleRoutingProofApplies = styleRoutingProof?.fixtureSlug === fixture.slug;
+
     for (const marker of importedMarkers) {
       await assertBuilderTextPresent(page, marker, `Builder reopen for ${fixture.slug}`);
-      if (editabilityProof && marker === editabilityProof.updatedText) {
+      if (editabilityProofApplies && marker === editabilityProof.updatedText) {
         editabilityProof.persistedBuilderText = true;
       }
     }
 
-    if (editabilityProof) {
+    if (editabilityProofApplies) {
       const persistedNode = await loadBuilderNodePropertyProof(
         page,
         editabilityProof.id,
@@ -1554,7 +2203,7 @@ async function runBuilderSmoke(page, baseUrl, fixtures, options = {}) {
       }
     }
 
-    if (styleRoutingProof && focusedImportProof?.styleRoutingExpectation) {
+    if (styleRoutingProofApplies && focusedImportProof?.styleRoutingExpectation) {
       const reopenedStyleProof = await loadBuilderStyleRoutingProof(
         page,
         focusedImportProof.styleRoutingExpectation,
@@ -1581,7 +2230,7 @@ async function runBuilderSmoke(page, baseUrl, fixtures, options = {}) {
           marker,
           `Frontend proof for ${fixture.slug}`
         );
-        if (editabilityProof && marker === editabilityProof.updatedText) {
+        if (editabilityProofApplies && marker === editabilityProof.updatedText) {
           editabilityProof.persistedFrontendText = true;
         }
       }
@@ -1816,13 +2465,44 @@ async function main() {
     );
   });
 
+  let siteKitProof = null;
+  let editabilityProof = null;
+
   try {
     logStep("Logging into local WordPress admin");
     await login(page, baseUrl, options.adminUser, options.adminPassword);
     await runAdminSmoke(page, baseUrl);
-    var editabilityProof = await runBuilderSmoke(page, baseUrl, fixtures, {
+    if (options.skipSiteKit) {
+      logStep("Skipping site-kit live smoke");
+    } else {
+      siteKitProof = await runSiteKitSmoke(page, {
+        ...options,
+        observations: {
+          blocking: blockingObservations,
+          ambient: ambientObservations,
+        },
+      });
+    }
+    editabilityProof = await runBuilderSmoke(page, baseUrl, fixtures, {
       focusedImportProof,
     });
+  } catch (error) {
+    const failure = await writeLiveGateFailureArtifact(page, options, error, {
+      baseUrl,
+      container: options.container,
+      fixtureBaseline: fixtureBaselineResult,
+      fixtures,
+      siteKit: siteKitProof || null,
+      editabilityProof: editabilityProof || null,
+      observations: {
+        blocking: blockingObservations,
+        ambient: ambientObservations,
+      },
+    });
+    process.stderr.write(
+      `[live-gate] Failure artifact: ${failure.artifactPath}\n`
+    );
+    throw error;
   } finally {
     await page.close();
     await browser.close();
@@ -1846,6 +2526,7 @@ async function main() {
     fixtureBaseline: fixtureBaselineResult,
     slugPrefix: options.slugPrefix,
     fixtures,
+    siteKit: siteKitProof || null,
     editabilityProof: editabilityProof || null,
     styleRoutingProof: editabilityProof?.styleRoutingProof || null,
     persistence: loadPersistenceProof(options.container, fixtures),
@@ -1896,6 +2577,10 @@ module.exports = {
   extractEditabilityTargetText,
   buildFocusedImportProof,
   buildEditedProofText,
+  SITE_KIT_EXPECTED_TEXTS,
+  resolveSiteKitManifestPath,
+  assertSiteKitImportProof,
   loadBuilderStyleRoutingProof,
+  sortFixturePagesBySlugOrder,
   assertPersistenceProof,
 };

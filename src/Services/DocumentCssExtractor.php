@@ -16,7 +16,8 @@ class DocumentCssExtractor
         private readonly HeuristicsService $heuristics,
         private readonly TailwindDetector $tailwindDetector,
         private readonly TailwindPropertyMapper $tailwindPropertyMapper,
-        private readonly TailwindCssFallbackGenerator $tailwindFallbackGenerator
+        private readonly TailwindCssFallbackGenerator $tailwindFallbackGenerator,
+        private readonly ?EnvironmentService $environment = null
     )
     {
     }
@@ -101,7 +102,10 @@ CSS;
                 if (
                     $token !== ''
                     && $this->tailwindDetector->isTailwindClass($token)
-                    && !$this->tailwindPropertyMapper->canMapClass($token)
+                    && (
+                        $this->shouldUseWindPressFallback()
+                        || !$this->tailwindPropertyMapper->canMapClass($token)
+                    )
                 ) {
                     $classTokens[] = $token;
                 }
@@ -118,6 +122,12 @@ CSS;
         }
 
         return $css . "/* Tailwind utility fallback */\n" . $fallbackCss . "\n";
+    }
+
+    private function shouldUseWindPressFallback(): bool
+    {
+        $environment = $this->environment ?? new EnvironmentService();
+        return $environment->shouldUseWindPressMode();
     }
 
 }

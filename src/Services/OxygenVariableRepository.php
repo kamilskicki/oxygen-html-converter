@@ -11,6 +11,15 @@ class OxygenVariableRepository
     private const GLOBAL_OPTION_KEY = 'variables_json_string';
     private const COLLECTIONS_GLOBAL_OPTION_KEY = 'variables_collections_json_string';
     private const ID_PREFIX = 'ohc-var-';
+    private const SUPPORTED_TOKEN_GROUPS = [
+        'colors' => true,
+        'spacing' => true,
+        'fonts' => true,
+        'images' => true,
+        'measurements' => true,
+        'numbers' => true,
+    ];
+
     private ?OxygenStorageAdapter $storageAdapter;
 
     public function __construct(?OxygenStorageAdapter $storageAdapter = null)
@@ -44,12 +53,13 @@ class OxygenVariableRepository
         $merge = $this->mergeVariables($existing, $incoming);
         $collections = $this->mergeCollections($merge['variables']);
         $changes = $merge['created'] + $merge['updated'];
-        $cacheRegenerated = $changes > 0
+        $normalizationRewriteNeeded = $this->existingVariablesNeedNormalizationRewrite();
+        $cacheRegenerated = ($changes > 0 || $normalizationRewriteNeeded)
             ? $this->persistVariables($merge['variables'], $collections)
             : false;
 
         return [
-            'saved' => $changes > 0,
+            'saved' => $changes > 0 || $normalizationRewriteNeeded,
             'changes' => $changes,
             'created' => $merge['created'],
             'updated' => $merge['updated'],
@@ -132,7 +142,102 @@ class OxygenVariableRepository
             }
         }
 
+        foreach ($this->normalizeTokenGroup($tokens['images'] ?? []) as $token) {
+            $variable = $this->buildImageUrlVariable($token);
+            if ($variable !== null) {
+                $variables[] = $variable;
+            }
+        }
+
+        foreach ($this->normalizeTokenGroup($tokens['measurements'] ?? []) as $token) {
+            $variable = $this->buildMeasurementVariable($token);
+            if ($variable !== null) {
+                $variables[] = $variable;
+            }
+        }
+
+        foreach ($this->normalizeTokenGroup($tokens['numbers'] ?? []) as $token) {
+            $variable = $this->buildNumberVariable($token);
+            if ($variable !== null) {
+                $variables[] = $variable;
+            }
+        }
+
         return $this->dedupeVariables($variables);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{items: list<array<string, mixed>>, summary: array{proposed:int,supported:int,unsupported:int}}
+     */
+    public function buildTokenReferencesFromPayload(array $payload): array
+    {
+        $tokens = $this->resolveTokens($payload);
+        $existingByName = [];
+
+        foreach ($this->getExistingVariables() as $existing) {
+            if (!is_array($existing)) {
+                continue;
+            }
+
+            $name = $this->normalizeExistingCssVariableName($existing['cssVariableName'] ?? null);
+            if ($name !== '') {
+                $existingByName[$name] = $existing;
+            }
+        }
+
+        $itemsByName = [];
+        $proposed = 0;
+
+        foreach (array_keys(self::SUPPORTED_TOKEN_GROUPS) as $group) {
+            foreach ($this->normalizeTokenGroup($tokens[$group] ?? []) as $token) {
+                $proposed++;
+                $variable = $this->buildVariableForGroup($group, $token);
+                if ($variable === null) {
+                    continue;
+                }
+
+                $name = $this->normalizeExistingCssVariableName($variable['cssVariableName'] ?? null);
+                if ($name === '' || isset($itemsByName[$name])) {
+                    continue;
+                }
+
+                $existing = $existingByName[$name] ?? [];
+                $variableId = is_string($existing['id'] ?? null) && trim((string) $existing['id']) !== ''
+                    ? trim((string) $existing['id'])
+                    : (string) $variable['id'];
+                $normalizedValue = $this->referenceValueForVariable($variable);
+
+                if ($normalizedValue === '') {
+                    continue;
+                }
+
+                $itemsByName[$name] = [
+                    'group' => $group,
+                    'variableType' => (string) $variable['type'],
+                    'suggestedName' => (string) ($token['suggestedName'] ?? ''),
+                    'sourceValue' => $this->referenceSourceValue($token['value'] ?? null),
+                    'normalizedValue' => $normalizedValue,
+                    'uses' => (int) ($token['uses'] ?? 0),
+                    'variableId' => $variableId,
+                    'cssVariableName' => $name,
+                    'cssReference' => 'var(--' . $name . ')',
+                    'selectorReference' => '{var-' . $variableId . '}',
+                    'dynamicData' => $variable['dynamicData'] ?? null,
+                ];
+            }
+        }
+
+        $items = array_values($itemsByName);
+
+        return [
+            'items' => $items,
+            'summary' => [
+                'proposed' => $proposed,
+                'supported' => count($items),
+                'unsupported' => max(0, $proposed - count($items)),
+            ],
+        ];
     }
 
     /**
@@ -288,10 +393,10 @@ class OxygenVariableRepository
                 continue;
             }
 
-            $value = is_scalar($token['value'] ?? null) ? trim((string) $token['value']) : '';
+            $value = $token['value'] ?? null;
             $suggestedName = is_scalar($token['suggestedName'] ?? null) ? trim((string) $token['suggestedName']) : '';
 
-            if ($value === '' || $suggestedName === '') {
+            if (!$this->hasUsableTokenValue($value) || $suggestedName === '') {
                 continue;
             }
 
@@ -299,6 +404,7 @@ class OxygenVariableRepository
                 'value' => $value,
                 'suggestedName' => $suggestedName,
                 'uses' => (int) ($token['uses'] ?? 0),
+                'dynamicData' => array_key_exists('dynamicData', $token) ? $token['dynamicData'] : null,
             ];
         }
 
@@ -311,7 +417,7 @@ class OxygenVariableRepository
      */
     private function buildColorVariable(array $token): ?array
     {
-        $value = $this->normalizeColorValue((string) $token['value']);
+        $value = $this->normalizeColorValue($this->scalarTokenValue($token['value'] ?? null));
 
         if ($value === '') {
             return null;
@@ -319,7 +425,7 @@ class OxygenVariableRepository
 
         $name = $this->normalizeCssVariableName((string) $token['suggestedName']);
 
-        return $this->variableRecord($name, 'color', $this->labelForToken($name), $value, 'Imported HTML Colors');
+        return $this->variableRecord($name, 'color', $this->labelForToken($name), $value, 'Imported HTML Colors', $token['dynamicData'] ?? null);
     }
 
     /**
@@ -328,7 +434,7 @@ class OxygenVariableRepository
      */
     private function buildUnitVariable(array $token): ?array
     {
-        $value = $this->normalizeUnitValue((string) $token['value']);
+        $value = $this->normalizeUnitValue($this->scalarTokenValue($token['value'] ?? null));
 
         if ($value === null) {
             return null;
@@ -336,7 +442,7 @@ class OxygenVariableRepository
 
         $name = $this->normalizeCssVariableName((string) $token['suggestedName']);
 
-        return $this->variableRecord($name, 'unit', $this->labelForToken($name), $value, 'Imported HTML Spacing');
+        return $this->variableRecord($name, 'unit', $this->labelForToken($name), $value, 'Imported HTML Spacing', $token['dynamicData'] ?? null);
     }
 
     /**
@@ -345,7 +451,7 @@ class OxygenVariableRepository
      */
     private function buildFontFamilyVariable(array $token): ?array
     {
-        $value = $this->normalizeFontFamilyValue((string) $token['value']);
+        $value = $this->normalizeFontFamilyValue($this->scalarTokenValue($token['value'] ?? null));
 
         if ($value === '') {
             return null;
@@ -353,24 +459,80 @@ class OxygenVariableRepository
 
         $name = $this->normalizeCssVariableName((string) $token['suggestedName']);
 
-        return $this->variableRecord($name, 'font_family', $this->labelForToken($name), $value, 'Imported HTML Fonts');
+        return $this->variableRecord($name, 'font_family', $this->labelForToken($name), $value, 'Imported HTML Fonts', $token['dynamicData'] ?? null);
+    }
+
+    /**
+     * @param array<string, mixed> $token
+     * @return array<string, mixed>|null
+     */
+    private function buildImageUrlVariable(array $token): ?array
+    {
+        $value = $this->normalizeImageUrlValue($token['value'] ?? null);
+
+        if ($value === null) {
+            return null;
+        }
+
+        $name = $this->normalizeCssVariableName((string) $token['suggestedName']);
+
+        return $this->variableRecord($name, 'image_url', $this->labelForToken($name), $value, 'Imported HTML Images', $token['dynamicData'] ?? null);
+    }
+
+    /**
+     * @param array<string, mixed> $token
+     * @return array<string, mixed>|null
+     */
+    private function buildMeasurementVariable(array $token): ?array
+    {
+        $value = $this->normalizeUnitValue($this->scalarTokenValue($token['value'] ?? null));
+
+        if ($value === null) {
+            return null;
+        }
+
+        $name = $this->normalizeCssVariableName((string) $token['suggestedName']);
+
+        return $this->variableRecord($name, 'unit', $this->labelForToken($name), $value, 'Imported HTML Measurements', $token['dynamicData'] ?? null);
+    }
+
+    /**
+     * @param array<string, mixed> $token
+     * @return array<string, mixed>|null
+     */
+    private function buildNumberVariable(array $token): ?array
+    {
+        $value = $this->normalizeNumberValue($token['value'] ?? null);
+
+        if ($value === null) {
+            return null;
+        }
+
+        $name = $this->normalizeCssVariableName((string) $token['suggestedName']);
+
+        return $this->variableRecord($name, 'number', $this->labelForToken($name), $value, 'Imported HTML Numbers', $token['dynamicData'] ?? null);
     }
 
     /**
      * @param mixed $value
      * @return array<string, mixed>
      */
-    private function variableRecord(string $name, string $type, string $label, $value, string $collection): array
+    private function variableRecord(string $name, string $type, string $label, $value, string $collection, $dynamicData = null): array
     {
-        return [
+        $record = [
             'id' => self::ID_PREFIX . substr(sha1($type . ':' . $name), 0, 16),
-            'type' => $type,
-            'label' => $label,
             'cssVariableName' => $name,
-            'collection' => $collection,
+            'label' => $label,
             'value' => $value,
-            'dynamicData' => null,
+            'type' => $type,
+            'collection' => $collection,
         ];
+
+        if (is_array($dynamicData)) {
+            $record['dynamicData'] = $dynamicData;
+        }
+
+        return $record;
     }
 
     private function getStorageAdapter(): OxygenStorageAdapter
@@ -380,6 +542,28 @@ class OxygenVariableRepository
         }
 
         return $this->storageAdapter;
+    }
+
+    private function existingVariablesNeedNormalizationRewrite(): bool
+    {
+        foreach ($this->variableSources() as $source) {
+            if (is_string($source)) {
+                $decoded = json_decode($source, true);
+                $source = is_array($decoded) ? $decoded : [];
+            }
+
+            if (!is_array($source)) {
+                continue;
+            }
+
+            foreach ($source as $variable) {
+                if (is_array($variable) && array_key_exists('dynamicData', $variable) && $variable['dynamicData'] === null) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function normalizeCssVariableName(string $name): string
@@ -420,6 +604,83 @@ class OxygenVariableRepository
         return ucwords($label);
     }
 
+    /**
+     * @param mixed $value
+     */
+    private function hasUsableTokenValue($value): bool
+    {
+        if (is_scalar($value)) {
+            return trim((string) $value) !== '';
+        }
+
+        if (!is_array($value)) {
+            return false;
+        }
+
+        foreach (['value', 'url'] as $field) {
+            if (is_scalar($value[$field] ?? null) && trim((string) $value[$field]) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function scalarTokenValue($value): string
+    {
+        if (is_scalar($value)) {
+            return trim((string) $value);
+        }
+
+        if (is_array($value) && is_scalar($value['value'] ?? null)) {
+            return trim((string) $value['value']);
+        }
+
+        return '';
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function referenceSourceValue($value): string
+    {
+        if (is_array($value) && is_scalar($value['url'] ?? null)) {
+            return trim((string) $value['url']);
+        }
+
+        return $this->scalarTokenValue($value);
+    }
+
+    /**
+     * @param array<string, mixed> $variable
+     */
+    private function referenceValueForVariable(array $variable): string
+    {
+        $type = (string) ($variable['type'] ?? '');
+        $value = $variable['value'] ?? null;
+
+        if ($type === 'unit' && is_array($value) && is_scalar($value['style'] ?? null)) {
+            return trim((string) $value['style']);
+        }
+
+        if ($type === 'image_url' && is_array($value) && is_scalar($value['url'] ?? null)) {
+            return trim((string) $value['url']);
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        if (is_scalar($value)) {
+            return trim((string) $value);
+        }
+
+        return '';
+    }
+
     private function normalizeColorValue(string $value): string
     {
         $value = trim($value);
@@ -437,6 +698,62 @@ class OxygenVariableRepository
         }
 
         return '';
+    }
+
+    /**
+     * @param mixed $value
+     * @return array{url:string}|null
+     */
+    private function normalizeImageUrlValue($value): ?array
+    {
+        $url = '';
+
+        if (is_scalar($value)) {
+            $url = trim((string) $value);
+        } elseif (is_array($value) && is_scalar($value['url'] ?? null)) {
+            $url = trim((string) $value['url']);
+        }
+
+        if ($url === '' || preg_match('/[\s<>{}]/', $url) === 1) {
+            return null;
+        }
+
+        if (
+            preg_match('#^https?://#i', $url) !== 1
+            && preg_match('#^/(?!/)#', $url) !== 1
+            && preg_match('#^[A-Za-z0-9_.~/-]+\.(?:avif|gif|jpe?g|png|svg|webp)(?:[?\#].*)?$#i', $url) !== 1
+        ) {
+            return null;
+        }
+
+        if (preg_match('/^(?:javascript|vbscript|data):/i', $url) === 1) {
+            return null;
+        }
+
+        return ['url' => $url];
+    }
+
+    /**
+     * @param mixed $value
+     * @return int|float|null
+     */
+    private function normalizeNumberValue($value)
+    {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+        if ($value === '' || !is_numeric($value)) {
+            return null;
+        }
+
+        $number = (float) $value;
+        if (!is_finite($number)) {
+            return null;
+        }
+
+        return $number == (int) $number ? (int) $number : $number;
     }
 
     /**
@@ -582,19 +899,90 @@ class OxygenVariableRepository
             $id = is_string($variable['id'] ?? null) ? trim($variable['id']) : '';
             $name = is_string($variable['cssVariableName'] ?? null) ? trim($variable['cssVariableName']) : '';
             $type = is_string($variable['type'] ?? null) ? trim($variable['type']) : '';
+            $label = is_string($variable['label'] ?? null) ? trim($variable['label']) : '';
+            $collection = is_string($variable['collection'] ?? null) ? trim($variable['collection']) : '';
 
-            if ($id === '' || $name === '' || $type === '') {
+            if ($id === '' || $name === '' || $type === '' || $label === '' || $collection === '' || !array_key_exists('value', $variable)) {
                 continue;
             }
 
-            if (!array_key_exists('dynamicData', $variable)) {
-                $variable['dynamicData'] = null;
+            if (array_key_exists('dynamicData', $variable) && $variable['dynamicData'] === null) {
+                unset($variable['dynamicData']);
+            }
+
+            if (!$this->isCompleteVariableRecord($variable)) {
+                continue;
             }
 
             $variables[] = $variable;
         }
 
         return $variables;
+    }
+
+    /**
+     * @param array<string, mixed> $variable
+     */
+    private function isCompleteVariableRecord(array $variable): bool
+    {
+        $allowed = [
+            'id' => true,
+            'cssVariableName' => true,
+            'label' => true,
+            'value' => true,
+            'type' => true,
+            'dynamicData' => true,
+            'collection' => true,
+        ];
+
+        foreach ($variable as $key => $value) {
+            if (!isset($allowed[(string) $key])) {
+                return false;
+            }
+        }
+
+        $name = is_string($variable['cssVariableName'] ?? null) ? (string) $variable['cssVariableName'] : '';
+        if ($name === '' || str_starts_with($name, '--') || preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/', $name) !== 1) {
+            return false;
+        }
+
+        if (array_key_exists('dynamicData', $variable) && !is_array($variable['dynamicData'])) {
+            return false;
+        }
+
+        return match ((string) ($variable['type'] ?? '')) {
+            'color' => $this->isValidExistingColorValue($variable['value'] ?? null),
+            'unit' => $this->isValidExistingUnitValue($variable['value'] ?? null),
+            'number' => is_int($variable['value'] ?? null) || is_float($variable['value'] ?? null),
+            'font_family' => is_string($variable['value'] ?? null) && trim((string) $variable['value']) !== '',
+            'image_url' => $this->normalizeImageUrlValue($variable['value'] ?? null) !== null,
+            default => false,
+        };
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function isValidExistingColorValue($value): bool
+    {
+        if (is_string($value)) {
+            return trim($value) !== '';
+        }
+
+        return is_array($value) && is_string($value['value'] ?? null) && trim((string) $value['value']) !== '';
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function isValidExistingUnitValue($value): bool
+    {
+        return is_array($value)
+            && array_key_exists('number', $value)
+            && (is_int($value['number']) || is_float($value['number']) || is_string($value['number']) || $value['number'] === null)
+            && is_string($value['unit'] ?? null)
+            && is_string($value['style'] ?? null)
+            && trim((string) $value['style']) !== '';
     }
 
     /**
@@ -635,20 +1023,86 @@ class OxygenVariableRepository
 
     /**
      * @param array<string, mixed> $payload
-     * @return array<string, int>
+     * @return array<string, mixed>
      */
     private function buildSkippedSummary(array $payload): array
     {
         $tokens = $this->resolveTokens($payload);
         $proposed = 0;
+        $unsupported = [];
 
-        foreach (['colors', 'spacing', 'fonts'] as $group) {
-            $proposed += count($this->normalizeTokenGroup($tokens[$group] ?? []));
+        foreach ($tokens as $group => $groupTokens) {
+            $group = (string) $group;
+            foreach ($this->normalizeTokenGroup($groupTokens) as $token) {
+                $proposed++;
+
+                if (!isset(self::SUPPORTED_TOKEN_GROUPS[$group])) {
+                    $unsupported[] = $this->skippedToken($group, $token, 'unsupported_token_group');
+                    continue;
+                }
+
+                if ($this->buildVariableForGroup($group, $token) === null) {
+                    $unsupported[] = $this->skippedToken($group, $token, 'unsupported_or_malformed_value');
+                }
+            }
         }
 
         return [
             'proposed' => $proposed,
             'persistable' => count($this->buildVariablesFromPayload($payload)),
+            'unsupported' => count($unsupported),
+            'items' => $unsupported,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $token
+     * @return array<string, mixed>|null
+     */
+    private function buildVariableForGroup(string $group, array $token): ?array
+    {
+        return match ($group) {
+            'colors' => $this->buildColorVariable($token),
+            'spacing' => $this->buildUnitVariable($token),
+            'fonts' => $this->buildFontFamilyVariable($token),
+            'images' => $this->buildImageUrlVariable($token),
+            'measurements' => $this->buildMeasurementVariable($token),
+            'numbers' => $this->buildNumberVariable($token),
+            default => null,
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $token
+     * @return array<string, mixed>
+     */
+    private function skippedToken(string $group, array $token, string $reason): array
+    {
+        return [
+            'group' => $group,
+            'suggestedName' => (string) ($token['suggestedName'] ?? ''),
+            'value' => $this->skippedTokenValue($token['value'] ?? null),
+            'reason' => $reason,
+        ];
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function skippedTokenValue($value): string
+    {
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
+
+        if (is_array($value) && is_scalar($value['value'] ?? null)) {
+            return (string) $value['value'];
+        }
+
+        if (is_array($value) && is_scalar($value['url'] ?? null)) {
+            return (string) $value['url'];
+        }
+
+        return '';
     }
 }

@@ -19,6 +19,7 @@ class AjaxEndpointBehaviorTest extends TestCase
         $GLOBALS['__wp_current_user_can'] = true;
         $GLOBALS['__wp_posts'] = [];
         $GLOBALS['__wp_post_meta'] = [];
+        $GLOBALS['__wp_options'] = [];
         $GLOBALS['__wp_next_post_id'] = 1;
         $GLOBALS['__wp_cleaned_post_cache'] = [];
         unset($GLOBALS['__wp_current_user_can_last_capability']);
@@ -32,6 +33,7 @@ class AjaxEndpointBehaviorTest extends TestCase
             'nonce' => 'n',
             'html' => '<script>console.log("x")</script><div>Hello</div>',
             'safeMode' => 'false',
+            'allowExecutableCode' => 'true',
         ];
         $ajax->handlePreview();
         $responseWithoutSafeMode = $GLOBALS['__wp_send_json_last'];
@@ -125,6 +127,36 @@ class AjaxEndpointBehaviorTest extends TestCase
         $this->assertTrue($response['success']);
         $this->assertSame(1, $response['data']['element']['id']);
         $this->assertSame('OxygenElements\\Container', $response['data']['element']['data']['type']);
+    }
+
+    public function testConvertDefaultNativeProfileRoutesCssWithoutVisibleCssCodeBlock(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'n',
+            'html' => '<style>.hero{clip-path:circle(50%);}</style><section class="hero">Hello</section>',
+        ];
+
+        $ajax->handleConvert();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertTrue($response['success']);
+        $this->assertNull($response['data']['cssElement']);
+
+        $types = [];
+        $this->collectElementTypes($response['data']['element'], $types);
+
+        $this->assertNotContains('OxygenElements\\CssCode', $types);
+        $this->assertStringContainsString('clip-path', $response['data']['extractedCss']);
+        $this->assertSame(0, $response['data']['designDocument']['summary']['cssCodeBlocks']);
+
+        $fallbackTypes = array_map(
+            static fn (array $fallback): string => (string) ($fallback['type'] ?? ''),
+            $response['data']['importPlan']['fallbacks'] ?? []
+        );
+
+        $this->assertContains('extracted_css', $fallbackTypes);
+        $this->assertNotContains('css_code', $fallbackTypes);
     }
 
     public function testConvertResponseIncludesBuilderSafeDocumentTree(): void
@@ -338,6 +370,65 @@ class AjaxEndpointBehaviorTest extends TestCase
         $this->assertSame(1, $response['data']['selectorPersistence']['saved']);
     }
 
+    public function testImportPageEndpointImportsStandaloneSiteKitManifest(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'n',
+            'importPayload' => wp_json_encode([
+                'siteKitManifest' => [
+                    'version' => 1,
+                    'id' => 'ajax-site-kit',
+                    'pages' => [[
+                        'id' => 'home',
+                        'title' => 'Home',
+                        'slug' => 'home',
+                        'documentTree' => [
+                            'root' => [
+                                'id' => 0,
+                                'data' => [
+                                    'type' => 'root',
+                                    'properties' => [],
+                                ],
+                                'children' => [[
+                                    'id' => 1,
+                                    'data' => [
+                                        'type' => 'OxygenElements\\Container',
+                                        'properties' => [],
+                                    ],
+                                    'children' => [],
+                                ]],
+                            ],
+                            '_nextNodeId' => 2,
+                        ],
+                    ]],
+                    'assets' => [[
+                        'id' => 'hero-image',
+                        'type' => 'image',
+                    ]],
+                    'unsupportedItems' => [[
+                        'id' => 'external-form',
+                        'type' => 'form',
+                    ]],
+                ],
+            ]),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertTrue($response['success']);
+        $this->assertNotEmpty($response['data']['rollbackId']);
+        $this->assertSame('page', $response['data']['objects']['pages'][0]['postType']);
+        $this->assertSame('hero-image', $response['data']['assets'][0]['id']);
+        $this->assertSame('external-form', $response['data']['unsupportedItems'][0]['id']);
+        $this->assertArrayHasKey('_oxygen_data', $GLOBALS['__wp_post_meta'][1]);
+
+        $manifest = json_decode(stripslashes((string) $GLOBALS['__wp_post_meta'][1]['_oxy_html_converter_import_manifest']), true);
+        $this->assertSame('site-kit', $manifest['kind']);
+        $this->assertSame($response['data']['rollbackId'], $manifest['rollbackId']);
+    }
+
     public function testImportPageEndpointRejectsBlockedImportPlan(): void
     {
         $ajax = new Ajax();
@@ -438,6 +529,7 @@ class AjaxEndpointBehaviorTest extends TestCase
             'html' => '<style>.hero{clip-path:circle(50%);color:red;}</style><section class="hero"><h1>Hello</h1><p>World</p></section>',
             'startingNodeId' => 50,
             'wrapInContainer' => 'true',
+            'includeCssElement' => 'true',
         ];
 
         $ajax->handleConvert();
@@ -457,6 +549,13 @@ class AjaxEndpointBehaviorTest extends TestCase
         $this->assertSame(max($ids) + 1, $response['data']['documentTree']['_nextNodeId']);
         $this->assertIsArray($response['data']['cssElement']);
         $this->assertContains($response['data']['cssElement']['id'], $ids);
+
+        $fallbackTypes = array_map(
+            static fn (array $fallback): string => (string) ($fallback['type'] ?? ''),
+            $response['data']['importPlan']['fallbacks'] ?? []
+        );
+
+        $this->assertContains('css_code', $fallbackTypes);
     }
 
     public function testBatchResultsIncludeBuilderSafeDocumentTree(): void

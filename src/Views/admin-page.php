@@ -71,7 +71,7 @@ declare(strict_types=1);
                         <span><?php echo esc_html__('Wrap output in a container element', 'oxygen-html-converter'); ?></span>
                     </label>
                     <label class="oxy-toggle">
-                        <input type="checkbox" id="oxy-include-css" checked>
+                        <input type="checkbox" id="oxy-include-css">
                         <span><?php echo esc_html__('Include extracted CSS as a code element', 'oxygen-html-converter'); ?></span>
                     </label>
                     <label class="oxy-toggle">
@@ -81,6 +81,10 @@ declare(strict_types=1);
                     <label class="oxy-toggle">
                         <input type="checkbox" id="oxy-safe-mode">
                         <span><?php echo esc_html__('Safe mode: remove scripts, event handlers, and external head assets', 'oxygen-html-converter'); ?></span>
+                    </label>
+                    <label class="oxy-toggle">
+                        <input type="checkbox" id="oxy-allow-executable-code">
+                        <span><?php echo esc_html__('Allow executable code fallback after review', 'oxygen-html-converter'); ?></span>
                     </label>
                     <label class="oxy-toggle">
                         <input type="checkbox" id="oxy-strict-native">
@@ -177,11 +181,18 @@ declare(strict_types=1);
                 <h2><?php echo esc_html__('Import settings', 'oxygen-html-converter'); ?></h2>
                 <form method="post" action="options.php" class="oxy-settings-form">
                     <?php settings_fields('oxy_html_converter_options'); ?>
+                    <?php
+                    $integrations = is_array($ui['integrations'] ?? null) ? $ui['integrations'] : [];
+                    $windPressIntegration = is_array($integrations['windpress'] ?? null) ? $integrations['windpress'] : [];
+                    $windPressClassModeSelection = !empty($windPressIntegration['classModeSelection']);
+                    ?>
                     <label for="oxy_html_converter_class_mode"><?php echo esc_html__('Class handling mode', 'oxygen-html-converter'); ?></label>
                     <select name="oxy_html_converter_class_mode" id="oxy_html_converter_class_mode">
                         <option value="native" <?php selected($classMode, 'native'); ?>><?php echo esc_html__('Native Oxygen mode', 'oxygen-html-converter'); ?></option>
-                        <option value="auto" <?php selected($classMode, 'auto'); ?>><?php echo esc_html__('Auto-detect (WindPress if available)', 'oxygen-html-converter'); ?></option>
-                        <option value="windpress" <?php selected($classMode, 'windpress'); ?>><?php echo esc_html__('Force WindPress mode', 'oxygen-html-converter'); ?></option>
+                        <?php if ($windPressClassModeSelection): ?>
+                            <option value="auto" <?php selected($classMode, 'auto'); ?>><?php echo esc_html__('Auto-detect (WindPress if available)', 'oxygen-html-converter'); ?></option>
+                            <option value="windpress" <?php selected($classMode, 'windpress'); ?>><?php echo esc_html__('Force WindPress mode', 'oxygen-html-converter'); ?></option>
+                        <?php endif; ?>
                     </select>
 
                     <label for="oxy_html_converter_element_mapping_mode"><?php echo esc_html__('Button mapping mode', 'oxygen-html-converter'); ?></label>

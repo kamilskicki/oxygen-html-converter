@@ -45,6 +45,7 @@ class TreeBuilderFactory
 
         $builder->setInlineStyles(!empty($options['inlineStyles']));
         $builder->setSafeMode(!empty($options['safeMode']));
+        $builder->setAllowExecutableCode(!empty($options['allowExecutableCode']) && empty($options['strictNative']));
         $builder->setDebugMode(!empty($options['debugMode']));
         $builder->enableValidation();
     }

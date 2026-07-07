@@ -32,6 +32,19 @@ When the site is reachable:
 - `powershell -File .\\scripts\\summarize-oxygen-source.ps1`
 - `python C:\\Users\\Skicu\\.codex\\skills\\.system\\skill-creator\\scripts\\quick_validate.py <skill-dir>`
 
+From the Core plugin path, use the M8 gates when validating converter or fixture behavior:
+
+- `npm run sync:docker`
+- `npm run test:live`
+- `npm run test:visual`
+- `npm run check`
+
+Failure artifacts are written under:
+
+- `artifacts/live-gate`
+- `artifacts/visual-review`
+- `artifacts/visual-review/capture-failures`
+
 ## Builder URL validation
 
 Use `smoke-builder-access.mjs` when you need a cheap, non-browser confirmation that:
@@ -87,6 +100,8 @@ If you launch from a WordPress editor screen, the cheapest reliable check is:
 2. Confirm the redirect path came from `builderLoaderUrl`, not a hand-built navigation from the edit screen.
 3. If WordPress raised an unload prompt, treat the launch as suspect and retry through the launcher flow before diagnosing builder selectors.
 
-## Current limitation
+## Current live-smoke status
 
-This skill has not yet completed a browser-verified end-to-end edit in the current environment because the builder currently fails after launch with a 500 overlay tied to a missing integration asset.
+M8-03 completed a local Docker live smoke on `oxyconvo6.localhost`: fixture import, Builder open/save/reopen, nonblank canvas/editability checks, selector persistence, site-kit page/header/footer/template checks, and visual fixture smoke passed.
+
+Treat future browser failures as regressions to diagnose from current artifacts and source state, not as an assumed permanent builder bootstrap blocker.

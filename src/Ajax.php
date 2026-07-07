@@ -224,7 +224,14 @@ class Ajax
      */
     private function validateImportPayloadLimits(array $payload): ?array
     {
-        foreach ($this->extractImportCssPayloads($payload) as $label => $css) {
+        $cssPayloads = $this->extractImportCssPayloads($payload);
+        if (isset($payload['siteKitManifest']) && is_array($payload['siteKitManifest'])) {
+            foreach ($this->extractImportCssPayloads($payload['siteKitManifest']) as $label => $css) {
+                $cssPayloads['Site-kit ' . lcfirst($label)] = $css;
+            }
+        }
+
+        foreach ($cssPayloads as $label => $css) {
             if (strlen($css) > self::IMPORT_CSS_MAX_BYTES) {
                 return [
                     'status' => self::JSON_LIMIT_STATUS,
@@ -251,8 +258,23 @@ class Ajax
             }
         }
 
+        foreach ($this->siteKitSelectorPayloadsForLimits($payload) as $selectorPayload) {
+            $selectorError = $this->validateSelectorPayloadLimits($selectorPayload, 'Site-kit selector payload');
+            if ($selectorError !== null) {
+                return $selectorError;
+            }
+        }
+
         $treeRoot = $this->resolveImportTreeRoot($payload);
         if ($treeRoot !== null) {
+            $nodeCount = 0;
+            $treeError = $this->validateDocumentTreeLimits($treeRoot, 1, $nodeCount);
+            if ($treeError !== null) {
+                return $treeError;
+            }
+        }
+
+        foreach ($this->siteKitDocumentTreeRoots($payload) as $treeRoot) {
             $nodeCount = 0;
             $treeError = $this->validateDocumentTreeLimits($treeRoot, 1, $nodeCount);
             if ($treeError !== null) {
@@ -270,14 +292,23 @@ class Ajax
     {
         $cssPayloads = [];
 
-        foreach (['globalCss' => 'Global CSS payload', 'pageScopedCss' => 'Page scoped CSS payload'] as $field => $label) {
+        foreach ([
+            'globalCss' => 'Global CSS payload',
+            'fallbackCss' => 'Fallback CSS payload',
+            'pageCss' => 'Page CSS payload',
+            'pageScopedCss' => 'Page scoped CSS payload',
+        ] as $field => $label) {
             if (is_string($payload[$field] ?? null)) {
                 $cssPayloads[$label] = (string) $payload[$field];
             }
         }
 
         $routing = is_array($payload['styleRouting'] ?? null) ? $payload['styleRouting'] : [];
-        foreach (['globalCss' => 'Global routed CSS payload', 'pageScopedCss' => 'Page scoped routed CSS payload'] as $field => $label) {
+        foreach ([
+            'globalCss' => 'Global routed CSS payload',
+            'pageCss' => 'Page routed CSS payload',
+            'pageScopedCss' => 'Page scoped routed CSS payload',
+        ] as $field => $label) {
             if (is_string($routing[$field] ?? null)) {
                 $cssPayloads[$label] = (string) $routing[$field];
             }
@@ -607,6 +638,12 @@ class Ajax
         if (is_array($filteredOptions)) {
             $options = $this->requestOptions->normalizeConvert(array_merge($options, $filteredOptions));
         }
+        if (!$this->currentUserCanUseExecutableCode($options)) {
+            wp_send_json_error([
+                'message' => 'Executable code fallback requires unfiltered HTML permission.',
+            ], 403);
+            return;
+        }
 
         try {
             $response = $this->convertHandler->handle($html, $options);
@@ -716,6 +753,12 @@ class Ajax
         if (is_array($filteredOptions)) {
             $options = $this->requestOptions->normalizeBatch(array_merge($options, $filteredOptions));
         }
+        if (!$this->currentUserCanUseExecutableCode($options)) {
+            wp_send_json_error([
+                'message' => 'Executable code fallback requires unfiltered HTML permission.',
+            ], 403);
+            return;
+        }
 
         try {
             $response = $this->batchHandler->handle($batch, $options, $skipped);
@@ -808,6 +851,13 @@ class Ajax
             return;
         }
 
+        if ($this->importPayloadContainsExecutableCode($payload) && !$this->currentUserCanUseExecutableImport($payload)) {
+            wp_send_json_error([
+                'message' => 'Executable code import requires explicit approval and unfiltered HTML permission.',
+            ], 403);
+            return;
+        }
+
         if ($this->importPayloadMutatesGlobalDesign($payload) && !$this->currentUserCanMutateGlobalDesign()) {
             wp_send_json_error([
                 'message' => 'Permission denied for global design import mutations.',
@@ -816,7 +866,9 @@ class Ajax
         }
 
         try {
-            $result = $this->pageImporter->import($payload);
+            $result = $this->importPayloadIsStandaloneSiteKit($payload)
+                ? $this->pageImporter->importSiteKit($this->resolveStandaloneSiteKitManifest($payload))
+                : $this->pageImporter->import($payload);
 
             if (!empty($result['success'])) {
                 unset($result['success'], $result['status']);
@@ -841,6 +893,10 @@ class Ajax
      */
     private function importPayloadMutatesGlobalDesign(array $payload): bool
     {
+        if ($this->importPayloadIsStandaloneSiteKit($payload)) {
+            return true;
+        }
+
         $selectorPayload = is_array($payload['selectorPayload'] ?? null) ? $payload['selectorPayload'] : [];
         if ($this->arrayPathHasItems($selectorPayload, ['selectors']) || $this->arrayPathHasItems($selectorPayload, ['collections'])) {
             return true;
@@ -866,6 +922,41 @@ class Ajax
         }
 
         return false;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function importPayloadIsStandaloneSiteKit(array $payload): bool
+    {
+        if (isset($payload['documentTree']) || isset($payload['element'])) {
+            return false;
+        }
+
+        if (isset($payload['siteKitManifest']) && is_array($payload['siteKitManifest'])) {
+            return true;
+        }
+
+        foreach (['pages', 'templates', 'headers', 'footers', 'parts'] as $section) {
+            if (isset($payload[$section]) && is_array($payload[$section])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function resolveStandaloneSiteKitManifest(array $payload): array
+    {
+        if (isset($payload['siteKitManifest']) && is_array($payload['siteKitManifest'])) {
+            return $payload['siteKitManifest'];
+        }
+
+        return $payload;
     }
 
     /**
@@ -1031,6 +1122,12 @@ class Ajax
         if (is_array($filteredOptions)) {
             $options = $this->requestOptions->normalizePreview(array_merge($options, $filteredOptions));
         }
+        if (!$this->currentUserCanUseExecutableCode($options)) {
+            wp_send_json_error([
+                'message' => 'Executable code fallback requires unfiltered HTML permission.',
+            ], 403);
+            return;
+        }
 
         try {
             $response = $this->previewHandler->handle($html, $options);
@@ -1052,4 +1149,588 @@ class Ajax
         }
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
+    private function currentUserCanUseExecutableCode(array $options): bool
+    {
+        return empty($options['allowExecutableCode']) || current_user_can('unfiltered_html');
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function currentUserCanUseExecutableImport(array $payload): bool
+    {
+        $safeMode = $this->requestOptions->parseBool(
+            $this->readBooleanPostField('safeMode') ?? ($payload['safeMode'] ?? ($payload['options']['safeMode'] ?? true)),
+            true
+        );
+        $strictNative = $this->requestOptions->parseBool(
+            $this->readBooleanPostField('strictNative') ?? ($payload['strictNative'] ?? ($payload['options']['strictNative'] ?? false)),
+            false
+        );
+        $allowExecutableCode = $this->requestOptions->parseBool(
+            $this->readBooleanPostField('allowExecutableCode') ?? ($payload['allowExecutableCode'] ?? ($payload['options']['allowExecutableCode'] ?? false)),
+            false
+        );
+
+        return !$safeMode && !$strictNative && $allowExecutableCode && current_user_can('unfiltered_html');
+    }
+
+    /**
+     * @return mixed|null
+     */
+    private function readBooleanPostField(string $field)
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce is verified before this helper is called.
+        if (!isset($_POST[$field])) {
+            return null;
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce is verified and this boolean is normalized by RequestOptions::parseBool().
+        return wp_unslash($_POST[$field]);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function importPayloadContainsExecutableCode(array $payload): bool
+    {
+        if ($this->importPayloadIsStandaloneSiteKit($payload)
+            && $this->siteKitManifestContainsExecutableCode($this->resolveStandaloneSiteKitManifest($payload))
+        ) {
+            return true;
+        }
+
+        $treeRoot = $this->resolveImportTreeRoot($payload);
+        if ($treeRoot !== null && $this->elementNodeContainsExecutableCode($treeRoot)) {
+            return true;
+        }
+
+        foreach (['cssElement'] as $field) {
+            if (isset($payload[$field]) && is_array($payload[$field]) && $this->elementNodeContainsExecutableCode($payload[$field])) {
+                return true;
+            }
+        }
+
+        foreach (['headLinkElements', 'headScriptElements', 'iconScriptElements'] as $field) {
+            $elements = is_array($payload[$field] ?? null) ? $payload[$field] : [];
+            foreach ($elements as $element) {
+                if (is_array($element) && $this->elementNodeContainsExecutableCode($element)) {
+                    return true;
+                }
+            }
+        }
+
+        if ($this->payloadCssContainsExecutableCode($payload)) {
+            return true;
+        }
+
+        $selectorPayload = is_array($payload['selectorPayload'] ?? null) ? $payload['selectorPayload'] : [];
+        if ($selectorPayload !== [] && $this->arrayContainsExecutableStyleValue($selectorPayload)) {
+            return true;
+        }
+
+        if ($this->globalSettingsPayloadContainsExecutableCode($payload)) {
+            return true;
+        }
+
+        if ($this->brandLibraryPayloadContainsExecutableCode($payload)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     */
+    private function siteKitManifestContainsExecutableCode(array $manifest): bool
+    {
+        foreach ($this->siteKitDocumentTreeRoots($manifest) as $treeRoot) {
+            if ($this->elementNodeContainsExecutableCode($treeRoot)) {
+                return true;
+            }
+        }
+
+        if ($this->payloadCssContainsExecutableCode($manifest)) {
+            return true;
+        }
+
+        $selectorPayload = is_array($manifest['selectorPayload'] ?? null) ? $manifest['selectorPayload'] : [];
+        if ($selectorPayload === []) {
+            $selectorPayload = [
+                'selectors' => is_array($manifest['selectors'] ?? null) ? $manifest['selectors'] : [],
+                'collections' => is_array($manifest['collections'] ?? null) ? $manifest['collections'] : [],
+            ];
+        }
+
+        if ($selectorPayload !== [] && $this->arrayContainsExecutableStyleValue($selectorPayload)) {
+            return true;
+        }
+
+        if ($this->globalSettingsPayloadContainsExecutableCode($manifest)) {
+            return true;
+        }
+
+        return $this->brandLibraryPayloadContainsExecutableCode($this->siteKitBrandPayload($manifest));
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return list<array<string, mixed>>
+     */
+    private function siteKitDocumentTreeRoots(array $payload): array
+    {
+        $manifest = isset($payload['siteKitManifest']) && is_array($payload['siteKitManifest'])
+            ? $payload['siteKitManifest']
+            : $payload;
+        $roots = [];
+
+        foreach (['pages', 'templates', 'headers', 'footers', 'parts'] as $section) {
+            $records = is_array($manifest[$section] ?? null) ? $manifest[$section] : [];
+            foreach ($records as $record) {
+                if (!is_array($record)) {
+                    continue;
+                }
+
+                $root = $this->siteKitRecordTreeRoot($record);
+                if ($root !== null) {
+                    $roots[] = $root;
+                }
+            }
+        }
+
+        return $roots;
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     * @return array<string, mixed>|null
+     */
+    private function siteKitRecordTreeRoot(array $record): ?array
+    {
+        foreach (['documentTree', 'tree'] as $field) {
+            if (isset($record[$field]) && is_array($record[$field])) {
+                $tree = $record[$field];
+                return isset($tree['root']) && is_array($tree['root']) ? $tree['root'] : $tree;
+            }
+        }
+
+        $oxygenData = is_array($record['_oxygen_data'] ?? null) ? $record['_oxygen_data'] : [];
+        if (!is_string($oxygenData['tree_json_string'] ?? null)) {
+            return null;
+        }
+
+        $tree = json_decode((string) $oxygenData['tree_json_string'], true);
+        if (!is_array($tree)) {
+            return null;
+        }
+
+        return isset($tree['root']) && is_array($tree['root']) ? $tree['root'] : $tree;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return list<array<string, mixed>>
+     */
+    private function siteKitSelectorPayloadsForLimits(array $payload): array
+    {
+        $payloads = [];
+        $manifests = [];
+
+        if (isset($payload['siteKitManifest']) && is_array($payload['siteKitManifest'])) {
+            $manifests[] = $payload['siteKitManifest'];
+        }
+
+        if ($this->importPayloadIsStandaloneSiteKit($payload)) {
+            $manifests[] = $this->resolveStandaloneSiteKitManifest($payload);
+        }
+
+        foreach ($manifests as $manifest) {
+            $selectorPayload = $this->siteKitSelectorPayloadForScanning($manifest);
+            if ($selectorPayload !== []) {
+                $payloads[] = $selectorPayload;
+            }
+        }
+
+        return $payloads;
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     * @return array<string, mixed>
+     */
+    private function siteKitSelectorPayloadForScanning(array $manifest): array
+    {
+        if (is_array($manifest['selectorPayload'] ?? null)) {
+            return $manifest['selectorPayload'];
+        }
+
+        $selectors = is_array($manifest['selectors'] ?? null) ? $manifest['selectors'] : [];
+        $collections = is_array($manifest['collections'] ?? null) ? $manifest['collections'] : [];
+        if ($selectors === [] && $collections === []) {
+            return [];
+        }
+
+        return [
+            'selectors' => $selectors,
+            'collections' => $collections,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     * @return array<string, mixed>
+     */
+    private function siteKitBrandPayload(array $manifest): array
+    {
+        $designDocument = is_array($manifest['designDocument'] ?? null) ? $manifest['designDocument'] : [];
+        $importPlan = is_array($manifest['importPlan'] ?? null) ? $manifest['importPlan'] : [];
+
+        foreach (['tokens', 'variables', 'oxygenVariables'] as $key) {
+            if (is_array($manifest[$key] ?? null)) {
+                $designDocument['tokens'] = $manifest[$key];
+                break;
+            }
+        }
+
+        return [
+            'designDocument' => $designDocument,
+            'importPlan' => $importPlan,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function elementNodeContainsExecutableCode(array $node): bool
+    {
+        $type = is_string($node['data']['type'] ?? null) ? (string) $node['data']['type'] : '';
+        if ($type === 'OxygenElements\\JavaScriptCode' || str_ends_with($type, '\\JavaScriptCode')) {
+            return true;
+        }
+
+        if ($this->nodeSettingsContainExecutableCode($node)) {
+            return true;
+        }
+
+        if ($type === 'OxygenElements\\HtmlCode' || str_ends_with($type, '\\HtmlCode')) {
+            $html = $node['data']['properties']['content']['content']['html_code'] ?? '';
+            if (is_string($html) && $this->htmlCodeContainsExecutableMarkers($html)) {
+                return true;
+            }
+        }
+
+        if ($type === 'OxygenElements\\CssCode' || str_ends_with($type, '\\CssCode')) {
+            $css = $node['data']['properties']['content']['content']['css_code'] ?? '';
+            if (is_string($css) && $this->cssCodeContainsExecutableMarkers($css)) {
+                return true;
+            }
+        }
+
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        foreach ($children as $child) {
+            if (is_array($child) && $this->elementNodeContainsExecutableCode($child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function nodeSettingsContainExecutableCode(array $node): bool
+    {
+        $settings = is_array($node['data']['properties']['settings'] ?? null) ? $node['data']['properties']['settings'] : [];
+        $advanced = is_array($settings['advanced'] ?? null) ? $settings['advanced'] : [];
+        $attributes = is_array($advanced['attributes'] ?? null) ? $advanced['attributes'] : [];
+
+        foreach ($attributes as $attribute) {
+            if (!is_array($attribute)) {
+                continue;
+            }
+
+            $name = is_scalar($attribute['name'] ?? null) ? strtolower(trim((string) $attribute['name'])) : '';
+            $value = is_scalar($attribute['value'] ?? null) ? (string) $attribute['value'] : '';
+            if ($this->attributeNameIsExecutable($name) || $this->stringContainsExecutableUrl($value)) {
+                return true;
+            }
+        }
+
+        $interactionSettings = is_array($settings['interactions'] ?? null) ? $settings['interactions'] : [];
+        $interactions = is_array($interactionSettings['interactions'] ?? null) ? $interactionSettings['interactions'] : [];
+
+        return $this->interactionListContainsExecutableCode($interactions);
+    }
+
+    private function attributeNameIsExecutable(string $name): bool
+    {
+        return $name !== '' && (
+            strpos($name, 'on') === 0
+            || strpos($name, 'data-oxy-at-') === 0
+            || strpos($name, 'x-') === 0
+            || strpos($name, 'v-') === 0
+            || strpos($name, 'ng-') === 0
+            || strpos($name, 'hx-on') === 0
+            || strpos($name, 'bind:') === 0
+            || strpos($name, ':') === 0
+            || strpos($name, '@') === 0
+            || in_array($name, ['srcdoc', 'formaction', 'ping'], true)
+        );
+    }
+
+    /**
+     * @param array<int, mixed> $interactions
+     */
+    private function interactionListContainsExecutableCode(array $interactions): bool
+    {
+        foreach ($interactions as $interaction) {
+            if (!is_array($interaction)) {
+                continue;
+            }
+
+            $actions = is_array($interaction['actions'] ?? null) ? $interaction['actions'] : [];
+            foreach ($actions as $action) {
+                if (!is_array($action)) {
+                    continue;
+                }
+
+                $name = is_scalar($action['name'] ?? null) ? strtolower((string) $action['name']) : '';
+                if ($name === 'javascript_function') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function htmlCodeContainsExecutableMarkers(string $html): bool
+    {
+        $decoded = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $urlDecoded = rawurldecode($decoded);
+        $normalized = preg_replace('/[\x00-\x20\x7F]+/', '', $urlDecoded);
+        if (!is_string($normalized)) {
+            return true;
+        }
+
+        $pattern = '/<\s*(?:script|iframe|object|embed|svg|form|input|textarea|select)\b|\son[a-z0-9_-]+\s*=|(?:javascript|vbscript)\s*:|data:(?:text\/html|image\/svg\+xml)(?:[;,\s]|$)|srcdoc\s*=/i';
+        foreach ([$html, $decoded, $urlDecoded, $normalized] as $candidate) {
+            if (preg_match($pattern, $candidate) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function payloadCssContainsExecutableCode(array $payload): bool
+    {
+        foreach (['globalCss', 'fallbackCss', 'pageCss', 'pageScopedCss'] as $field) {
+            if (isset($payload[$field]) && is_string($payload[$field]) && $this->cssCodeContainsExecutableMarkers($payload[$field])) {
+                return true;
+            }
+        }
+
+        $routing = is_array($payload['styleRouting'] ?? null) ? $payload['styleRouting'] : [];
+        foreach (['globalCss', 'pageCss', 'pageScopedCss'] as $field) {
+            if (isset($routing[$field]) && is_string($routing[$field]) && $this->cssCodeContainsExecutableMarkers($routing[$field])) {
+                return true;
+            }
+        }
+
+        $routes = is_array($routing['routes'] ?? null) ? $routing['routes'] : [];
+        foreach ($routes as $route) {
+            if (!is_array($route)) {
+                continue;
+            }
+
+            foreach (['css', 'content'] as $field) {
+                if (isset($route[$field]) && is_string($route[$field]) && $this->cssCodeContainsExecutableMarkers($route[$field])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function globalSettingsPayloadContainsExecutableCode(array $payload): bool
+    {
+        foreach ($this->globalSettingsCandidates($payload) as $candidate) {
+            $settings = is_array($candidate['settings'] ?? null) ? $candidate['settings'] : $candidate;
+            $code = is_array($settings['code'] ?? null) ? $settings['code'] : [];
+
+            $scripts = is_array($code['scripts'] ?? null) ? $code['scripts'] : [];
+            foreach ($scripts as $script) {
+                if (is_array($script) && is_string($script['code'] ?? null) && trim($script['code']) !== '') {
+                    return true;
+                }
+            }
+
+            $stylesheets = is_array($code['stylesheets'] ?? null) ? $code['stylesheets'] : [];
+            foreach ($stylesheets as $stylesheet) {
+                if (is_array($stylesheet)
+                    && is_string($stylesheet['code'] ?? null)
+                    && $this->cssCodeContainsExecutableMarkers($stylesheet['code'])
+                ) {
+                    return true;
+                }
+            }
+
+            if ($this->arrayContainsExecutableStyleValue($settings)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return list<array<string, mixed>>
+     */
+    private function globalSettingsCandidates(array $payload): array
+    {
+        $candidates = [];
+
+        foreach (['oxygenGlobalSettings', 'globalSettings'] as $key) {
+            if (isset($payload[$key]) && is_array($payload[$key])) {
+                $candidates[] = $payload[$key];
+            }
+        }
+
+        $designDocument = is_array($payload['designDocument'] ?? null) ? $payload['designDocument'] : [];
+        foreach (['oxygenGlobalSettings', 'globalSettings'] as $key) {
+            if (isset($designDocument[$key]) && is_array($designDocument[$key])) {
+                $candidates[] = $designDocument[$key];
+            }
+        }
+
+        $importPlan = is_array($payload['importPlan'] ?? null) ? $payload['importPlan'] : [];
+        foreach (['oxygenGlobalSettings', 'globalSettings'] as $key) {
+            if (isset($importPlan[$key]) && is_array($importPlan[$key])) {
+                $candidates[] = $importPlan[$key];
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function brandLibraryPayloadContainsExecutableCode(array $payload): bool
+    {
+        $importPlan = is_array($payload['importPlan'] ?? null) ? $payload['importPlan'] : [];
+        $designDocument = is_array($payload['designDocument'] ?? null) ? $payload['designDocument'] : [];
+
+        foreach ([$importPlan, $designDocument] as $source) {
+            $tokens = is_array($source['tokens'] ?? null) ? $source['tokens'] : [];
+            if ($tokens !== [] && $this->arrayContainsExecutableStyleValue($tokens)) {
+                return true;
+            }
+
+            $components = is_array($source['components'] ?? null) ? $source['components'] : [];
+            if ($components !== [] && $this->arrayContainsExecutableStyleValue($components)) {
+                return true;
+            }
+        }
+
+        $componentCandidates = is_array($designDocument['componentCandidates'] ?? null) ? $designDocument['componentCandidates'] : [];
+        if ($componentCandidates !== [] && $this->arrayContainsExecutableStyleValue($componentCandidates)) {
+            return true;
+        }
+
+        foreach ([$importPlan, $designDocument] as $source) {
+            $designProfile = is_array($source['designProfile'] ?? null) ? $source['designProfile'] : [];
+            if ($designProfile !== [] && $this->arrayContainsExecutableStyleValue($designProfile)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function arrayContainsExecutableStyleValue(array $value, int $depth = 0): bool
+    {
+        if ($depth > 50) {
+            return true;
+        }
+
+        foreach ($value as $item) {
+            if (is_string($item)) {
+                if ($this->htmlCodeContainsExecutableMarkers($item)
+                    || $this->cssCodeContainsExecutableMarkers($item)
+                    || $this->stringContainsExecutableUrl($item)
+                ) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (is_array($item) && $this->arrayContainsExecutableStyleValue($item, $depth + 1)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function cssCodeContainsExecutableMarkers(string $css): bool
+    {
+        $decoded = html_entity_decode($css, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $urlDecoded = rawurldecode($decoded);
+        $cssDecoded = preg_replace_callback(
+            '/\\\\([0-9a-f]{1,6})\s?/i',
+            static function (array $matches): string {
+                $codepoint = hexdec($matches[1]);
+                return $codepoint >= 0 && $codepoint <= 127 ? chr($codepoint) : '';
+            },
+            $urlDecoded
+        );
+        if (!is_string($cssDecoded)) {
+            return true;
+        }
+
+        $normalized = preg_replace('/[\x00-\x20\x7F]+/', '', $cssDecoded);
+        if (!is_string($normalized)) {
+            return true;
+        }
+
+        $pattern = '/expression\s*\(|(?:javascript|vbscript)\s*:|data:(?:text\/html|image\/svg\+xml)(?:[;,\s]|$)/i';
+        foreach ([$css, $decoded, $urlDecoded, $cssDecoded, $normalized] as $candidate) {
+            if (preg_match($pattern, $candidate) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function stringContainsExecutableUrl(string $value): bool
+    {
+        $decoded = strtolower(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $probe = rawurldecode($decoded);
+        $probe = preg_replace('/[\x00-\x20\x7F]+/', '', $probe);
+        if (!is_string($probe)) {
+            return true;
+        }
+
+        return preg_match('/(?:javascript|vbscript)\s*:|data:(?:text\/html|image\/svg\+xml)(?:[;,]|$)/i', $probe) === 1;
+    }
 }

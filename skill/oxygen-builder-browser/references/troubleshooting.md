@@ -36,7 +36,9 @@ Interpretation:
 - If the Node script falls back to `fetch-get` and disagrees with the PowerShell probe, trust the PowerShell result for reachability and keep using the Node script mainly for canonical URL derivation.
 - If both scripts time out for frontend, login, admin, and builder URLs in the same run, pause Oxygen UI diagnosis and treat the local stack or hostname as degraded before chasing builder-specific errors.
 
-## Builder transport works but the UI fails to bootstrap
+## Historical Builder bootstrap overlay recurs
+
+Current baseline: after M8-03, `npm run test:live` passes the Builder import, save/reopen, editability, and Site Kit smoke on `oxyconvo6.localhost`. Use `validation.md` for the current gate. This section is only for runs where the exact historical overlay below reappears.
 
 Symptom:
 - `smoke-builder-access.mjs --post-id <id>` reports the builder URL as reachable with `200 OK`
@@ -74,7 +76,7 @@ Verified example:
 
 Interpretation:
 - This failure appears after the builder HTML route resolves, so it is more consistent with missing built integration assets or a mismatched asset manifest than with a bad login session.
-- In the current workspace, `builder/dist/manifest.json` and `app*.js` exist locally, while no `integration\oxygen\main.js` file is present under the Oxygen source tree or workspace. Treat that as concrete evidence of an asset-sync or integration-entry mismatch until proven otherwise.
+- In the historical failing workspace snapshot, `builder/dist/manifest.json` and `app*.js` existed locally, while no `integration\oxygen\main.js` file was present under the Oxygen source tree or workspace. Treat that as evidence of an asset-sync or integration-entry mismatch only if the same overlay recurs.
 - `tests/live/sync-docker-plugin.cjs` currently targets container `oxyconvo6-wordpress-1` and plugin path `/var/www/html/wp-content/plugins/oxygen-html-converter`. When Docker returns, inspect that exact live copy before assuming the running site matches the local source tree.
 - If `bootstrap-error-anchor` is `ok` at the same time `integration-asset` is `missing`, treat the issue as locally reproducible from source artifacts even before reopening Browser.
 

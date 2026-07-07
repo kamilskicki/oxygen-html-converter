@@ -145,6 +145,56 @@ class HeuristicsService
         return $this->enabledHeuristics;
     }
 
+    /**
+     * @param array<string, string> $overrides
+     * @return array{role:string,source:string,reason:string}
+     */
+    public function classifyHeaderRole(DOMElement $header, array $overrides = []): array
+    {
+        foreach ($overrides as $selector => $role) {
+            if ($this->headerMatchesSelector($header, (string) $selector)) {
+                return [
+                    'role' => $role,
+                    'source' => 'override',
+                    'reason' => 'manifest_override',
+                ];
+            }
+        }
+
+        if ($this->headerContainsNavigation($header)) {
+            return [
+                'role' => 'site_header',
+                'source' => 'heuristic',
+                'reason' => 'top_level_navigation_header',
+            ];
+        }
+
+        $classSignature = strtolower(
+            $header->getAttribute('id') . ' ' . $header->getAttribute('class') . ' ' . $header->getAttribute('role')
+        );
+        if (preg_match('/\b(?:site|global|primary|main)[-_ ]?(?:header|nav|navigation|chrome)\b/', $classSignature) === 1) {
+            return [
+                'role' => 'site_header',
+                'source' => 'heuristic',
+                'reason' => 'site_chrome_class_or_id',
+            ];
+        }
+
+        if ($this->hasAncestorTag($header, ['main', 'article', 'section'])) {
+            return [
+                'role' => 'content_header',
+                'source' => 'heuristic',
+                'reason' => 'nested_in_content_container',
+            ];
+        }
+
+        return [
+            'role' => 'content_header',
+            'source' => 'heuristic',
+            'reason' => 'default_content_header',
+        ];
+    }
+
     // =========================================================================
     // HEURISTIC METHODS - Apply specific transformations
     // =========================================================================
@@ -199,7 +249,8 @@ class HeuristicsService
         if ($isInNav || $hasNavClass) {
             $element['data']['properties']['design'] = $element['data']['properties']['design'] ?? [];
             $element['data']['properties']['design']['typography'] = $element['data']['properties']['design']['typography'] ?? [];
-            $element['data']['properties']['design']['typography']['color'] = '#ffffff';
+            $element['data']['properties']['design']['typography']['color'] =
+                $this->valueNormalizer->normalizeForPath(['typography', 'color'], '#ffffff', 'color');
             return true;
         }
 
@@ -228,7 +279,8 @@ class HeuristicsService
             $layout['flex_align']['cross_axis'] = 'center';
 
             $element['data']['properties']['design']['typography'] = $element['data']['properties']['design']['typography'] ?? [];
-            $element['data']['properties']['design']['typography']['line_height'] = '0';
+            $element['data']['properties']['design']['typography']['line_height'] =
+                $this->valueNormalizer->normalizeForPath(['typography', 'line_height'], '0', 'line-height');
             return true;
         }
 
@@ -308,7 +360,11 @@ class HeuristicsService
                 $element['data']['properties']['design']['spacing'] = $element['data']['properties']['design']['spacing'] ?? [];
                 $element['data']['properties']['design']['spacing']['spacing']['padding']['top'] =
                     $element['data']['properties']['design']['spacing']['spacing']['padding']['top']
-                    ?? $this->valueNormalizer->normalizeMeasurement('80px');
+                    ?? $this->valueNormalizer->normalizeForPath(
+                        ['spacing', 'spacing', 'padding', 'top'],
+                        '80px',
+                        'padding-top'
+                    );
                 $headerDetected = false; // Only apply once
                 return true;
             }
@@ -328,5 +384,61 @@ class HeuristicsService
         }
 
         return str_replace('.nav-scrolled', '.nav-scrolled, .oxy-header-sticky', $css);
+    }
+
+    /**
+     * @param list<string> $tags
+     */
+    private function hasAncestorTag(DOMElement $node, array $tags): bool
+    {
+        $current = $node->parentNode;
+        while ($current instanceof DOMElement) {
+            if (in_array(strtolower($current->tagName), $tags, true)) {
+                return true;
+            }
+
+            $current = $current->parentNode;
+        }
+
+        return false;
+    }
+
+    private function headerContainsNavigation(DOMElement $header): bool
+    {
+        if (strtolower($header->getAttribute('role')) === 'banner') {
+            return true;
+        }
+
+        if ($header->getElementsByTagName('nav')->length > 0) {
+            return true;
+        }
+
+        $links = $header->getElementsByTagName('a');
+
+        return $links->length >= 2;
+    }
+
+    private function headerMatchesSelector(DOMElement $header, string $selector): bool
+    {
+        $selector = trim($selector);
+        if ($selector === '') {
+            return false;
+        }
+
+        if ($selector[0] === '#') {
+            return $header->getAttribute('id') === substr($selector, 1);
+        }
+
+        if ($selector[0] === '.') {
+            $classes = preg_split('/\s+/', trim($header->getAttribute('class'))) ?: [];
+
+            return in_array(substr($selector, 1), $classes, true);
+        }
+
+        if (strtolower($selector) === 'header') {
+            return true;
+        }
+
+        return $header->getAttribute('id') === $selector;
     }
 }

@@ -70,6 +70,6 @@ Use this skill when Codex needs to drive Oxygen Builder 6 in the browser on the 
 
 ## Known Gaps
 
-- Browser verification now covers login, the wp-admin Pages list, and canonical `Edit in Oxygen` links, but not a successful builder session.
-- The current builder blocker is a browser-visible 500 overlay: `[vp-wp] Entry assets/integration/oxygen/main.js not found.`
-- Add Browser-verified shell or iframe selectors only after the integration asset issue is fixed and the builder renders past the error overlay.
+- M8 live smoke now verifies login, Builder open/save/reopen, nonblank canvas, editability signals, selector persistence, and site-kit surfaces on the local Docker site.
+- Browser work should still confirm the current target page/post ID and not rely on stale page IDs from older reports.
+- If Builder launch regresses, use the failure artifacts from `npm run test:live` or `npm run test:visual` before adding new locator assumptions.

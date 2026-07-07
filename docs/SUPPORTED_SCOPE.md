@@ -43,14 +43,43 @@ Core should provide:
 | --- | --- | --- |
 | Tailwind utility detection and native mapping | Core | Core may map common utilities to native Oxygen selectors/properties when this does not require optional runtime integrations. |
 | Tailwind arbitrary/future utility parity | Future | Unmapped utilities must be reported or routed through an explicit fallback; Core must not claim complete Tailwind parity. |
-| WindPress-specific rendering and cache operations | Pro | Core may expose feature flags and hooks, but generic imports must not depend on WindPress. |
-| site-kit automation | Pro | Multi-page manifests, site assembly, homepage assignment, and site-wide orchestration belong behind extension points until a Core milestone explicitly implements them. |
-| Advanced components | Future | Core may create verified reusable patterns when tests prove editable properties; variants, repeated regions, component-scoped CSS, and advanced property models are deferred. |
-| forms | Future | Core must either use an approved safe strategy or report forms as unsupported; raw executable form fallback is unsafe unless explicitly selected. |
-| dynamic data | Pro | Dynamic bindings, loops, archive logic, and CMS-aware mapping are outside public Core until explicitly implemented. |
+| WindPress-specific rendering and cache operations | Pro | Core exposes feature flags and hooks, but WindPress class mode and cache reset are disabled by default and generic imports must not depend on WindPress. |
+| site-kit manifest import | Core | Core can import static site-kit pages, Oxygen template/header/footer/part records, homepage assignment, and WordPress menu records from the documented manifest shape. |
+| custom site orchestration beyond manifest import | Pro/Future | Discovery, crawling, CMS-aware page generation, and unattended full-site assembly beyond explicit manifests belong behind extension points. |
+| Component editable text/link/image/icon | Core | Core may create editable properties for verified text, link URL, image source/alt, and icon fields using tested component `targets`, `controlPath`, and `propertyKey` records. |
+| Advanced components beyond verified fields | Future/Pro/Unsupported by matrix | Core must report advanced patterns instead of guessing unverified component property serialization. See the advanced component scope matrix below. |
+| forms | Unsupported by default / Future integration | Core must either use an approved safe strategy or report forms as unsupported; raw executable form fallback is unsafe unless explicitly selected. |
+| dynamic data | Pro | Dynamic bindings, loops, and CMS-aware mapping are outside public Core until explicitly implemented by a verified extension. |
 | WooCommerce | Pro | Product templates, carts, checkout, and WooCommerce dynamic areas are premium/future integration scope. |
-| menus | Future | Static nav markup may be imported as editable containers/links; WordPress menu creation and assignment are deferred. |
+| menus | Core for explicit site-kit menu manifests / Future for inferred menus | Static nav markup may be imported as editable containers/links. Explicit site-kit `menus` records can create/select WordPress menus and locations. Inferring menus from arbitrary HTML remains deferred. |
 | unsafe executable preservation | Unsupported by default | Scripts, event handlers, dangerous URLs, and raw embeds require Safe Mode policy and explicit opt-in paths. |
+
+## Advanced Component Scope Matrix
+
+Core currently supports verified editable component properties for text, link URL, image source/alt, and icon fields. Advanced component operations beyond that verified contract are explicitly scoped as follows:
+
+| Advanced pattern | Current disposition | Extension point | Import behavior |
+| --- | --- | --- | --- |
+| variants | Future | `oxy_html_converter_component_variant_mapper` | Report as deferred; preserve static output where possible, but do not persist guessed variant targets. |
+| repeated regions | Future | `oxy_html_converter_component_repeated_region_mapper` | Report as deferred; repeated source structures may become separate static/native children, but not editable repeater component properties. |
+| lists | Future | `oxy_html_converter_component_list_mapper` | Import static list markup when safe; report editable list/repeater component properties as deferred. |
+| forms | Unsupported in Core safe mode | `oxy_html_converter_component_form_mapper` | Report functional form component controls as unsupported unless a verified extension maps them. |
+| dynamic data | Pro | `oxy_html_converter_pro_dynamic_component_mapper` | Report dynamic data, loops, archives, and CMS bindings as Pro scope; Core must not serialize guessed bindings. |
+| component-scoped CSS | Future | `oxy_html_converter_component_scoped_css_mapper` | Report component-scoped CSS as deferred until component CSS ownership and host merge behavior is verified. |
+
+## Dynamic And Site Operation Scope Matrix
+
+M7 separates static site-kit operations that Core can persist from CMS-aware dynamic operations that Core must report instead of guessing.
+
+| Operation | Current disposition | Extension point | Import behavior |
+| --- | --- | --- | --- |
+| homepage assignment | Core | `oxy_html_converter_site_homepage_importer` | Apply explicit `homepage` records through `SiteConfigurationImporter` with rollback. |
+| WordPress menus | Core | `oxy_html_converter_site_menu_importer` | Apply explicit `menus` records through `SiteConfigurationImporter` with rollback. Inferred menus from arbitrary HTML are deferred. |
+| single templates | Core | `oxy_html_converter_template_importer` | Persist Oxygen template posts with verified static single-template conditions. |
+| archive templates | Core | `oxy_html_converter_template_importer` | Persist Oxygen template posts with verified static archive-template conditions. Query/listing behavior inside the template is still deferred. |
+| dynamic bindings | Pro | `oxy_html_converter_pro_dynamic_binding_mapper` | Report as deferred product-boundary items; Core must not serialize guessed CMS binding paths. |
+| loops and repeaters | Pro | `oxy_html_converter_pro_loop_mapper` | Report as deferred product-boundary items; Core may preserve static markup only. |
+| WooCommerce areas | Pro | `oxy_html_converter_pro_woocommerce_mapper` | Report product, cart, checkout, and account areas as Pro scope. |
 
 ## Strict Native Fallback Taxonomy
 
@@ -78,7 +107,7 @@ Core does not yet promise:
 - complete external stylesheet ingestion and rule reconstruction
 - WindPress-specific rendering guarantees in Core
 - Web Components parity beyond safe preservation
-- WooCommerce, dynamic data, loop, archive, or menu automation as default Core behavior
+- WooCommerce, dynamic data, loop, or inferred menu automation as default Core behavior
 - functional forms unless an approved safe integration is selected
 
 ## Practical Reading

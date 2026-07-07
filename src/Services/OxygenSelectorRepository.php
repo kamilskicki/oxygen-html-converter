@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace OxyHtmlConverter\Services;
 
+use OxyHtmlConverter\Validation\OxygenSchemaValidator;
+
 class OxygenSelectorRepository
 {
     private ?OxygenStorageAdapter $storageAdapter;
+    private OxygenSchemaValidator $schemaValidator;
 
-    public function __construct(?OxygenStorageAdapter $storageAdapter = null)
+    public function __construct(?OxygenStorageAdapter $storageAdapter = null, ?OxygenSchemaValidator $schemaValidator = null)
     {
         $this->storageAdapter = $storageAdapter;
+        $this->schemaValidator = $schemaValidator ?? new OxygenSchemaValidator();
     }
 
     /**
@@ -20,6 +24,7 @@ class OxygenSelectorRepository
     public function savePayload(array $payload): array
     {
         $selectors = $this->normalizeSelectorRecords($payload['selectors'] ?? []);
+        $incomingCollections = $this->mergeSelectorCollections($selectors, $payload['collections'] ?? []);
 
         if ($selectors === []) {
             return [
@@ -29,9 +34,12 @@ class OxygenSelectorRepository
             ];
         }
 
+        $this->assertValidSelectors($selectors, $incomingCollections);
+
         $existing = $this->getExistingSelectors();
         $merged = $this->mergeSelectorsById($existing, $selectors);
         $collections = $this->mergeSelectorCollections($merged, $payload['collections'] ?? []);
+        $this->assertValidSelectors($merged, $collections);
         $persistence = $this->persistSelectors($merged, $collections);
 
         if (empty($persistence['success'])) {
@@ -81,12 +89,54 @@ class OxygenSelectorRepository
                     ? trim($record['collection'])
                     : 'Imported HTML',
                 'locked' => (bool) ($record['locked'] ?? false),
-                'children' => is_array($record['children'] ?? null) ? $record['children'] : [],
+                'children' => $this->normalizeSelectorChildren($record['children'] ?? []),
                 'properties' => $properties === [] ? new \stdClass() : $properties,
             ];
         }
 
         return $selectors;
+    }
+
+    /**
+     * @param mixed $records
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeSelectorChildren($records): array
+    {
+        if (!is_array($records)) {
+            return [];
+        }
+
+        $children = [];
+
+        foreach ($records as $record) {
+            if (!is_array($record)) {
+                continue;
+            }
+
+            $id = is_string($record['id'] ?? null) ? trim($record['id']) : '';
+            $name = is_string($record['name'] ?? null) ? trim($record['name']) : '';
+
+            if ($id === '' || $name === '') {
+                continue;
+            }
+
+            $properties = is_array($record['properties'] ?? null) ? $record['properties'] : [];
+            $child = [
+                'id' => $id,
+                'name' => $name,
+                'locked' => (bool) ($record['locked'] ?? false),
+                'properties' => $properties === [] ? new \stdClass() : $properties,
+            ];
+
+            if (is_bool($record['pseudo'] ?? null)) {
+                $child['pseudo'] = (bool) $record['pseudo'];
+            }
+
+            $children[] = $child;
+        }
+
+        return $children;
     }
 
     /**
@@ -170,6 +220,25 @@ class OxygenSelectorRepository
     public function persistSelectors(array $selectors, array $collections): array
     {
         return $this->getStorageAdapter()->writeSelectors($selectors, $collections);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $selectors
+     * @param array<int, string> $collections
+     */
+    private function assertValidSelectors(array $selectors, array $collections): void
+    {
+        $validation = $this->schemaValidator->validateSelectors($selectors, $collections);
+        if ($validation['valid']) {
+            return;
+        }
+
+        $messages = array_map(
+            static fn(array $error): string => $error['message'],
+            $validation['errors']
+        );
+
+        throw new \RuntimeException('Selector payload failed contract validation: ' . implode(' ', $messages));
     }
 
     private function getStorageAdapter(): OxygenStorageAdapter

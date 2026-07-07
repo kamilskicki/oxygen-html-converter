@@ -1,6 +1,6 @@
 # Oxygen 6 Native Patterns
 
-This document captures the practical Oxygen 6 rules used by the importer.
+This document captures practical Oxygen 6 rules used by the importer. Maximus names and counts below are examples from one site-kit proof, not mandatory names for generic Core imports.
 
 ## Classes Are The Center Of The Design System
 
@@ -11,7 +11,7 @@ Importer implication:
 - Repeated visual primitives must receive shared semantic classes.
 - Do not leave every repeated card/button/section as only generated technical classes.
 - Keep generated fixture classes only when needed for parity.
-- Put product/design-system classes in a dedicated collection, e.g. `Maximus Design System`.
+- Put product/design-system classes in a dedicated collection, e.g. `Imported HTML` for generic fixture imports or `Maximus Design System` for the Maximus proof.
 - Use generated classes for fixture-specific residual styling only.
 
 Current semantic class examples:
@@ -250,8 +250,8 @@ Core/open plugin should prioritize native Oxygen output.
 
 Recommended product split:
 
-- Core: Oxygen-native conversion, variables, selectors, templates, blocks, page styles.
-- Pro: Tailwind/WindPress compatibility, Tailwind source preservation, WindPress cache reset, Tailwind utility routing.
+- Core: Oxygen-native conversion, variables, selectors, templates, blocks, page styles, plus Tailwind utility hints or fallback CSS when they are materialized into native output safely.
+- Pro: Tailwind runtime preservation, Tailwind config parsing, WindPress class mode, WindPress cache reset, and workflows that avoid generated fallback utilities because WindPress can compile them.
 
 For inline HTML containing Tailwind:
 
@@ -260,16 +260,18 @@ For inline HTML containing Tailwind:
 
 ## Forms
 
-The Maximus diagnosis fixture had a `<form>` with `label/input` radio groups. The current site-kit build flattens this into native visual containers so it remains editable and avoids `HtmlCode`.
+The Maximus diagnosis fixture had a `<form>` with `label/input` radio groups. The custom Maximus site-kit pre-normalizer flattens this into native visual containers so that specific proof remains editable and avoids `HtmlCode`.
 
 This is correct for visual/template import.
 It is not a full functional form import.
 
+Generic Core does not flatten arbitrary forms by default. Forms remain reported as unsupported/static fallback unless a verified native form element or approved plugin integration owns the behavior.
+
 For 10/10 product:
 
-- if user asks for visual questionnaire, flatten to native cards
-- if user asks for functional form, map to a supported native form element/plugin integration
-- do not silently preserve source form as `HtmlCode`
+- if user asks for a custom visual questionnaire inside an owned site-kit pre-normalizer, flatten to native cards
+- if user asks for functional form behavior, map to a supported native form element/plugin integration
+- do not silently preserve source form as `HtmlCode` without reporting the unsupported boundary or expected fallback
 
 ## Diagnosis Transactional Layout
 

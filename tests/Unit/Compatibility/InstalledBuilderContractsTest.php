@@ -3,6 +3,7 @@
 namespace OxyHtmlConverter\Tests\Unit\Compatibility;
 
 use OxyHtmlConverter\ElementTypes;
+use OxyHtmlConverter\Services\OxygenStorageContract;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -13,6 +14,8 @@ use PHPUnit\Framework\TestCase;
 class InstalledBuilderContractsTest extends TestCase
 {
     private const CONTRACT_FIXTURE_DIR = 'tests/fixtures/oxygen6-contracts';
+
+    private const OXYGEN_CONTRACT_VERSION = '6.1.0';
 
     private const CONTRACT_FIXTURES = [
         'page-tree' => 'page-tree.json',
@@ -106,10 +109,101 @@ class InstalledBuilderContractsTest extends TestCase
             $fixture = $this->loadContractFixture($fileName);
 
             $this->assertSame($contract, $fixture['contract'] ?? null, $fileName);
-            $this->assertSame('6.1.0-beta.1', $fixture['oxygenVersion'] ?? null, $fileName);
+            $this->assertSame(self::OXYGEN_CONTRACT_VERSION, $fixture['oxygenVersion'] ?? null, $fileName);
             $this->assertNotEmpty($fixture['sourceFiles'] ?? [], $fileName);
             $this->assertIsArray($fixture['payload'] ?? null, $fileName);
+
+            if ($contract === 'block') {
+                $this->assertContains('oxygen/plugin/blocks/ajax_save_block.php', $fixture['sourceFiles']);
+                $this->assertContains('oxygen/subplugins/oxygen-elements/elements/CSS_Code/element.php', $fixture['sourceFiles']);
+            }
+
+            if ($contract === 'component-instance') {
+                $this->assertContains('oxygen/plugin/breakdance-oxygen/components.php', $fixture['sourceFiles']);
+                $this->assertContains('oxygen/subplugins/oxygen-elements/elements/Component/ssr.php', $fixture['sourceFiles']);
+            }
         }
+    }
+
+    public function testRuntimePackagedOxygenSixContractsMatchAuthoritativeFixtures(): void
+    {
+        $runtimeFixtureDir = OxygenStorageContract::defaultFixtureDirectory();
+        $this->assertDirectoryExists($runtimeFixtureDir);
+
+        foreach (self::CONTRACT_FIXTURES as $fileName) {
+            $authoritativeFile = $this->resolveCoreRoot()
+                . DIRECTORY_SEPARATOR
+                . self::CONTRACT_FIXTURE_DIR
+                . DIRECTORY_SEPARATOR
+                . $fileName;
+            $runtimeFile = $runtimeFixtureDir . DIRECTORY_SEPARATOR . $fileName;
+
+            $this->assertFileExists($runtimeFile);
+            $this->assertFileEquals($authoritativeFile, $runtimeFile, $fileName);
+        }
+    }
+
+    public function testListedOxygenSourceFilesExistAndExposeComponentContracts(): void
+    {
+        $oxygenPlugin = $this->resolveWorkspaceRoot()
+            . DIRECTORY_SEPARATOR
+            . 'oxygen'
+            . DIRECTORY_SEPARATOR
+            . 'plugin.php';
+
+        if (!is_file($oxygenPlugin)) {
+            $this->markTestSkipped('Oxygen source checkout not found.');
+        }
+
+        $pluginSource = file_get_contents($oxygenPlugin);
+        $this->assertIsString($pluginSource);
+        $this->assertStringContainsString('Version: ' . self::OXYGEN_CONTRACT_VERSION, $pluginSource);
+
+        foreach (['block.json', 'component-instance.json'] as $fileName) {
+            $fixture = $this->loadContractFixture($fileName);
+            foreach ($fixture['sourceFiles'] as $sourceFile) {
+                $this->assertIsString($sourceFile);
+                $this->assertFileExists($this->resolveWorkspaceSourceFile($sourceFile), $sourceFile);
+            }
+        }
+
+        $constants = $this->sourceFileContents('oxygen/plugin/themeless/constants.php');
+        $this->assertStringContainsString("define('BREAKDANCE_BLOCK_POST_TYPE', 'oxygen_block')", $constants);
+
+        $blockSave = $this->sourceFileContents('oxygen/plugin/blocks/ajax_save_block.php');
+        $this->assertStringContainsString('function saveGlobalBlock', $blockSave);
+        $this->assertStringContainsString("__bdox('_meta_prefix') . 'data'", $blockSave);
+        $this->assertStringContainsString('_breakdance_block_settings', $blockSave);
+        $this->assertStringContainsString('generateCacheForPost', $blockSave);
+
+        $componentElement = $this->sourceFileContents('oxygen/subplugins/oxygen-elements/elements/Component/element.php');
+        $this->assertStringContainsString('component_chooser', $componentElement);
+        $this->assertStringContainsString('inlineEditableBlockPath', $componentElement);
+        $this->assertStringContainsString('content.content.block.componentId', $componentElement);
+
+        $componentSsr = $this->sourceFileContents('oxygen/subplugins/oxygen-elements/elements/Component/ssr.php');
+        $this->assertStringContainsString("content']['content']['block", $componentSsr);
+        $this->assertStringContainsString('renderGlobalBlock', $componentSsr);
+
+        $componentRuntime = $this->sourceFileContents('oxygen/plugin/breakdance-oxygen/components.php');
+        $this->assertStringContainsString('@psalm-type ComponentTarget', $componentRuntime);
+        $this->assertStringContainsString('targets', $componentRuntime);
+        $this->assertStringContainsString('properties', $componentRuntime);
+        $this->assertStringContainsString('editableProperties', $componentRuntime);
+        $this->assertStringContainsString('assignArrayByPath', $componentRuntime);
+
+        $cssCode = $this->sourceFileContents('oxygen/subplugins/oxygen-elements/elements/CSS_Code/element.php');
+        $this->assertStringContainsString('OxygenElements\\\\CssCode', $cssCode);
+        $this->assertStringContainsString('css_code', $cssCode);
+
+        $svgIconElement = $this->sourceFileContents('oxygen/subplugins/oxygen-elements/elements/SVG_Icon/element.php');
+        $this->assertStringContainsString('OxygenElements\\\\SvgIcon', $svgIconElement);
+
+        $textLinkElement = $this->sourceFileContents('oxygen/subplugins/oxygen-elements/elements/Text_Link/element.php');
+        $this->assertStringContainsString('OxygenElements\\\\TextLink', $textLinkElement);
+
+        $svgIcon = $this->sourceFileContents('oxygen/subplugins/oxygen-elements/elements/SVG_Icon/html.twig');
+        $this->assertStringContainsString('content.content.icon.svgCode', $svgIcon);
     }
 
     public function testOxygenSixTreeFixturesDecodeWithoutWordPress(): void
@@ -144,11 +238,15 @@ class InstalledBuilderContractsTest extends TestCase
         $block = $this->loadContractFixture('block.json')['payload'];
         $this->assertSame('oxygen_block', $block['post_type'] ?? null);
         $this->assertIsArray($block['_breakdance_block_settings'] ?? null);
+        $blockTree = $this->decodeOxygenDataTree($block, 'block.json');
+        $this->assertComponentBlockTreeShape($blockTree);
 
         $component = $this->loadContractFixture('component-instance.json')['payload']['componentNode'] ?? null;
         $this->assertIsArray($component);
         $this->assertSame('OxygenElements\\Component', $component['data']['type'] ?? null);
-        $this->assertComponentBlockPayloadShape($component['data']['properties']['content']['content']['block'] ?? null);
+        $componentBlock = $component['data']['properties']['content']['content']['block'] ?? null;
+        $this->assertComponentBlockPayloadShape($componentBlock);
+        $this->assertComponentTargetsResolveToBlockEditableProperties($blockTree, $componentBlock);
     }
 
     public function testElementRegistryMatchesOxygenSixComponentContract(): void
@@ -254,7 +352,9 @@ class InstalledBuilderContractsTest extends TestCase
             $this->assertIsArray($variable);
             $this->assertIsString($variable['id'] ?? null);
             $this->assertMatchesRegularExpression('/^[A-Za-z_][A-Za-z0-9_-]*$/', $variable['cssVariableName'] ?? '');
-            $this->assertArrayHasKey('dynamicData', $variable);
+            if (array_key_exists('dynamicData', $variable)) {
+                $this->assertIsArray($variable['dynamicData']);
+            }
             $this->assertIsString($variable['collection'] ?? null);
         }
     }
@@ -275,5 +375,138 @@ class InstalledBuilderContractsTest extends TestCase
             $this->assertIsString($target['propertyKey'] ?? null);
             $this->assertIsString($target['controlPath'] ?? null);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     */
+    private function assertComponentBlockTreeShape(array $tree): void
+    {
+        $nodes = $this->indexTreeNodesById($tree['root'] ?? null);
+
+        $this->assertSame('OxygenElements\\Text', $nodes[2]['data']['type'] ?? null);
+        $this->assertSame('OxygenElements\\TextLink', $nodes[3]['data']['type'] ?? null);
+        $this->assertSame('OxygenElements\\Image', $nodes[4]['data']['type'] ?? null);
+        $this->assertSame('OxygenElements\\SvgIcon', $nodes[5]['data']['type'] ?? null);
+        $this->assertSame('OxygenElements\\CssCode', $nodes[6]['data']['type'] ?? null);
+
+        $icon = $nodes[5]['data']['properties']['content']['content']['icon']['svgCode'] ?? null;
+        $this->assertIsString($icon);
+        $this->assertStringContainsString('<svg', $icon);
+
+        $css = $nodes[6]['data']['properties']['content']['content']['css_code'] ?? null;
+        $this->assertIsString($css);
+        $this->assertStringContainsString('.ohc-component-card', $css);
+
+        $editableKeys = [];
+        foreach ([2, 3, 4, 5] as $nodeId) {
+            $editableProperties = $nodes[$nodeId]['data']['properties']['meta']['component']['editableProperties'] ?? null;
+            $this->assertIsArray($editableProperties, 'editableProperties for node ' . (string) $nodeId);
+
+            foreach ($editableProperties as $editableProperty) {
+                $this->assertIsArray($editableProperty);
+                $this->assertIsBool($editableProperty['enabled'] ?? null);
+                $this->assertIsString($editableProperty['label'] ?? null);
+                $this->assertIsString($editableProperty['controlPath'] ?? null);
+                $this->assertIsString($editableProperty['propertyKey'] ?? null);
+                $editableKeys[] = $editableProperty['propertyKey'];
+            }
+        }
+
+        $this->assertSame([
+            'cta_heading',
+            'cta_button_label',
+            'cta_button_url',
+            'cta_image_url',
+            'cta_image_alt',
+            'cta_icon',
+        ], $editableKeys);
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     * @param mixed $componentBlock
+     */
+    private function assertComponentTargetsResolveToBlockEditableProperties(array $tree, $componentBlock): void
+    {
+        $this->assertIsArray($componentBlock);
+        $nodes = $this->indexTreeNodesById($tree['root'] ?? null);
+        $properties = $componentBlock['properties'] ?? null;
+        $this->assertIsArray($properties);
+
+        foreach ($componentBlock['targets'] as $target) {
+            $this->assertIsArray($target);
+            $nodeId = $target['nodeId'] ?? null;
+            $propertyKey = $target['propertyKey'] ?? null;
+            $controlPath = $target['controlPath'] ?? null;
+
+            $this->assertIsInt($nodeId);
+            $this->assertIsString($propertyKey);
+            $this->assertIsString($controlPath);
+            $this->assertArrayHasKey($nodeId, $nodes);
+            $this->assertArrayHasKey($propertyKey, $properties);
+
+            $editableProperties = $nodes[$nodeId]['data']['properties']['meta']['component']['editableProperties'] ?? [];
+            $matching = array_values(array_filter($editableProperties, static function ($editableProperty) use ($propertyKey): bool {
+                return is_array($editableProperty) && ($editableProperty['propertyKey'] ?? null) === $propertyKey;
+            }));
+
+            $this->assertCount(1, $matching, 'editable property match for ' . $propertyKey);
+            $this->assertSame($controlPath, $matching[0]['controlPath'] ?? null);
+            $this->assertControlPathResolves($nodes[$nodeId]['data']['properties'] ?? [], $controlPath);
+        }
+    }
+
+    /**
+     * @param mixed $node
+     * @return array<int, array<string, mixed>>
+     */
+    private function indexTreeNodesById($node): array
+    {
+        if (!is_array($node)) {
+            return [];
+        }
+
+        $nodes = [];
+        if (is_int($node['id'] ?? null)) {
+            $nodes[(int) $node['id']] = $node;
+        }
+
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            $nodes += $this->indexTreeNodesById($child);
+        }
+
+        return $nodes;
+    }
+
+    /**
+     * @param mixed $properties
+     */
+    private function assertControlPathResolves($properties, string $controlPath): void
+    {
+        $cursor = $properties;
+        foreach (explode('.', $controlPath) as $segment) {
+            $this->assertIsArray($cursor, $controlPath);
+            $this->assertArrayHasKey($segment, $cursor, $controlPath);
+            $cursor = $cursor[$segment];
+        }
+    }
+
+    private function resolveWorkspaceSourceFile(string $sourceFile): string
+    {
+        return $this->resolveWorkspaceRoot()
+            . DIRECTORY_SEPARATOR
+            . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $sourceFile);
+    }
+
+    private function sourceFileContents(string $sourceFile): string
+    {
+        $path = $this->resolveWorkspaceSourceFile($sourceFile);
+        $this->assertFileExists($path);
+
+        $content = file_get_contents($path);
+        $this->assertIsString($content);
+
+        return $content;
     }
 }

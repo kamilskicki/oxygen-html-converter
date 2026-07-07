@@ -8,6 +8,7 @@ module.exports = async function runConverterTests() {
   await testPasteFallbackShowsSuccessToastAfterStoreMutation();
   await testClipboardFallbackShowsClipboardToast();
   await testEditabilityHelperIsBridgedToParentWindow();
+  await testOxygenSixDocumentStoreBootstrapsBuilderUiWithoutVueStore();
 };
 
 function createDocument(label, storeApp) {
@@ -76,7 +77,9 @@ function createRuntime(options = {}) {
       tree,
     },
   };
-  const storeApp = {
+  const storeApp = options.withoutVueStore
+    ? null
+    : {
     __vue__: {
       $store: store,
     },
@@ -424,5 +427,15 @@ async function testEditabilityHelperIsBridgedToParentWindow() {
 
   assert.equal(runtime.windowObj.OxyHtmlConverterBuilderEditability, helper);
   assert.equal(runtime.parentWindow.OxyHtmlConverterBuilderEditability, helper);
+  assert.equal(typeof runtime.parentWindow.oxyHtmlConverterOpenModal, "function");
+}
+
+async function testOxygenSixDocumentStoreBootstrapsBuilderUiWithoutVueStore() {
+  const runtime = createRuntime({
+    withoutVueStore: true,
+  });
+
+  assert.equal(runtime.modalBuildCalls.length, 1);
+  assert.equal(typeof runtime.windowObj.oxyHtmlConverterOpenModal, "function");
   assert.equal(typeof runtime.parentWindow.oxyHtmlConverterOpenModal, "function");
 }

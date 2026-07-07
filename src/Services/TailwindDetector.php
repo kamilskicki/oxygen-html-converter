@@ -114,6 +114,19 @@ class TailwindDetector
     ];
 
     /**
+     * @return array<string, mixed>
+     */
+    public function getIntegrationCapabilities(): array
+    {
+        return [
+            'scope' => 'core_source_hint_detection',
+            'runtimeDependency' => false,
+            'fullUtilityParity' => false,
+            'extensionPoint' => 'oxy_html_converter_convert_options',
+        ];
+    }
+
+    /**
      * Check if a class name is a Tailwind utility class
      */
     public function isTailwindClass(string $className): bool

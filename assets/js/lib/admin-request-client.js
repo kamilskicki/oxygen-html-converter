@@ -40,9 +40,13 @@
     const normalized = options || {};
     return {
       wrapInContainer: coerceBoolean(normalized.wrapInContainer, true),
-      includeCssElement: coerceBoolean(normalized.includeCssElement, true),
+      includeCssElement: coerceBoolean(normalized.includeCssElement, false),
       inlineStyles: coerceBoolean(normalized.inlineStyles, true),
       safeMode: coerceBoolean(normalized.safeMode, true),
+      allowExecutableCode:
+        !coerceBoolean(normalized.safeMode, true) &&
+        !coerceBoolean(normalized.strictNative, false) &&
+        coerceBoolean(normalized.allowExecutableCode, false),
       strictNative: coerceBoolean(normalized.strictNative, false),
       debugMode: coerceBoolean(normalized.debugMode, false),
     };

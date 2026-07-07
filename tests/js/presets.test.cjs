@@ -5,17 +5,19 @@ const presets = require("../../assets/js/lib/presets.js");
 module.exports = function runPresetsTests() {
   assert.deepEqual(presets.getPresetValues("balanced"), {
     wrapInContainer: true,
-    includeCssElement: true,
+    includeCssElement: false,
     inlineStyles: true,
     safeMode: true,
+    allowExecutableCode: false,
     strictNative: false,
   });
 
   assert.deepEqual(presets.getPresetValues("unknown-value"), {
     wrapInContainer: true,
-    includeCssElement: true,
+    includeCssElement: false,
     inlineStyles: true,
     safeMode: true,
+    allowExecutableCode: false,
     strictNative: false,
   });
 
@@ -24,15 +26,17 @@ module.exports = function runPresetsTests() {
     includeCssElement: false,
     inlineStyles: true,
     safeMode: true,
+    allowExecutableCode: false,
     strictNative: true,
   });
 
   assert.equal(
     presets.resolvePresetFromOptions({
       wrapInContainer: true,
-      includeCssElement: true,
+      includeCssElement: false,
       inlineStyles: false,
       safeMode: true,
+      allowExecutableCode: false,
       strictNative: false,
     }),
     "safe"
@@ -44,6 +48,7 @@ module.exports = function runPresetsTests() {
       includeCssElement: false,
       inlineStyles: true,
       safeMode: true,
+      allowExecutableCode: false,
       strictNative: true,
     }),
     "strict"
@@ -55,6 +60,7 @@ module.exports = function runPresetsTests() {
       includeCssElement: true,
       inlineStyles: true,
       safeMode: false,
+      allowExecutableCode: false,
       strictNative: false,
     }),
     "fidelity"
@@ -66,6 +72,7 @@ module.exports = function runPresetsTests() {
       includeCssElement: false,
       inlineStyles: true,
       safeMode: false,
+      allowExecutableCode: false,
       strictNative: false,
     }),
     "custom"

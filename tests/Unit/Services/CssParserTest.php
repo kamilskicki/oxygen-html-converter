@@ -88,4 +88,20 @@ CSS;
         $this->assertSame('white', $rules[0]['declarations']['background']);
         $this->assertArrayNotHasKey('& .child { color', $rules[0]['declarations']);
     }
+
+    public function testParseMediaRulesWithContext(): void
+    {
+        $rules = $this->parser->parse(
+            '.card { padding: 32px; } @media (max-width: 767px) { .card { padding: 12px; } .card:hover { color: #2563eb; } }'
+        );
+
+        $this->assertCount(3, $rules);
+        $this->assertSame('.card', $rules[0]['selector']);
+        $this->assertArrayNotHasKey('media', $rules[0]);
+        $this->assertSame('.card', $rules[1]['selector']);
+        $this->assertSame('(max-width: 767px)', $rules[1]['media']);
+        $this->assertSame('12px', $rules[1]['declarations']['padding']);
+        $this->assertSame('.card:hover', $rules[2]['selector']);
+        $this->assertSame('(max-width: 767px)', $rules[2]['media']);
+    }
 }

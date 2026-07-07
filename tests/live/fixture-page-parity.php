@@ -54,6 +54,15 @@ $pageOptions = [
 
 $GLOBALS['oxyParityStylesheetFetchLog'] = [];
 
+if (function_exists('get_option') && get_option('oxy_html_converter_class_mode', 'native') === 'windpress') {
+    add_filter('oxy_html_converter_feature_flags', static function (array $flags): array {
+        $flags['windpress_integration'] = true;
+        $flags['windpress_class_mode'] = true;
+        $flags['windpress_cache_reset'] = true;
+        return $flags;
+    });
+}
+
 if (!file_exists($inputFile)) {
     fwrite(STDERR, "Input HTML not found: {$inputFile}\n");
     exit(2);
@@ -84,8 +93,9 @@ $timestamp = gmdate('Ymd_His');
 $sourceStats = sourceStatsFromHtml($html);
 $selectorPersistence = persistSelectorPayload($result['selectorPayload'] ?? []);
 $globalStylePersistence = (new GlobalStyleRepository())->saveFromPayload($result);
-$windPressCacheReset = (new WindPressCacheResetService())->resetIfAvailable();
+$windPressCacheReset = (new WindPressCacheResetService())->resetIfEnabled();
 $pageOptions['pageScopedCss'] = (string) ($result['pageScopedCss'] ?? '');
+$conversionSummary = conversionSummaryFromResult($result);
 $renderableTree = buildRenderableTreeForProbe($result);
 $outputStats = outputStatsFromElementTree($renderableTree);
 $delta = buildDelta($sourceStats, $outputStats, $result);
@@ -95,6 +105,7 @@ $report = [
     'generatedAt' => gmdate('c'),
     'inputFile' => $inputFile,
     'stats' => $result['stats'] ?? [],
+    'conversionSummary' => $conversionSummary,
     'source' => $sourceStats,
     'output' => $outputStats,
     'delta' => $delta,
@@ -104,10 +115,12 @@ $report = [
         'changes' => (int) ($globalStylePersistence['changes'] ?? 0),
     ],
     'windPressCacheReset' => [
+        'enabled' => (bool) ($windPressCacheReset['enabled'] ?? false),
         'attempted' => (bool) ($windPressCacheReset['attempted'] ?? false),
         'active' => (bool) ($windPressCacheReset['active'] ?? false),
         'cacheFileDeleted' => (bool) ($windPressCacheReset['cacheFileDeleted'] ?? false),
         'objectCacheFlushed' => (bool) ($windPressCacheReset['objectCacheFlushed'] ?? false),
+        'reason' => (string) ($windPressCacheReset['reason'] ?? ''),
     ],
     'topResidualClasses' => $outputStats['topResidualClasses'],
     'renderProbe' => $renderProbe,
@@ -142,6 +155,9 @@ $cliJson = json_encode([
         'metaClassRefCount' => $outputStats['metaClassRefCount'],
         'nativeResidualClassCount' => $outputStats['nativeResidualClassCount'],
         'unmirroredNativeResidualClassCount' => $outputStats['unmirroredNativeResidualClassCount'],
+        'conversionCodeBlocks' => $conversionSummary['codeBlocks'],
+        'conversionFallbackCount' => $conversionSummary['fallbackCount'],
+        'conversionHasFallbackCss' => $conversionSummary['hasFallbackCss'],
         'htmlCode' => $outputStats['elementTypes']['OxygenElements\\HtmlCode'] ?? 0,
         'cssCode' => $outputStats['elementTypes']['OxygenElements\\CssCode'] ?? 0,
         'mappedUtilityResidualCount' => $outputStats['mappedUtilityResidualCount'],
@@ -154,8 +170,10 @@ $cliJson = json_encode([
             'changes' => (int) ($globalStylePersistence['changes'] ?? 0),
         ],
         'windPressCacheReset' => [
+            'enabled' => (bool) ($windPressCacheReset['enabled'] ?? false),
             'attempted' => (bool) ($windPressCacheReset['attempted'] ?? false),
             'active' => (bool) ($windPressCacheReset['active'] ?? false),
+            'reason' => (string) ($windPressCacheReset['reason'] ?? ''),
         ],
         'renderProbeOk' => $renderProbe['ok'],
     ],
@@ -258,6 +276,109 @@ function buildRenderableTreeForProbe(array $conversionResult): array
     $root['children'] = array_merge($prependChildren, $existingChildren);
 
     return $root;
+}
+
+function conversionSummaryFromResult(array $conversionResult): array
+{
+    $types = [];
+    if (!empty($conversionResult['element']) && is_array($conversionResult['element'])) {
+        countElementTypeInNode($conversionResult['element'], $types);
+    }
+
+    foreach (['headLinkElements', 'headScriptElements', 'iconScriptElements'] as $key) {
+        if (empty($conversionResult[$key])) {
+            continue;
+        }
+
+        $items = isset($conversionResult[$key]['data']) ? [$conversionResult[$key]] : $conversionResult[$key];
+        if (!is_array($items)) {
+            continue;
+        }
+
+        foreach ($items as $item) {
+            if (is_array($item)) {
+                countElementTypeInNode($item, $types);
+            }
+        }
+    }
+
+    $html = $types['OxygenElements\\HtmlCode'] ?? 0;
+    $css = $types['OxygenElements\\CssCode'] ?? 0;
+    $javascript = $types['OxygenElements\\JavaScriptCode'] ?? 0;
+    $unsupportedItems = is_array($conversionResult['stats']['unsupportedItems'] ?? null)
+        ? $conversionResult['stats']['unsupportedItems']
+        : [];
+
+    return [
+        'codeBlocks' => [
+            'total' => $html + $css + $javascript,
+            'html' => $html,
+            'css' => $css,
+            'javascript' => $javascript,
+        ],
+        'fallbackCount' => countFallbackRoutes($conversionResult),
+        'unsupportedCount' => count($unsupportedItems),
+        'hasFallbackCss' => hasOwnedFallbackCss($conversionResult),
+    ];
+}
+
+function countElementTypeInNode(array $node, array &$types): void
+{
+    $type = $node['data']['type'] ?? null;
+    if (is_string($type)) {
+        $types[$type] = ($types[$type] ?? 0) + 1;
+    }
+
+    foreach (($node['children'] ?? []) as $child) {
+        if (is_array($child)) {
+            countElementTypeInNode($child, $types);
+        }
+    }
+}
+
+function countFallbackRoutes(array $conversionResult): int
+{
+    $styleRouting = is_array($conversionResult['styleRouting'] ?? null)
+        ? $conversionResult['styleRouting']
+        : [];
+    $routes = is_array($styleRouting['routes'] ?? null) ? $styleRouting['routes'] : [];
+    $count = 0;
+
+    foreach ($routes as $route) {
+        if (!is_array($route)) {
+            continue;
+        }
+
+        if (str_contains((string) ($route['type'] ?? ''), 'fallback')) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+function hasOwnedFallbackCss(array $conversionResult): bool
+{
+    if (trim((string) ($conversionResult['extractedCss'] ?? '')) !== '') {
+        return true;
+    }
+
+    foreach (['globalCss', 'pageScopedCss'] as $key) {
+        if (trim((string) ($conversionResult[$key] ?? '')) !== '') {
+            return true;
+        }
+    }
+
+    $styleRouting = is_array($conversionResult['styleRouting'] ?? null)
+        ? $conversionResult['styleRouting']
+        : [];
+    foreach (['pageCss', 'globalCss', 'pageScopedCss'] as $key) {
+        if (trim((string) ($styleRouting[$key] ?? '')) !== '') {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function sourceStatsFromHtml(string $html): array

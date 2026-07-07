@@ -11,13 +11,19 @@ class PreviewSummaryBuilder
 {
     /**
      * @param array<string, mixed> $element
-     * @return array{total:int, byType:array<string, int>}
+     * @return array{total:int, byType:array<string, int>, codeBlocks:array{total:int, html:int, css:int, javascript:int}}
      */
     public function build(array $element): array
     {
         $counts = [
             'total' => 0,
             'byType' => [],
+            'codeBlocks' => [
+                'total' => 0,
+                'html' => 0,
+                'css' => 0,
+                'javascript' => 0,
+            ],
         ];
 
         $this->summarize($element, $counts);
@@ -27,7 +33,7 @@ class PreviewSummaryBuilder
 
     /**
      * @param array<string, mixed> $element
-     * @param array{total:int, byType:array<string, int>} $counts
+     * @param array{total:int, byType:array<string, int>, codeBlocks:array{total:int, html:int, css:int, javascript:int}} $counts
      */
     private function summarize(array $element, array &$counts): void
     {
@@ -40,6 +46,17 @@ class PreviewSummaryBuilder
             $counts['byType'][$typeName] = 0;
         }
         $counts['byType'][$typeName]++;
+
+        if ($typeName === 'HtmlCode') {
+            $counts['codeBlocks']['html']++;
+            $counts['codeBlocks']['total']++;
+        } elseif ($typeName === 'CssCode') {
+            $counts['codeBlocks']['css']++;
+            $counts['codeBlocks']['total']++;
+        } elseif ($typeName === 'JavaScriptCode') {
+            $counts['codeBlocks']['javascript']++;
+            $counts['codeBlocks']['total']++;
+        }
 
         foreach (($element['children'] ?? []) as $child) {
             if (is_array($child)) {

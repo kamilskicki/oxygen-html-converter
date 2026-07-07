@@ -50,12 +50,31 @@ class OxygenValueNormalizerTest extends TestCase
             ['number' => null, 'unit' => 'custom', 'style' => 'var(--section-gap)'],
             $this->normalizer->normalizeMeasurement('var(--section-gap)')
         );
+
+        $this->assertSame(
+            ['number' => null, 'unit' => 'custom', 'style' => 'repeat(3, minmax(0, 1fr))'],
+            $this->normalizer->normalizeMeasurement('repeat(3, minmax(0, 1fr))')
+        );
+
+        $this->assertSame(
+            ['number' => null, 'unit' => 'custom', 'style' => 'calc(100% - 2rem) 1fr'],
+            $this->normalizer->normalizeMeasurement('calc(100% - 2rem) 1fr')
+        );
+
+        $this->assertSame(
+            ['number' => null, 'unit' => 'custom', 'style' => 'var(--track) 1fr'],
+            $this->normalizer->normalizeMeasurement('var(--track) 1fr')
+        );
     }
 
     public function testRejectsInvalidMeasurementValues(): void
     {
         $this->assertNull($this->normalizer->normalizeMeasurement('url(javascript:alert(1))'));
         $this->assertNull($this->normalizer->normalizeMeasurement('calc(100% - 1rem); color:red'));
+        $this->assertNull($this->normalizer->normalizeMeasurement('1px bananas'));
+        $this->assertNull($this->normalizer->normalizeMeasurement('1px cats'));
+        $this->assertNull($this->normalizer->normalizeMeasurement('minmax(nonsense,1fr)'));
+        $this->assertNull($this->normalizer->normalizeMeasurement('repeat(3, minmax(nonsense, 1fr))'));
     }
 
     public function testNormalizesColorsForOxygenControls(): void
@@ -64,6 +83,8 @@ class OxygenValueNormalizerTest extends TestCase
         $this->assertSame('#FF0000FF', $this->normalizer->normalizeColor('#f00'));
         $this->assertSame('rgba(255,0,0,0.5)', $this->normalizer->normalizeColor('rgba(255, 0, 0, 0.5)'));
         $this->assertSame('var(--brand-color)', $this->normalizer->normalizeColor('var(--brand-color)'));
+        $this->assertNull($this->normalizer->normalizeColor('notacolor'));
+        $this->assertNull($this->normalizer->normalizeColor('rgb(999,999,999)'));
     }
 
     public function testNormalizesAssignmentValueByOxygenPath(): void
@@ -86,6 +107,59 @@ class OxygenValueNormalizerTest extends TestCase
         $this->assertSame(
             700,
             $this->normalizer->normalizeForPath(['typography', 'font_weight'], 'bold', 'font-weight')
+        );
+    }
+
+    public function testRejectsInvalidKeywordValuesForEnumeratedPaths(): void
+    {
+        $this->assertNull($this->normalizer->normalizeForPath(['layout', 'display'], 'definitelybogus', 'display'));
+        $this->assertNull($this->normalizer->normalizeForPath(['position', 'position'], 'middle', 'position'));
+        $this->assertNull($this->normalizer->normalizeForPath(['typography', 'text_align'], 'diagonal', 'text-align'));
+        $this->assertNull($this->normalizer->normalizeForPath(['size', 'object_fit'], 'stretchy', 'object-fit'));
+        $this->assertNull($this->normalizer->normalizeForPath(['effects', 'blend_mode'], 'magic', 'mix-blend-mode'));
+        $this->assertNull($this->normalizer->normalizeForPath(['typography', 'font_weight'], 'definitelybogus', 'font-weight'));
+        $this->assertNull($this->normalizer->normalizeForPath(['position', 'z_index'], 'definitelybogus', 'z-index'));
+        $this->assertNull($this->normalizer->normalizeForPath(['size', 'aspect_ratio'], 'bogus', 'aspect-ratio'));
+        $this->assertNull($this->normalizer->normalizeForPath(['flex_child', 'align_self'], 'definitelybogus', 'align-self'));
+        $this->assertNull($this->normalizer->normalizeForPath(['grid_child', 'align_self'], 'definitelybogus', 'align-self'));
+        $this->assertNull($this->normalizer->normalizeForPath(['grid_child', 'justify_self'], 'definitelybogus', 'justify-self'));
+        $this->assertNull($this->normalizer->normalizeForPath(['background', 'backgrounds', '0', 'background_size'], 'definitelybogus', 'background-size'));
+        $this->assertNull($this->normalizer->normalizeForPath(['background', 'backgrounds', '0', 'background_repeat'], 'definitelybogus', 'background-repeat'));
+        $this->assertNull($this->normalizer->normalizeForPath(['background', 'backgrounds', '0', 'background_attachment'], 'definitelybogus', 'background-attachment'));
+        $this->assertNull($this->normalizer->normalizeForPath(['background', 'backgrounds', '0', 'background_blend_mode'], 'definitelybogus', 'background-blend-mode'));
+        $this->assertNull($this->normalizer->normalizeForPath(['effects', 'filter', '0', 'type'], 'definitelybogus', 'filter'));
+        $this->assertNull($this->normalizer->normalizeForPath(['effects', 'backdrop_filter', '0', 'type'], 'definitelybogus', 'backdrop-filter'));
+    }
+
+    public function testRejectsInvalidNumericAndGridChildValues(): void
+    {
+        $this->assertNull($this->normalizer->normalizeForPath(['flex_child', 'flex_grow'], 'definitelybogus', 'flex-grow'));
+        $this->assertNull($this->normalizer->normalizeForPath(['flex_child', 'flex_shrink'], 'definitelybogus', 'flex-shrink'));
+        $this->assertNull($this->normalizer->normalizeForPath(['flex_child', 'flex_grow'], '-1', 'flex-grow'));
+        $this->assertNull($this->normalizer->normalizeForPath(['flex_child', 'order_custom'], 'definitelybogus', 'order'));
+        $this->assertNull($this->normalizer->normalizeForPath(['grid_child', 'order_custom'], 'definitelybogus', 'order'));
+        $this->assertNull($this->normalizer->normalizeForPath(['grid_child', 'column_start'], 'definitelybogus', 'grid-column'));
+        $this->assertNull($this->normalizer->normalizeForPath(['grid_child', 'row_end'], 'span definitelybogus', 'grid-row'));
+    }
+
+    public function testNormalizesBreakpointPathsUsingNestedValueShape(): void
+    {
+        $this->assertSame(
+            ['number' => 16, 'unit' => 'px', 'style' => '16px'],
+            $this->normalizer->normalizeForPath(
+                ['typography', 'breakpoint_phone_landscape', 'font_size'],
+                '16px',
+                'font-size'
+            )
+        );
+
+        $this->assertSame(
+            ['number' => 12, 'unit' => 'px', 'style' => '12px'],
+            $this->normalizer->normalizeForPath(
+                ['breakpoint_phone_landscape', 'layout', 'gap', 'row'],
+                '12px',
+                'row-gap'
+            )
         );
     }
 }

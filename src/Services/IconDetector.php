@@ -23,6 +23,9 @@ class IconDetector
                 'name' => 'Lucide Icons',
                 'cdn' => 'https://unpkg.com/lucide@latest',
                 'init' => 'lucide.createIcons();',
+                'assetType' => 'icon',
+                'license' => 'Lucide is ISC licensed; verify bundled/runtime version before redistribution.',
+                'cachePolicy' => 'External JS icon runtime is not downloaded by Core conversion.',
             ];
         }
 
@@ -32,6 +35,9 @@ class IconDetector
                 'name' => 'Feather Icons',
                 'cdn' => 'https://unpkg.com/feather-icons',
                 'init' => 'feather.replace();',
+                'assetType' => 'icon',
+                'license' => 'Feather is MIT licensed; verify bundled/runtime version before redistribution.',
+                'cachePolicy' => 'External JS icon runtime is not downloaded by Core conversion.',
             ];
         }
 
@@ -42,6 +48,9 @@ class IconDetector
                 'name' => 'Font Awesome',
                 'cdn' => 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
                 'type' => 'css',
+                'assetType' => 'icon',
+                'license' => 'Font Awesome licensing varies by style; verify allowed webfont usage.',
+                'cachePolicy' => 'External icon CSS is not downloaded by Core conversion.',
             ];
         }
 
@@ -52,6 +61,9 @@ class IconDetector
                 'name' => 'Bootstrap Icons',
                 'cdn' => 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
                 'type' => 'css',
+                'assetType' => 'icon',
+                'license' => 'Bootstrap Icons is MIT licensed; verify bundled/runtime version before redistribution.',
+                'cachePolicy' => 'External icon CSS is not downloaded by Core conversion.',
             ];
         }
 
@@ -62,6 +74,9 @@ class IconDetector
                 'name' => 'Material Icons',
                 'cdn' => 'https://fonts.googleapis.com/icon?family=Material+Icons',
                 'type' => 'css',
+                'assetType' => 'icon',
+                'license' => 'Material Icons uses Google font/icon terms; verify caching and redistribution policy.',
+                'cachePolicy' => 'External Google icon CSS is not downloaded by Core conversion.',
             ];
         }
 

@@ -2,6 +2,8 @@
 
 Use this file when a new chat picks up the project.
 
+This runbook is for Maximus site-kit continuation. For generic Core PRD remediation, start with `PRD/00-overview.md`, `PRD/05-milestones-and-backlog.md`, `knowledge/KBAI`, and `skill-docs/quality-gates.md`.
+
 ## 1. Start Here
 
 Read, in order:
@@ -268,7 +270,7 @@ At viewport < 768px the active shared header should hide .maximus-site-header .m
 If the desktop nav is visible on mobile, it will look clipped even when overflowX=0.
 ```
 
-As of the final 2026-05-20 production pass, `npm test` includes the Maximus matrix and passes.
+As of the final 2026-05-20 production pass, run `npm test` and `npm run test:maximus:matrix` separately for the Maximus site-kit proof. Generic Core remediation gates are `npm run check`, `npm run test:live`, and `npm run test:visual`.
 
 ## 7. Current Publish-Ready Maximus State
 

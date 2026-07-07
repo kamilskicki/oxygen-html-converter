@@ -19,6 +19,22 @@ class OxygenStorageAdapterTest extends TestCase
         $this->assertSame(array_keys(OxygenStorageContract::REQUIRED_CONTRACT_FIXTURES), $adapter->getContract()->getContractNames());
     }
 
+    public function testFactoryDefaultContractDirectoryIsRuntimePackaged(): void
+    {
+        $fixtureDir = OxygenStorageContract::defaultFixtureDirectory();
+
+        $this->assertDirectoryExists($fixtureDir);
+        $this->assertStringContainsString(
+            DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Contracts' . DIRECTORY_SEPARATOR,
+            $fixtureDir
+        );
+
+        $adapter = (new OxygenStorageAdapterFactory())->create();
+
+        $this->assertSame('oxygen6', $adapter->getAdapterId());
+        $this->assertSame(OxygenStorageContract::SUPPORTED_OXYGEN_VERSION, $adapter->getContractVersion());
+    }
+
     public function testAdapterInterfaceNamesAllPlannedStorageMethods(): void
     {
         $methods = get_class_methods(OxygenStorageAdapter::class);
@@ -106,11 +122,21 @@ class OxygenStorageAdapterTest extends TestCase
         (new OxygenStorageAdapterFactory(null, $this->fixtureDir(), '7.0.0'))->create();
     }
 
+    public function testFactoryAcceptsStableRuntimeVersionForPinnedOxygenSixContract(): void
+    {
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir(), '6.1.0'))->create();
+
+        $this->assertSame('oxygen6', $adapter->getAdapterId());
+        $this->assertSame(OxygenStorageContract::SUPPORTED_OXYGEN_VERSION, $adapter->getContractVersion());
+        $this->assertTrue($adapter->supports('6.1.0'));
+    }
+
     public function testFactorySupportsOnlyPinnedOxygenVersion(): void
     {
         $factory = new OxygenStorageAdapterFactory(null, $this->fixtureDir());
 
         $this->assertTrue($factory->supports(OxygenStorageContract::SUPPORTED_OXYGEN_VERSION));
+        $this->assertTrue($factory->supports('6.1.0'));
         $this->assertFalse($factory->supports('7.0.0'));
     }
 
@@ -129,6 +155,7 @@ class OxygenStorageAdapterTest extends TestCase
             ],
             '_nextNodeId' => 2,
             'exportedLookupTable' => [],
+            'status' => 'exported',
         ]);
         $this->assertTrue($valid['valid']);
         $this->assertSame([], $valid['errors']);
@@ -140,13 +167,13 @@ class OxygenStorageAdapterTest extends TestCase
                 'children' => 'bad',
             ],
             '_nextNodeId' => 2,
-            'status' => 'exported',
+            'status' => false,
         ]);
         $this->assertFalse($invalid['valid']);
         $this->assertStringContainsString('root.id must be an integer', implode(' ', $invalid['errors']));
         $this->assertStringContainsString('root.data.properties must be an array', implode(' ', $invalid['errors']));
         $this->assertStringContainsString('root.children must be an array', implode(' ', $invalid['errors']));
-        $this->assertStringContainsString('Unexpected document tree top-level field "status"', implode(' ', $invalid['errors']));
+        $this->assertStringContainsString('status must be a non-empty string', implode(' ', $invalid['errors']));
     }
 
     public function testAdapterValidatesPageDocumentEnvelopeAndTreeJsonString(): void
@@ -178,8 +205,13 @@ class OxygenStorageAdapterTest extends TestCase
         $this->assertStringContainsString('_nextNodeId must be a positive integer', implode(' ', $invalid['errors']));
     }
 
-    public function testAdapterValidatesTemplateFixtureAndKeepsTemplateWriteStubbed(): void
+    public function testAdapterValidatesTemplateFixtureAndWritesTemplatePostAndMeta(): void
     {
+        $GLOBALS['__wp_posts'] = [];
+        $GLOBALS['__wp_post_meta'] = [];
+        $GLOBALS['__wp_next_post_id'] = 1;
+        $GLOBALS['__wp_cleaned_post_cache'] = [];
+
         $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
         $payload = $this->fixturePayload('template-settings.json');
         $tree = $this->decodeTree($payload['_oxygen_data']);
@@ -196,14 +228,85 @@ class OxygenStorageAdapterTest extends TestCase
             $tree,
             (string) $payload['_oxygen_template_settings']
         );
-        $this->assertFalse($write['success']);
-        $this->assertSame('stub_not_exposed', $write['status']);
+        $this->assertTrue($write['success'], implode(' ', $write['errors'] ?? []));
+        $this->assertSame(200, $write['status']);
+        $this->assertSame('created', $write['action']);
+        $this->assertSame($payload['post_type'], $write['postType']);
         $this->assertSame(['_oxygen_data', '_oxygen_template_settings'], $write['metaKeys']);
+
+        $postId = (int) $write['postId'];
+        $this->assertGreaterThan(0, $postId);
+        $this->assertArrayHasKey($postId, $GLOBALS['__wp_posts']);
+        $this->assertSame($payload['post_type'], $GLOBALS['__wp_posts'][$postId]->post_type);
+
+        $storedData = $this->decodeStoredMetaObject((string) get_post_meta($postId, '_oxygen_data', true));
+        $this->assertArrayHasKey('tree_json_string', $storedData);
+        $storedTree = json_decode((string) $storedData['tree_json_string'], true);
+        $this->assertIsArray($storedTree);
+        $this->assertSame('root', $storedTree['root']['data']['type']);
+        $this->assertSame(3, $storedTree['_nextNodeId']);
+        $this->assertSame('exported', $storedTree['status']);
+
+        $storedSettings = $this->decodeStoredJsonString((string) get_post_meta($postId, '_oxygen_template_settings', true));
+        $this->assertIsString($storedSettings);
+        $this->assertSame($payload['_oxygen_template_settings'], $storedSettings);
+
+        $readSettings = $adapter->readTemplateSettings($postId);
+        $this->assertTrue($readSettings['success'], implode(' ', $readSettings['errors'] ?? []));
+        $this->assertSame($payload['_oxygen_template_settings'], $readSettings['settingsJson']);
 
         $invalid = $adapter->writeTemplate('page', ['root' => ['id' => 'bad']], '{"type":""}');
         $this->assertFalse($invalid['success']);
         $this->assertSame(422, $invalid['status']);
         $this->assertStringContainsString('Unsupported Oxygen template post type "page"', implode(' ', $invalid['errors']));
+    }
+
+    public function testAdapterReadsTemplateMetaStoredInRealWordPressShape(): void
+    {
+        $GLOBALS['__wp_post_meta'] = [];
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $postId = 91;
+        $treeJson = wp_json_encode($adapter->buildDocumentTree($this->validTree()));
+        $settingsJson = wp_json_encode([
+            'type' => 'everywhere',
+            'ruleGroups' => [],
+            'triggers' => [],
+            'priority' => 1,
+            'fallback' => false,
+        ]);
+        $this->assertIsString($treeJson);
+        $this->assertIsString($settingsJson);
+
+        $GLOBALS['__wp_post_meta'][$postId]['_oxygen_data'] = wp_json_encode([
+            'tree_json_string' => $treeJson,
+        ]);
+        $GLOBALS['__wp_post_meta'][$postId]['_oxygen_template_settings'] = wp_json_encode($settingsJson);
+
+        $document = $adapter->readPageDocument($postId);
+        $this->assertTrue($document['success'], implode(' ', $document['errors'] ?? []));
+        $this->assertSame($treeJson, $document['payload']['tree_json_string']);
+        $this->assertSame(sha1($treeJson), $document['treeHash']);
+
+        $settings = $adapter->readTemplateSettings($postId);
+        $this->assertTrue($settings['success'], implode(' ', $settings['errors'] ?? []));
+        $this->assertSame($settingsJson, $settings['settingsJson']);
+        $this->assertSame(sha1($settingsJson), $settings['settingsHash']);
+    }
+
+    public function testCreateOrUpdateDocumentPostRejectsUnsupportedPostTypeWithValidationContract(): void
+    {
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $payload = $this->fixturePayload('template-settings.json');
+        $payload['post_type'] = 'page';
+
+        $result = $adapter->createOrUpdateDocumentPost($payload);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(422, $result['status']);
+        $this->assertSame('page', $result['postType']);
+        $this->assertSame(['_oxygen_data', '_oxygen_template_settings'], $result['metaKeys']);
+        $this->assertStringContainsString('Unsupported Oxygen template post type "page"', implode(' ', $result['errors']));
     }
 
     public function testAdapterRejectsMalformedGlobalSettingsAndTemplateRuleContracts(): void
@@ -226,7 +329,17 @@ class OxygenStorageAdapterTest extends TestCase
             ],
         ]);
         $this->assertFalse($global['success']);
-        $this->assertStringContainsString('settings.colors.palette.gradients.0.value.svgValue must be a non-empty string', implode(' ', $global['errors']));
+        $this->assertStringContainsString('$.settings.colors.palette.gradients[0].value.svgValue expected non-empty string', implode(' ', $global['errors']));
+
+        $unsupportedCode = $adapter->writeGlobalSettings([
+            'settings' => [
+                'code' => [
+                    'head' => '<meta name="x" content="y">',
+                ],
+            ],
+        ]);
+        $this->assertFalse($unsupportedCode['success']);
+        $this->assertStringContainsString('$.settings.code.head expected stylesheets or scripts', implode(' ', $unsupportedCode['errors']));
 
         $template = $adapter->validateTemplate('oxygen_template', $this->validTree(), wp_json_encode([
             'type' => 'all-singles',
@@ -239,11 +352,20 @@ class OxygenStorageAdapterTest extends TestCase
             'fallback' => false,
         ]));
         $this->assertFalse($template['valid']);
-        $this->assertStringContainsString('_oxygen_template_settings.ruleGroups.0.0.value is required', implode(' ', $template['errors']));
+        $this->assertStringContainsString('$.ruleGroups[0][0].value expected field required', implode(' ', $template['errors']));
     }
 
-    public function testAdapterValidatesBlockFixtureAndKeepsBlockWriteStubbed(): void
+    public function testAdapterValidatesBlockFixtureAndWritesBlockPostAndMetaWithRollback(): void
     {
+        $GLOBALS['__wp_posts'] = [];
+        $GLOBALS['__wp_post_meta'] = [];
+        $GLOBALS['__wp_next_post_id'] = 1;
+        $GLOBALS['__wp_cleaned_post_cache'] = [];
+        $GLOBALS['__breakdance_generated_cache_posts'] = [];
+        if (!function_exists('Breakdance\\Render\\generateCacheForPost')) {
+            eval('namespace Breakdance\\Render; function generateCacheForPost($postId) { $GLOBALS["__breakdance_generated_cache_posts"][] = (int) $postId; }');
+        }
+
         $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
         $payload = $this->fixturePayload('block.json');
         $tree = $this->decodeTree($payload['_oxygen_data']);
@@ -252,16 +374,79 @@ class OxygenStorageAdapterTest extends TestCase
         $valid = $adapter->validateBlock($tree, $settings);
         $this->assertTrue($valid['valid'], implode(' ', $valid['errors']));
 
+        $settings['_post'] = [
+            'post_title' => 'Imported Card Block',
+            'post_name' => 'imported-card-block',
+        ];
         $write = $adapter->writeBlock($tree, $settings);
-        $this->assertFalse($write['success']);
-        $this->assertSame('stub_not_exposed', $write['status']);
+        $this->assertTrue($write['success'], implode(' ', $write['errors'] ?? []));
+        $this->assertSame(200, $write['status']);
+        $this->assertSame('created', $write['action']);
+        $this->assertSame('oxygen_block', $write['postType']);
         $this->assertSame(['_oxygen_data', '_breakdance_block_settings'], $write['metaKeys']);
+        $this->assertTrue($write['rollback']['post']);
+        $this->assertSame('wp_delete_post', $write['rollback']['postStore']['restoreOperation']);
+        $this->assertTrue($write['cacheRegenerated']);
+
+        $postId = (int) $write['postId'];
+        $this->assertGreaterThan(0, $postId);
+        $this->assertSame('oxygen_block', $GLOBALS['__wp_posts'][$postId]->post_type);
+        $this->assertSame('Imported Card Block', $GLOBALS['__wp_posts'][$postId]->post_title);
+
+        $storedData = $this->decodeStoredMetaObject((string) get_post_meta($postId, '_oxygen_data', true));
+        $this->assertArrayHasKey('tree_json_string', $storedData);
+        $storedSettings = $this->decodeStoredMetaObject((string) get_post_meta($postId, '_breakdance_block_settings', true));
+        $this->assertArrayHasKey('preview', $storedSettings);
+        $this->assertArrayNotHasKey('_post', $storedSettings);
+
+        $settings['_post'] = [
+            'ID' => $postId,
+            'post_title' => 'Updated Card Block',
+            'post_name' => 'updated-card-block',
+        ];
+        $update = $adapter->writeBlock($tree, $settings);
+        $this->assertTrue($update['success'], implode(' ', $update['errors'] ?? []));
+        $this->assertSame('updated', $update['action']);
+        $this->assertTrue($update['rollback']['post']);
+        $this->assertTrue($update['rollback']['oxygenData']);
+        $this->assertTrue($update['rollback']['blockSettings']);
+        $this->assertSame([$postId, $postId], $GLOBALS['__breakdance_generated_cache_posts']);
+        $this->assertNotSame('', get_post_meta($postId, '_oxy_html_converter_previous_oxygen_block_post', true));
+        $this->assertNotSame('', get_post_meta($postId, '_oxy_html_converter_previous_oxygen_data', true));
+        $this->assertNotSame('', get_post_meta($postId, '_oxy_html_converter_previous_breakdance_block_settings', true));
 
         $invalid = $adapter->writeBlock(['root' => ['id' => 'bad']], ['preview' => 'bad']);
         $this->assertFalse($invalid['success']);
         $this->assertSame(422, $invalid['status']);
         $this->assertStringContainsString('root.id must be an integer', implode(' ', $invalid['errors']));
         $this->assertStringContainsString('_breakdance_block_settings.preview must be an object', implode(' ', $invalid['errors']));
+    }
+
+    public function testAdapterDeletesCreatedBlockWhenSettingsWriteFailsAfterPostInsert(): void
+    {
+        $GLOBALS['__wp_posts'] = [];
+        $GLOBALS['__wp_post_meta'] = [];
+        $GLOBALS['__wp_next_post_id'] = 1;
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $payload = $this->fixturePayload('block.json');
+        $tree = $this->decodeTree($payload['_oxygen_data']);
+        $settings = [
+            'preview' => [],
+            '_post' => [
+                'post_title' => 'Broken Block',
+            ],
+        ];
+        $settings['recursive'] = &$settings;
+
+        $write = $adapter->writeBlock($tree, $settings);
+
+        $this->assertFalse($write['success']);
+        $this->assertSame(500, $write['status']);
+        $this->assertSame(1, $write['postId']);
+        $this->assertTrue($write['rollback']['deletedCreatedPost']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
     }
 
     private function fixtureDir(): string
@@ -314,6 +499,33 @@ class OxygenStorageAdapterTest extends TestCase
         $this->assertIsArray($tree);
 
         return $tree;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeStoredMetaObject(string $raw): array
+    {
+        foreach ([$raw, stripslashes($raw)] as $candidate) {
+            $decoded = json_decode($candidate, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
+    }
+
+    private function decodeStoredJsonString(string $raw): string
+    {
+        foreach ([$raw, stripslashes($raw)] as $candidate) {
+            $decoded = json_decode($candidate, true);
+            if (is_string($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return '';
     }
 
     private function copyFixturesToTempDir(): string

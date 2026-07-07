@@ -112,6 +112,18 @@ class IconDetectorTest extends TestCase
         $this->assertStringContainsString('lucide.createIcons();', $htmlCode);
     }
 
+    public function testDetectedIconLibraryIncludesLicenseAndCachePolicy(): void
+    {
+        $doc = new DOMDocument();
+        @$doc->loadHTML('<div><i data-lucide="menu"></i></div>', LIBXML_NOERROR | LIBXML_NOWARNING);
+
+        $detected = $this->detector->detectIconLibraries($doc);
+
+        $this->assertSame('icon', $detected['lucide']['assetType']);
+        $this->assertStringContainsString('license', strtolower($detected['lucide']['license']));
+        $this->assertStringContainsString('not downloaded', strtolower($detected['lucide']['cachePolicy']));
+    }
+
     public function testCreateIconLibraryElementsForCssLibrary(): void
     {
         $libraries = [

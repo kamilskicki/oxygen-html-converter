@@ -6,9 +6,10 @@ const converterOptions = require("../../assets/js/lib/converter-options.js");
 module.exports = async function runBuilderClientTests() {
   assert.deepEqual(builderClient.buildRequestFields({}, converterOptions), {
     wrapInContainer: "true",
-    includeCssElement: "true",
+    includeCssElement: "false",
     inlineStyles: "true",
     safeMode: "true",
+    allowExecutableCode: "false",
     strictNative: "false",
     debugMode: "false",
   });

@@ -77,7 +77,8 @@ class ConversionReport
         string $reason,
         string $severity = 'review',
         string $owner = 'core',
-        string $remediation = ''
+        string $remediation = '',
+        array $context = []
     ): void {
         $item = [
             'location' => trim($location) !== '' ? trim($location) : 'unknown',
@@ -85,11 +86,28 @@ class ConversionReport
             'severity' => in_array($severity, ['info', 'review', 'blocking'], true) ? $severity : 'review',
             'owner' => trim($owner) !== '' ? trim($owner) : 'core',
             'remediation' => trim($remediation) !== '' ? trim($remediation) : 'Map natively, remove it, or choose an explicit fallback.',
+            'sourceSnippet' => $this->stringContext($context, 'sourceSnippet', 'not captured'),
+            'selector' => $this->stringContext($context, 'selector', 'unknown'),
+            'fallbackCategory' => $this->stringContext($context, 'fallbackCategory', 'unsupported_structure'),
+            'safeModeImpact' => $this->stringContext($context, 'safeModeImpact', 'Requires review before import.'),
         ];
 
-        if (!in_array($item, $this->unsupportedItems, true)) {
-            $this->unsupportedItems[] = $item;
+        $this->unsupportedItems[] = $item;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function stringContext(array $context, string $key, string $default): string
+    {
+        $value = $context[$key] ?? null;
+        if (!is_scalar($value)) {
+            return $default;
         }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : $default;
     }
 
     /**

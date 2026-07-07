@@ -23,6 +23,7 @@ final class ElementTypes
 
     // Media elements
     public const IMAGE = 'OxygenElements\\Image';
+    public const SVG_ICON = 'OxygenElements\\SvgIcon';
     public const HTML5_VIDEO = 'OxygenElements\\Html5Video';
 
     // Code elements
@@ -46,6 +47,7 @@ final class ElementTypes
         self::TEXT_LINK,
         self::RICH_TEXT,
         self::IMAGE,
+        self::SVG_ICON,
         self::HTML5_VIDEO,
         self::HTML_CODE,
         self::CSS_CODE,

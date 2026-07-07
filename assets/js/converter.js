@@ -391,8 +391,7 @@
 
   function init() {
     const checkReady = window.setInterval(() => {
-      const store = getOxygenStore();
-      if (!store) {
+      if (!getOxygenStore() && !getDocumentTree()) {
         return;
       }
 

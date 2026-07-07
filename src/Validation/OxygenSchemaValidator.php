@@ -25,6 +25,252 @@ final class OxygenSchemaValidator
         'is not empty' => true,
     ];
 
+    private const TEMPLATE_TYPE_SLUGS = [
+        'everywhere' => true,
+        'all-singles' => true,
+        'post' => true,
+        'page' => true,
+        'front-page' => true,
+        'all-archives' => true,
+        'post-type-archive' => true,
+        'taxonomy-archive' => true,
+        'post-archives' => true,
+        'author-archive' => true,
+        'date-archive' => true,
+        '404' => true,
+        'search' => true,
+        'all-product-archives' => true,
+        'specific-product-archive' => true,
+    ];
+
+    private const TEMPLATE_TRIGGER_SLUGS = [
+        'click' => true,
+        'load' => true,
+        'scroll' => true,
+        'scroll_up' => true,
+        'inactivity' => true,
+        'exit_intent' => true,
+    ];
+
+    private const TEMPLATE_TRIGGER_INTEGER_OPTIONS = [
+        'delay' => true,
+        'percent' => true,
+        'limit' => true,
+        'showOnLoadMilliseconds' => true,
+        'showOnInactivityMilliseconds' => true,
+        'scrollPercent' => true,
+        'scrollLimit' => true,
+        'exitIntentDelay' => true,
+        'exitIntentLimit' => true,
+        'clickLimit' => true,
+    ];
+
+    private const TEMPLATE_TRIGGER_STRING_OPTIONS = [
+        'selector' => true,
+        'scrollType' => true,
+        'clickType' => true,
+        'scrollSelector' => true,
+        'clickSelector' => true,
+    ];
+
+    private const TEMPLATE_TRIGGER_BOOLEAN_OPTIONS = [
+        'onlyShowOnce' => true,
+        'avoidMultiple' => true,
+    ];
+
+    private const TEMPLATE_CONDITIONS = [
+        'post-type' => [
+            'operands' => ['is one of', 'is none of'],
+            'availableForType' => [
+                'all-singles',
+                'oxygen_header',
+                'oxygen_footer',
+                'oxygen_block',
+                'oxygen_part',
+                'breakdance_acf_block',
+                'breakdance_popup',
+            ],
+        ],
+        'post-type-archive' => [
+            'operands' => ['is', 'is not'],
+            'availableForType' => ['post-type-archive', 'all-archives'],
+        ],
+        'author' => [
+            'operands' => ['is', 'is not'],
+            'availableForType' => ['author-archive', 'all-archives'],
+        ],
+        'taxonomy' => [
+            'operands' => ['is', 'is not'],
+            'availableForType' => ['taxonomy-archive', 'all-archives'],
+        ],
+    ];
+
+    private const SELECTOR_BREAKPOINT_KEYS = [
+        'breakpoint_base' => true,
+        'breakpoint_tablet_landscape' => true,
+        'breakpoint_tablet_portrait' => true,
+        'breakpoint_phone_landscape' => true,
+        'breakpoint_phone_portrait' => true,
+    ];
+
+    private const SELECTOR_VALUE_PATHS = [
+        'layout.display' => true,
+        'layout.visibility' => true,
+        'layout.flex_direction' => true,
+        'layout.justify_content' => true,
+        'layout.align_items' => true,
+        'layout.flex_align.primary_axis' => true,
+        'layout.flex_align.cross_axis' => true,
+        'layout.gap' => true,
+        'layout.gap.number' => true,
+        'layout.gap.unit' => true,
+        'layout.gap.style' => true,
+        'layout.grid.enable_advanced_mode' => true,
+        'layout.grid.simple_grid_template_columns' => true,
+        'layout.grid.simple_grid_template_rows' => true,
+        'layout.grid_auto_flow' => true,
+        'layout.grid_align.primary_axis' => true,
+        'layout.grid_align.cross_axis' => true,
+        'layout.grid_justify_content' => true,
+        'layout.grid_align_content' => true,
+        'flex_child.flex_grow' => true,
+        'flex_child.flex_shrink' => true,
+        'flex_child.align_self' => true,
+        'flex_child.order' => true,
+        'flex_child.order_custom' => true,
+        'grid_child.align_self' => true,
+        'grid_child.justify_self' => true,
+        'grid_child.row_start' => true,
+        'grid_child.row_end' => true,
+        'grid_child.column_start' => true,
+        'grid_child.column_end' => true,
+        'grid_child.area' => true,
+        'grid_child.order' => true,
+        'grid_child.order_custom' => true,
+        'position.position' => true,
+        'position.z_index' => true,
+        'size.overflow' => true,
+        'size.object_fit' => true,
+        'size.box_sizing' => true,
+        'size.aspect_ratio' => true,
+        'size.aspect_ratio_custom.width' => true,
+        'size.aspect_ratio_custom.height' => true,
+        'typography.color' => true,
+        'typography.font_family' => true,
+        'typography.font_weight' => true,
+        'typography.text_align' => true,
+        'typography.style.text_decoration' => true,
+        'typography.style.font_style' => true,
+        'typography.text_transform' => true,
+        'typography.direction' => true,
+        'typography.text_overflow' => true,
+        'typography.list_style' => true,
+        'typography.overflow_wrap' => true,
+        'typography.text_wrap' => true,
+        'typography.stroke.stroke_color' => true,
+        'typography.text_shadow.*.disabled' => true,
+        'typography.text_shadow.*.color' => true,
+        'background.background_color' => true,
+        'background.backgrounds.*.disabled' => true,
+        'background.backgrounds.*.type' => true,
+        'background.backgrounds.*.image' => true,
+        'background.backgrounds.*.image.url' => true,
+        'background.backgrounds.*.image.sizes.*.url' => true,
+        'background.backgrounds.*.image_size' => true,
+        'background.backgrounds.*.background_size' => true,
+        'background.backgrounds.*.background_position.x' => true,
+        'background.backgrounds.*.background_position.y' => true,
+        'background.backgrounds.*.background_repeat' => true,
+        'background.backgrounds.*.background_attachment' => true,
+        'background.backgrounds.*.background_blend_mode' => true,
+        'background.backgrounds.*.color' => true,
+        'background.backgrounds.*.gradient.value' => true,
+        'borders.border_radius.editMode' => true,
+        'borders.borders.*.style' => true,
+        'borders.borders.*.color' => true,
+        'effects.outline_style' => true,
+        'effects.outline_color' => true,
+        'effects.opacity' => true,
+        'effects.cursor' => true,
+        'effects.blend_mode' => true,
+        'effects.pointer_events' => true,
+        'effects.transition.*.disabled' => true,
+        'effects.transition.*.property' => true,
+        'effects.transition.*.easing' => true,
+        'effects.box_shadow.*.disabled' => true,
+        'effects.box_shadow.*.position' => true,
+        'effects.box_shadow.*.color' => true,
+        'effects.filter.*.disabled' => true,
+        'effects.filter.*.type' => true,
+        'effects.backdrop_filter.*.disabled' => true,
+        'effects.backdrop_filter.*.type' => true,
+        'effects.transform.*.disabled' => true,
+        'effects.transform.*.type' => true,
+        'custom_css.custom_css' => true,
+    ];
+
+    private const SELECTOR_MEASUREMENT_PATHS = [
+        'layout.grid_template_columns.*.size' => true,
+        'layout.grid_template_rows.*.size' => true,
+        'layout.grid_auto_columns' => true,
+        'layout.grid_auto_rows' => true,
+        'layout.gap.row' => true,
+        'layout.gap.column' => true,
+        'flex_child.flex_basis' => true,
+        'position.top' => true,
+        'position.right' => true,
+        'position.bottom' => true,
+        'position.left' => true,
+        'size.width' => true,
+        'size.height' => true,
+        'size.max_width' => true,
+        'size.max_height' => true,
+        'size.min_width' => true,
+        'size.min_height' => true,
+        'size.object_position.x' => true,
+        'size.object_position.y' => true,
+        'typography.font_size' => true,
+        'typography.line_height' => true,
+        'typography.letter_spacing' => true,
+        'typography.text_indent' => true,
+        'typography.stroke.stroke_width' => true,
+        'typography.text_shadow.*.x' => true,
+        'typography.text_shadow.*.y' => true,
+        'typography.text_shadow.*.blur' => true,
+        'spacing.spacing.margin.top' => true,
+        'spacing.spacing.margin.right' => true,
+        'spacing.spacing.margin.bottom' => true,
+        'spacing.spacing.margin.left' => true,
+        'spacing.spacing.padding.top' => true,
+        'spacing.spacing.padding.right' => true,
+        'spacing.spacing.padding.bottom' => true,
+        'spacing.spacing.padding.left' => true,
+        'background.backgrounds.*.background_size_custom.width' => true,
+        'background.backgrounds.*.background_size_custom.height' => true,
+        'borders.border_radius.all' => true,
+        'borders.border_radius.topLeft' => true,
+        'borders.border_radius.topRight' => true,
+        'borders.border_radius.bottomLeft' => true,
+        'borders.border_radius.bottomRight' => true,
+        'borders.borders.*.width' => true,
+        'effects.outline_width' => true,
+        'effects.outline_offset' => true,
+        'effects.transform_origin.x' => true,
+        'effects.transform_origin.y' => true,
+        'effects.transition.*.duration' => true,
+        'effects.transition.*.delay' => true,
+        'effects.box_shadow.*.x' => true,
+        'effects.box_shadow.*.y' => true,
+        'effects.box_shadow.*.blur' => true,
+        'effects.box_shadow.*.spread' => true,
+        'effects.filter.*.blur_value' => true,
+        'effects.filter.*.hue_value' => true,
+        'effects.filter.*.value' => true,
+        'effects.backdrop_filter.*.blur_value' => true,
+        'effects.backdrop_filter.*.hue_value' => true,
+        'effects.backdrop_filter.*.value' => true,
+    ];
+
     /**
      * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
      */
@@ -35,6 +281,7 @@ final class OxygenSchemaValidator
             'root' => true,
             '_nextNodeId' => true,
             'exportedLookupTable' => true,
+            'status' => true,
         ];
 
         foreach ($tree as $key => $value) {
@@ -64,6 +311,10 @@ final class OxygenSchemaValidator
 
         if (isset($tree['exportedLookupTable']) && !is_array($tree['exportedLookupTable'])) {
             $errors[] = $this->error('$.exportedLookupTable', 'object', $tree['exportedLookupTable'], 'Use an object or an empty object for exportedLookupTable.');
+        }
+
+        if (!isset($tree['status']) || !is_string($tree['status']) || trim($tree['status']) === '') {
+            $errors[] = $this->error('$.status', 'non-empty string', $tree['status'] ?? null, 'Set the Oxygen document export status before persisting the tree.');
         }
 
         return $this->result($errors);
@@ -217,11 +468,99 @@ final class OxygenSchemaValidator
             $properties = $selector['properties'] ?? null;
             if (!is_array($properties) && !$properties instanceof \stdClass) {
                 $errors[] = $this->error($path . '.properties', 'object', $properties, 'Store selector properties as an object.');
+            } else {
+                $errors = array_merge(
+                    $errors,
+                    $this->validateSelectorProperties($properties, $path . '.properties')['errors']
+                );
             }
 
             if (!isset($selector['children']) || !is_array($selector['children'])) {
                 $errors[] = $this->error($path . '.children', 'array', $selector['children'] ?? null, 'Use an empty array when the selector has no nested selectors.');
+            } else {
+                foreach ($selector['children'] as $childIndex => $child) {
+                    $childPath = $path . '.children[' . (int) $childIndex . ']';
+                    if (!is_array($child)) {
+                        $errors[] = $this->error($childPath, 'Oxygen nested selector object', $child, 'Remove invalid nested selector records.');
+                        continue;
+                    }
+
+                    $errors = array_merge($errors, $this->validateNestedSelectorRecord($child, $childPath)['errors']);
+
+                    $childProperties = $child['properties'] ?? null;
+                    if (!is_array($childProperties) && !$childProperties instanceof \stdClass) {
+                        $errors[] = $this->error($childPath . '.properties', 'object', $childProperties, 'Store nested selector properties as an object.');
+                        continue;
+                    }
+
+                    $errors = array_merge(
+                        $errors,
+                        $this->validateSelectorProperties($childProperties, $childPath . '.properties')['errors']
+                    );
+                }
             }
+        }
+
+        return $this->result($errors);
+    }
+
+    /**
+     * @param array<string, mixed> $child
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateNestedSelectorRecord(array $child, string $path): array
+    {
+        $errors = [];
+        $allowed = [
+            'id' => true,
+            'name' => true,
+            'locked' => true,
+            'properties' => true,
+            'pseudo' => true,
+        ];
+
+        foreach ($child as $key => $value) {
+            if (!isset($allowed[(string) $key])) {
+                $errors[] = $this->error(
+                    $path . '.' . (string) $key,
+                    'id, name, locked, properties, or pseudo',
+                    $value,
+                    'Nested Oxygen selectors are one level deep; remove unsupported nested selector fields.'
+                );
+            }
+        }
+
+        foreach (['id', 'name'] as $field) {
+            if (!is_string($child[$field] ?? null) || trim((string) $child[$field]) === '') {
+                $errors[] = $this->error($path . '.' . $field, 'non-empty string', $child[$field] ?? null, 'Write the required nested selector field.');
+            }
+        }
+
+        if (array_key_exists('pseudo', $child) && !is_bool($child['pseudo'])) {
+            $errors[] = $this->error($path . '.pseudo', 'boolean', $child['pseudo'], 'Store pseudo as a boolean when present.');
+        }
+
+        if (!array_key_exists('locked', $child) || !is_bool($child['locked'])) {
+            $errors[] = $this->error($path . '.locked', 'boolean', $child['locked'] ?? null, 'Store nested selector lock state as a boolean.');
+        }
+
+        $name = is_string($child['name'] ?? null) ? trim((string) $child['name']) : '';
+        if ($name !== '' && !str_starts_with($name, '&')) {
+            $errors[] = $this->error(
+                $path . '.name',
+                'nested selector name prefixed with &',
+                $name,
+                'Use ampersand-prefixed nested selector names so Oxygen anchors the child selector to its parent selector.'
+            );
+        }
+
+        if (($child['pseudo'] ?? false) === true && preg_match('/^::?[A-Za-z-]/', $name) === 1) {
+            $errors[] = $this->error(
+                $path . '.name',
+                'same-element pseudo selector prefixed with &',
+                $name,
+                'Use &:hover, &:focus, or another ampersand-prefixed selector so Oxygen renders the pseudo on the class itself.'
+            );
         }
 
         return $this->result($errors);
@@ -249,6 +588,22 @@ final class OxygenSchemaValidator
                 continue;
             }
 
+            $allowed = [
+                'id' => true,
+                'cssVariableName' => true,
+                'label' => true,
+                'value' => true,
+                'type' => true,
+                'dynamicData' => true,
+                'collection' => true,
+            ];
+
+            foreach ($variable as $key => $value) {
+                if (!isset($allowed[(string) $key])) {
+                    $errors[] = $this->error($path . '.' . (string) $key, 'no additional Oxygen variable fields', $value, 'Remove unsupported variable fields before persistence.');
+                }
+            }
+
             foreach (['id', 'cssVariableName', 'label', 'type', 'collection'] as $field) {
                 if (!is_string($variable[$field] ?? null) || trim((string) $variable[$field]) === '') {
                     $errors[] = $this->error($path . '.' . $field, 'non-empty string', $variable[$field] ?? null, 'Write the required Oxygen variable field.');
@@ -259,14 +614,83 @@ final class OxygenSchemaValidator
                 $errors[] = $this->error($path . '.value', 'field present', null, 'Include the static or dynamic variable value.');
             }
 
-            if (!array_key_exists('dynamicData', $variable)) {
-                $errors[] = $this->error($path . '.dynamicData', 'field present', null, 'Use null for static variables.');
+            if (array_key_exists('dynamicData', $variable) && !is_array($variable['dynamicData'])) {
+                $errors[] = $this->error($path . '.dynamicData', 'object when present', $variable['dynamicData'], 'Omit dynamicData for static variables or provide a dynamic data object.');
             }
 
             $name = is_string($variable['cssVariableName'] ?? null) ? (string) $variable['cssVariableName'] : '';
             if ($name !== '' && (str_starts_with($name, '--') || preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/', $name) !== 1)) {
                 $errors[] = $this->error($path . '.cssVariableName', 'CSS variable name without leading --', $name, 'Store the Oxygen cssVariableName without the CSS custom property prefix.');
             }
+
+            $collection = is_string($variable['collection'] ?? null) ? trim((string) $variable['collection']) : '';
+            if ($collection !== '' && !in_array($collection, $collections, true)) {
+                $errors[] = $this->error($path . '.collection', 'known variable collection', $collection, 'Add the variable collection to oxygen_variables_collections_json_string or use an empty collection.');
+            }
+
+            if (is_string($variable['type'] ?? null)) {
+                $errors = array_merge($errors, $this->validateVariableValueForType($variable, $path)['errors']);
+            }
+        }
+
+        return $this->result($errors);
+    }
+
+    /**
+     * @param array<string, mixed> $variable
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateVariableValueForType(array $variable, string $path): array
+    {
+        $type = (string) $variable['type'];
+        $value = $variable['value'] ?? null;
+        $errors = [];
+
+        if (!in_array($type, ['color', 'unit', 'number', 'font_family', 'image_url'], true)) {
+            $errors[] = $this->error($path . '.type', 'supported Oxygen variable type', $type, 'Use color, unit, number, font_family, or image_url.');
+            return $this->result($errors);
+        }
+
+        if ($type === 'color') {
+            if (is_string($value) && trim($value) !== '') {
+                return $this->result([]);
+            }
+
+            if (is_array($value) && is_string($value['value'] ?? null) && trim((string) $value['value']) !== '') {
+                return $this->result([]);
+            }
+
+            $errors[] = $this->error($path . '.value', 'color string or object with value', $value, 'Store color variables as a color string or an object with a value field.');
+            return $this->result($errors);
+        }
+
+        if ($type === 'unit') {
+            return $this->validateMeasurementValue($value, $path . '.value');
+        }
+
+        if ($type === 'number') {
+            if (!is_int($value) && !is_float($value)) {
+                $errors[] = $this->error($path . '.value', 'number', $value, 'Store number variables as an integer or float.');
+            }
+
+            return $this->result($errors);
+        }
+
+        if ($type === 'font_family') {
+            if (!is_string($value) || trim($value) === '') {
+                $errors[] = $this->error($path . '.value', 'non-empty font family string', $value, 'Store font-family variables as strings.');
+            }
+
+            return $this->result($errors);
+        }
+
+        if (!is_array($value)) {
+            $errors[] = $this->error($path . '.value', 'image URL object', $value, 'Store image_url variables as an object with url.');
+            return $this->result($errors);
+        }
+
+        if (!is_string($value['url'] ?? null) || trim((string) $value['url']) === '') {
+            $errors[] = $this->error($path . '.value.url', 'non-empty string', $value['url'] ?? null, 'Store image_url variables with a url field.');
         }
 
         return $this->result($errors);
@@ -285,7 +709,7 @@ final class OxygenSchemaValidator
             return $this->result($errors);
         }
 
-        foreach (['colors', 'typography', 'containers', 'code'] as $section) {
+        foreach (['colors', 'typography', 'containers', 'code', 'other'] as $section) {
             if (isset($settings['settings'][$section]) && !is_array($settings['settings'][$section])) {
                 $errors[] = $this->error('$.settings.' . $section, 'object', $settings['settings'][$section], 'Store this global settings section as an object.');
             }
@@ -315,9 +739,7 @@ final class OxygenSchemaValidator
                             continue;
                         }
 
-                        if (!is_string($preset['preset'] ?? null) || trim((string) $preset['preset']) === '') {
-                            $errors[] = $this->error($presetPath . '.preset', 'non-empty string', $preset['preset'] ?? null, 'Store the preset slug as a string.');
-                        }
+                        $errors = array_merge($errors, $this->validateTypographyPresetReference($preset['preset'] ?? null, $presetPath . '.preset')['errors']);
 
                         if (!isset($preset['custom']) || !is_array($preset['custom'])) {
                             $errors[] = $this->error($presetPath . '.custom', 'object', $preset['custom'] ?? null, 'Store custom preset settings as an object.');
@@ -350,6 +772,41 @@ final class OxygenSchemaValidator
             $errors = array_merge($errors, $this->validateCodeSection($settings['settings']['code'], '$.settings.code')['errors']);
         }
 
+        if (isset($settings['settings']['other']) && is_array($settings['settings']['other'])) {
+            $other = $settings['settings']['other'];
+            if (isset($other['transition_duration'])) {
+                $errors = array_merge($errors, $this->validateMeasurementValue($other['transition_duration'], '$.settings.other.transition_duration')['errors']);
+            }
+        }
+
+        return $this->result($errors);
+    }
+
+    /**
+     * @param mixed $preset
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateTypographyPresetReference($preset, string $path): array
+    {
+        if (is_string($preset) && trim($preset) !== '') {
+            return $this->result([]);
+        }
+
+        if (!is_array($preset)) {
+            return $this->result([
+                $this->error($path, 'non-empty string or object with id', $preset, 'Store typography preset as an Oxygen preset reference.'),
+            ]);
+        }
+
+        $errors = [];
+        if (!is_string($preset['id'] ?? null) || trim((string) $preset['id']) === '') {
+            $errors[] = $this->error($path . '.id', 'non-empty string', $preset['id'] ?? null, 'Store the Oxygen typography preset id.');
+        }
+
+        if (array_key_exists('label', $preset) && !is_string($preset['label'])) {
+            $errors[] = $this->error($path . '.label', 'string', $preset['label'], 'Store the Oxygen typography preset label as a string.');
+        }
+
         return $this->result($errors);
     }
 
@@ -379,13 +836,16 @@ final class OxygenSchemaValidator
         $errors = [];
         if (array_key_exists('type', $settings) && (!is_string($settings['type']) || trim($settings['type']) === '')) {
             $errors[] = $this->error('$.type', 'non-empty string', $settings['type'], 'Use a registered Oxygen template type slug.');
+        } elseif (is_string($settings['type'] ?? null) && !$this->isRegisteredTemplateTypeSlug((string) $settings['type'])) {
+            $errors[] = $this->error('$.type', 'registered template type slug', $settings['type'], 'Use a template type registered by Oxygen themeless rules or a public post type slug.');
         }
 
         if (array_key_exists('ruleGroups', $settings)) {
             if (!is_array($settings['ruleGroups'])) {
                 $errors[] = $this->error('$.ruleGroups', 'array', $settings['ruleGroups'], 'Store template rules as OR groups of rule arrays.');
             } else {
-                $errors = array_merge($errors, $this->validateTemplateRuleGroups($settings['ruleGroups'])['errors']);
+                $templateType = is_string($settings['type'] ?? null) ? trim((string) $settings['type']) : '';
+                $errors = array_merge($errors, $this->validateTemplateRuleGroups($settings['ruleGroups'], $templateType)['errors']);
             }
         }
 
@@ -394,9 +854,7 @@ final class OxygenSchemaValidator
                 $errors[] = $this->error('$.triggers', 'array', $settings['triggers'], 'Store template triggers as an array.');
             } else {
                 foreach ($settings['triggers'] as $index => $trigger) {
-                    if (!is_array($trigger)) {
-                        $errors[] = $this->error('$.triggers[' . (int) $index . ']', 'object', $trigger, 'Store each template trigger as an object.');
-                    }
+                    $errors = array_merge($errors, $this->validateTemplateTrigger($trigger, '$.triggers[' . (int) $index . ']')['errors']);
                 }
             }
         }
@@ -415,6 +873,81 @@ final class OxygenSchemaValidator
 
         if (array_key_exists('parentId', $settings) && (!is_int($settings['parentId']) || $settings['parentId'] < 1)) {
             $errors[] = $this->error('$.parentId', 'integer >= 1', $settings['parentId'], 'Store parentId as a positive post ID.');
+        }
+
+        return $this->result($errors);
+    }
+
+    private function isRegisteredTemplateTypeSlug(string $type): bool
+    {
+        $type = trim($type);
+        if (isset(self::TEMPLATE_TYPE_SLUGS[$type])) {
+            return true;
+        }
+
+        if (function_exists('get_post_types')) {
+            $postTypes = get_post_types(['public' => true], 'names');
+            if (is_array($postTypes) && in_array($type, $postTypes, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param mixed $trigger
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateTemplateTrigger($trigger, string $path): array
+    {
+        if (!is_array($trigger)) {
+            return $this->result([
+                $this->error($path, 'object', $trigger, 'Store each template trigger as an object.'),
+            ]);
+        }
+
+        $errors = [];
+        $slug = is_string($trigger['slug'] ?? null) ? trim((string) $trigger['slug']) : '';
+        if ($slug === '') {
+            $errors[] = $this->error($path . '.slug', 'non-empty string', $trigger['slug'] ?? null, 'Store the Oxygen popup/template trigger slug.');
+        } elseif (!isset(self::TEMPLATE_TRIGGER_SLUGS[$slug])) {
+            $errors[] = $this->error($path . '.slug', 'registered template trigger slug', $slug, 'Use a trigger slug registered by Oxygen popup triggers.');
+        }
+
+        if (array_key_exists('options', $trigger)) {
+            if (!is_array($trigger['options'])) {
+                $errors[] = $this->error($path . '.options', 'object', $trigger['options'], 'Store template trigger options as an object.');
+            } else {
+                $errors = array_merge($errors, $this->validateTemplateTriggerOptions($trigger['options'], $path . '.options')['errors']);
+            }
+        }
+
+        return $this->result($errors);
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateTemplateTriggerOptions(array $options, string $path): array
+    {
+        $errors = [];
+
+        foreach ($options as $key => $value) {
+            $key = (string) $key;
+            $optionPath = $path . '.' . $key;
+            if (isset(self::TEMPLATE_TRIGGER_INTEGER_OPTIONS[$key]) && !is_int($value)) {
+                $errors[] = $this->error($optionPath, 'integer', $value, 'Store this trigger option as an integer.');
+            }
+
+            if (isset(self::TEMPLATE_TRIGGER_STRING_OPTIONS[$key]) && !is_string($value)) {
+                $errors[] = $this->error($optionPath, 'string', $value, 'Store this trigger option as a string.');
+            }
+
+            if (isset(self::TEMPLATE_TRIGGER_BOOLEAN_OPTIONS[$key]) && !is_bool($value)) {
+                $errors[] = $this->error($optionPath, 'boolean', $value, 'Store this trigger option as a boolean.');
+            }
         }
 
         return $this->result($errors);
@@ -453,6 +986,10 @@ final class OxygenSchemaValidator
 
         if (($componentNode['data']['type'] ?? null) !== 'OxygenElements\\Component') {
             $errors[] = $this->error('$.data.type', 'OxygenElements\\Component', $componentNode['data']['type'] ?? null, 'Use the native Oxygen Component element for reusable block references.');
+        }
+
+        if (isset($componentNode['children']) && is_array($componentNode['children']) && $componentNode['children'] !== []) {
+            $errors[] = $this->error('$.children', 'empty array', $componentNode['children'], 'Store reusable markup in the referenced oxygen_block, not as child nodes on the component instance.');
         }
 
         $block = $componentNode['data']['properties']['content']['content']['block'] ?? null;
@@ -626,6 +1163,183 @@ final class OxygenSchemaValidator
     }
 
     /**
+     * @param mixed $properties
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateSelectorProperties($properties, string $path): array
+    {
+        if ($properties instanceof \stdClass) {
+            $properties = get_object_vars($properties);
+        }
+
+        if (!is_array($properties)) {
+            return $this->result([
+                $this->error($path, 'object', $properties, 'Store selector properties as an object.'),
+            ]);
+        }
+
+        return $this->validateSelectorPropertyMap($properties, $path, []);
+    }
+
+    /**
+     * @param array<int|string, mixed> $properties
+     * @param list<string> $logicalPath
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateSelectorPropertyMap(array $properties, string $path, array $logicalPath): array
+    {
+        $errors = [];
+
+        foreach ($properties as $key => $value) {
+            $key = (string) $key;
+            $childPath = $path . '.' . $key;
+
+            if ($this->isSelectorBreakpointKey($key)) {
+                if ($value instanceof \stdClass) {
+                    $value = get_object_vars($value);
+                }
+
+                if (!is_array($value)) {
+                    $errors[] = $this->error($childPath, 'selector property object', $value, 'Store breakpoint values as nested selector properties.');
+                    continue;
+                }
+
+                $errors = array_merge($errors, $this->validateSelectorPropertyMap($value, $childPath, $logicalPath)['errors']);
+                continue;
+            }
+
+            $nextLogicalPath = array_merge($logicalPath, [$key]);
+            if (!$this->isKnownSelectorPropertyPrefix($nextLogicalPath)) {
+                $errors[] = $this->error(
+                    $childPath,
+                    'known Oxygen selector property path',
+                    $value,
+                    'Move unsupported CSS into custom_css.custom_css or remove the invalid native selector path.'
+                );
+                continue;
+            }
+
+            if ($value instanceof \stdClass) {
+                $value = get_object_vars($value);
+            }
+
+            if ($this->isSelectorMeasurementPath($nextLogicalPath)) {
+                $errors = array_merge($errors, $this->validateSelectorMeasurementValue($value, $childPath)['errors']);
+                continue;
+            }
+
+            if (is_array($value)) {
+                $errors = array_merge($errors, $this->validateSelectorPropertyMap($value, $childPath, $nextLogicalPath)['errors']);
+                continue;
+            }
+
+            if (!$this->isSelectorValuePath($nextLogicalPath)) {
+                $errors[] = $this->error(
+                    $childPath,
+                    'known Oxygen selector property path',
+                    $value,
+                    'Move unsupported CSS into custom_css.custom_css or remove the invalid native selector path.'
+                );
+            }
+        }
+
+        return $this->result($errors);
+    }
+
+    /**
+     * @param mixed $value
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateSelectorMeasurementValue($value, string $path): array
+    {
+        if (is_string($value) && trim($value) !== '') {
+            return $this->result([]);
+        }
+
+        return $this->validateMeasurementValue($value, $path);
+    }
+
+    private function isSelectorBreakpointKey(string $key): bool
+    {
+        return isset(self::SELECTOR_BREAKPOINT_KEYS[$key])
+            || preg_match('/^custom_breakpoint_[A-Za-z0-9_-]+$/', $key) === 1;
+    }
+
+    /**
+     * @param list<string> $path
+     */
+    private function isSelectorValuePath(array $path): bool
+    {
+        foreach (array_keys(self::SELECTOR_VALUE_PATHS) as $allowedPath) {
+            if ($this->selectorPathMatches($path, $allowedPath, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<string> $path
+     */
+    private function isSelectorMeasurementPath(array $path): bool
+    {
+        foreach (array_keys(self::SELECTOR_MEASUREMENT_PATHS) as $allowedPath) {
+            if ($this->selectorPathMatches($path, $allowedPath, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<string> $path
+     */
+    private function isKnownSelectorPropertyPrefix(array $path): bool
+    {
+        if ($path === []) {
+            return true;
+        }
+
+        foreach (array_keys(self::SELECTOR_VALUE_PATHS + self::SELECTOR_MEASUREMENT_PATHS) as $allowedPath) {
+            if ($this->selectorPathMatches($path, $allowedPath, false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<string> $path
+     */
+    private function selectorPathMatches(array $path, string $allowedPath, bool $exact): bool
+    {
+        $allowedSegments = explode('.', $allowedPath);
+        if ($exact && count($path) !== count($allowedSegments)) {
+            return false;
+        }
+
+        if (!$exact && count($path) > count($allowedSegments)) {
+            return false;
+        }
+
+        foreach ($path as $index => $segment) {
+            $allowedSegment = $allowedSegments[$index] ?? null;
+            if ($allowedSegment === null) {
+                return false;
+            }
+
+            if ($allowedSegment !== '*' && $allowedSegment !== (string) $segment) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @param array<string, mixed> $code
      * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
      */
@@ -677,7 +1391,7 @@ final class OxygenSchemaValidator
      * @param array<int, mixed> $ruleGroups
      * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
      */
-    private function validateTemplateRuleGroups(array $ruleGroups): array
+    private function validateTemplateRuleGroups(array $ruleGroups, string $templateType): array
     {
         $errors = [];
 
@@ -689,7 +1403,7 @@ final class OxygenSchemaValidator
             }
 
             foreach ($group as $ruleIndex => $rule) {
-                $errors = array_merge($errors, $this->validateTemplateRule($rule, $groupPath . '[' . (int) $ruleIndex . ']')['errors']);
+                $errors = array_merge($errors, $this->validateTemplateRule($rule, $groupPath . '[' . (int) $ruleIndex . ']', $templateType)['errors']);
             }
         }
 
@@ -700,7 +1414,7 @@ final class OxygenSchemaValidator
      * @param mixed $rule
      * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
      */
-    private function validateTemplateRule($rule, string $path): array
+    private function validateTemplateRule($rule, string $path, string $templateType): array
     {
         if (!is_array($rule)) {
             return $this->result([
@@ -730,8 +1444,11 @@ final class OxygenSchemaValidator
             $errors[] = $this->error($path . '.operand', 'registered template operand', $operand, 'Use an operand from Oxygen themeless rule constants.');
         }
 
+        $ruleSlug = is_string($rule['ruleSlug'] ?? null) ? trim((string) $rule['ruleSlug']) : '';
         if (!is_string($rule['ruleSlug'] ?? null) || trim((string) $rule['ruleSlug']) === '') {
             $errors[] = $this->error($path . '.ruleSlug', 'non-empty string', $rule['ruleSlug'] ?? null, 'Store the Oxygen template rule slug.');
+        } else {
+            $errors = array_merge($errors, $this->validateTemplateConditionRegistry($ruleSlug, $operand, $templateType, $path)['errors']);
         }
 
         foreach (['ruleCategorySlug', 'ruleDynamic'] as $field) {
@@ -746,6 +1463,30 @@ final class OxygenSchemaValidator
 
         if (array_key_exists('value', $rule)) {
             $errors = array_merge($errors, $this->validateTemplateRuleValue($rule['value'], $path . '.value')['errors']);
+        }
+
+        return $this->result($errors);
+    }
+
+    /**
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateTemplateConditionRegistry(string $ruleSlug, string $operand, string $templateType, string $path): array
+    {
+        $condition = self::TEMPLATE_CONDITIONS[$ruleSlug] ?? null;
+        if ($condition === null) {
+            return $this->result([
+                $this->error($path . '.ruleSlug', 'registered template condition slug', $ruleSlug, 'Use a condition registered by Oxygen themeless rules and supported by Core.'),
+            ]);
+        }
+
+        $errors = [];
+        if ($operand !== '' && !in_array($operand, $condition['operands'], true)) {
+            $errors[] = $this->error($path . '.operand', 'operand allowed for template condition', $operand, 'Use an operand supported by this Oxygen template condition.');
+        }
+
+        if ($templateType !== '' && !in_array($templateType, $condition['availableForType'], true)) {
+            $errors[] = $this->error($path . '.ruleSlug', 'condition available for template type', $ruleSlug, 'Use a condition whose availableForType includes the template type.');
         }
 
         return $this->result($errors);
@@ -767,12 +1508,29 @@ final class OxygenSchemaValidator
             ]);
         }
 
+        $valueKind = null;
         foreach ($value as $index => $item) {
             if (is_string($item)) {
+                if ($valueKind === null) {
+                    $valueKind = 'string';
+                } elseif ($valueKind !== 'string') {
+                    return $this->result([
+                        $this->error($path, 'all strings or all objects with string value', $value, 'Do not mix string and object template rule values.'),
+                    ]);
+                }
+
                 continue;
             }
 
             if (is_array($item) && is_string($item['value'] ?? null)) {
+                if ($valueKind === null) {
+                    $valueKind = 'object';
+                } elseif ($valueKind !== 'object') {
+                    return $this->result([
+                        $this->error($path, 'all strings or all objects with string value', $value, 'Do not mix string and object template rule values.'),
+                    ]);
+                }
+
                 continue;
             }
 
@@ -832,6 +1590,60 @@ final class OxygenSchemaValidator
         foreach ($properties as $key => $value) {
             if (!isset($allowed[(string) $key])) {
                 $errors[] = $this->error($path . '.' . (string) $key, 'content, design, settings, or meta property group', $value, 'Remove converter-internal fields before writing Oxygen properties.');
+            }
+        }
+
+        if (isset($properties['meta']) && is_array($properties['meta'])) {
+            $errors = array_merge($errors, $this->validateComponentMeta($properties['meta'], $path . '.meta')['errors']);
+        }
+
+        return $this->result($errors);
+    }
+
+    /**
+     * @param array<string, mixed> $meta
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateComponentMeta(array $meta, string $path): array
+    {
+        $component = $meta['component'] ?? null;
+        if ($component === null) {
+            return $this->result([]);
+        }
+
+        if (!is_array($component)) {
+            return $this->result([
+                $this->error($path . '.component', 'object', $component, 'Store component metadata as an object.'),
+            ]);
+        }
+
+        $editableProperties = $component['editableProperties'] ?? null;
+        if ($editableProperties === null) {
+            return $this->result([]);
+        }
+
+        if (!is_array($editableProperties)) {
+            return $this->result([
+                $this->error($path . '.component.editableProperties', 'array', $editableProperties, 'Store component editable property records as an array.'),
+            ]);
+        }
+
+        $errors = [];
+        foreach ($editableProperties as $index => $editableProperty) {
+            $propertyPath = $path . '.component.editableProperties[' . (int) $index . ']';
+            if (!is_array($editableProperty)) {
+                $errors[] = $this->error($propertyPath, 'object', $editableProperty, 'Store each editable property as an object.');
+                continue;
+            }
+
+            if (array_key_exists('enabled', $editableProperty) && !is_bool($editableProperty['enabled'])) {
+                $errors[] = $this->error($propertyPath . '.enabled', 'boolean', $editableProperty['enabled'], 'Store editable property enabled flags as booleans.');
+            }
+
+            foreach (['label', 'controlPath', 'propertyKey'] as $field) {
+                if (!is_string($editableProperty[$field] ?? null) || trim((string) $editableProperty[$field]) === '') {
+                    $errors[] = $this->error($propertyPath . '.' . $field, 'non-empty string', $editableProperty[$field] ?? null, 'Store stable editable property labels, control paths, and property keys.');
+                }
             }
         }
 

@@ -40,6 +40,12 @@ module.exports = async function runMaximusMatrixTests() {
     ),
     "Silniejszy ruch. Jasna droga. Jeden system dla całego domu."
   );
+  assert.equal(
+    liveGate.extractEditabilityTargetText(
+      '<body><main><section><h1>Native text headline</h1><p>Readable body copy with <strong>strong</strong> and <em>emphasized</em> inline text.</p></section></main></body>'
+    ),
+    "Native text headline"
+  );
   const focusedProof = liveGate.buildFocusedImportProof(
     "<body><main><h1>Krótki tytuł</h1><p>Fixture-specific copy for editability proof.</p></main></body>"
   );
@@ -59,9 +65,9 @@ module.exports = async function runMaximusMatrixTests() {
     targetText: "Native Maximus Live Proof",
     expectedTypeNot: "OxygenElements\\HtmlCode",
     properties: {
-      "design.spacing.padding": "10px",
-      "design.size.width": "120px",
-      "design.typography.color": "#123456",
+      "design.spacing.spacing.padding.top.style": "var(--ohc-space-10px)",
+      "design.size.width.style": "var(--ohc-measure-120px)",
+      "design.typography.color": "var(--ohc-color-123456)",
     },
   });
   assert.equal(

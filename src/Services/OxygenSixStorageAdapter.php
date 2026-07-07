@@ -15,7 +15,8 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
     public function supports(string $oxygenVersion): bool
     {
-        return $oxygenVersion === OxygenStorageContract::SUPPORTED_OXYGEN_VERSION;
+        return $oxygenVersion === OxygenStorageContract::SUPPORTED_OXYGEN_VERSION
+            || $oxygenVersion === '6.1.0';
     }
 
     public function getAdapterId(): string
@@ -45,6 +46,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
             'root' => true,
             '_nextNodeId' => true,
             'exportedLookupTable' => true,
+            'status' => true,
         ];
 
         foreach (array_keys($tree) as $field) {
@@ -65,6 +67,10 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
         if (isset($tree['exportedLookupTable']) && !is_array($tree['exportedLookupTable'])) {
             $errors[] = 'exportedLookupTable must be an array when present.';
+        }
+
+        if (!isset($tree['status']) || !is_string($tree['status']) || trim($tree['status']) === '') {
+            $errors[] = 'status must be a non-empty string.';
         }
 
         return [
@@ -182,7 +188,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
         }
 
         $tree = $this->normalizeDocumentTreeForStorage($tree);
-        $encodedTree = wp_json_encode($tree);
+        $encodedTree = wp_json_encode($this->prepareDocumentTreeForJson($tree));
         if (!is_string($encodedTree)) {
             return [
                 'success' => false,
@@ -235,7 +241,135 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
     public function createOrUpdateDocumentPost(array $postSpec): array
     {
-        return $this->notMigrated(__FUNCTION__);
+        $postType = $this->stringField($postSpec, 'post_type');
+        $postTypeErrors = $this->validateTemplatePostType($postType);
+        if ($postTypeErrors !== []) {
+            return [
+                'success' => false,
+                'status' => 422,
+                'message' => 'Oxygen template payload failed contract validation.',
+                'errors' => $postTypeErrors,
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ];
+        }
+
+        $oxygenData = is_array($postSpec['_oxygen_data'] ?? null) ? $postSpec['_oxygen_data'] : [];
+        $settingsJson = is_string($postSpec['_oxygen_template_settings'] ?? null)
+            ? (string) $postSpec['_oxygen_template_settings']
+            : '';
+        $tree = $this->decodeTreeFromEnvelope($oxygenData);
+        if ($tree === null) {
+            return [
+                'success' => false,
+                'status' => 422,
+                'message' => 'Oxygen template payload failed contract validation.',
+                'errors' => ['_oxygen_data.tree_json_string must decode to an Oxygen document tree.'],
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ];
+        }
+
+        $validation = $this->validateTemplate($postType, $tree, $settingsJson);
+        if (!$validation['valid']) {
+            return [
+                'success' => false,
+                'status' => 422,
+                'message' => 'Oxygen template payload failed contract validation.',
+                'errors' => $validation['errors'],
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ];
+        }
+
+        if (!function_exists('wp_insert_post') || !function_exists('wp_update_post')) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'message' => 'WordPress post persistence functions are unavailable.',
+                'errors' => ['wp_insert_post/wp_update_post are required for template persistence.'],
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ];
+        }
+
+        $postId = (int) ($postSpec['ID'] ?? $postSpec['post_id'] ?? 0);
+        $isUpdate = $postId > 0;
+        $postPayload = [
+            'post_type' => $postType,
+            'post_status' => $this->nonEmptyString($postSpec['post_status'] ?? null, 'publish'),
+            'post_title' => $this->nonEmptyString(
+                $postSpec['post_title'] ?? null,
+                'Imported ' . str_replace('_', ' ', $postType)
+            ),
+            'post_name' => $this->nonEmptyString($postSpec['post_name'] ?? null, ''),
+            'post_content' => $this->nonEmptyString($postSpec['post_content'] ?? null, ''),
+        ];
+
+        if ($isUpdate) {
+            $postPayload['ID'] = $postId;
+            $persistedPostId = wp_update_post($postPayload, true);
+        } else {
+            $persistedPostId = wp_insert_post($postPayload, true);
+        }
+
+        if (is_wp_error($persistedPostId)) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'message' => 'Failed to persist Oxygen template post.',
+                'errors' => [$persistedPostId->get_error_message()],
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ];
+        }
+
+        $postId = (int) $persistedPostId;
+        if ($postId < 1) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'message' => 'Failed to persist Oxygen template post.',
+                'errors' => ['WordPress returned an invalid post ID.'],
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ];
+        }
+
+        $rollbackSnapshot = is_array($postSpec['rollbackSnapshot'] ?? null) ? $postSpec['rollbackSnapshot'] : [];
+        $documentWrite = $this->writePageDocument($postId, $tree, $rollbackSnapshot);
+        if (empty($documentWrite['success'])) {
+            return array_merge($documentWrite, [
+                'postId' => $postId,
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ]);
+        }
+
+        $settingsWrite = $this->writeTemplateSettingsMeta($postId, $settingsJson, $rollbackSnapshot);
+        if (empty($settingsWrite['success'])) {
+            return array_merge($settingsWrite, [
+                'postId' => $postId,
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ]);
+        }
+
+        $this->invalidateDocumentCaches($postId);
+
+        return [
+            'success' => true,
+            'status' => 200,
+            'action' => $isUpdate ? 'updated' : 'created',
+            'postId' => $postId,
+            'postType' => $postType,
+            'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            'oxygenDataMetaKey' => (string) ($documentWrite['metaKey'] ?? $this->getOxygenDataMetaKey()),
+            'templateSettingsMetaKey' => (string) ($settingsWrite['metaKey'] ?? $this->getTemplateSettingsMetaKey()),
+            'treeHash' => (string) ($documentWrite['treeHash'] ?? ''),
+            'settingsHash' => (string) ($settingsWrite['settingsHash'] ?? ''),
+            'adapter' => $this->getAdapterId(),
+        ];
     }
 
     public function readSelectors(): array
@@ -440,7 +574,50 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
     public function readTemplateSettings(int $postId): array
     {
-        return $this->notMigrated(__FUNCTION__);
+        if ($postId < 1) {
+            return [
+                'success' => false,
+                'status' => 400,
+                'message' => 'Invalid post ID.',
+                'errors' => ['postId must be a positive integer.'],
+            ];
+        }
+
+        $metaKey = $this->getTemplateSettingsMetaKey();
+        $rawMeta = function_exists('get_post_meta') ? get_post_meta($postId, $metaKey, true) : '';
+        $settingsJson = $this->decodeStoredTemplateSettings($rawMeta);
+        if ($settingsJson === null) {
+            return [
+                'success' => false,
+                'status' => 404,
+                'message' => '_oxygen_template_settings is missing or invalid.',
+                'errors' => ['Unable to decode ' . $metaKey . ' as an Oxygen template settings JSON string.'],
+                'metaKey' => $metaKey,
+            ];
+        }
+
+        $validation = $this->validateTemplateSettingsJson($settingsJson);
+        if (!$validation['valid']) {
+            return [
+                'success' => false,
+                'status' => 422,
+                'message' => '_oxygen_template_settings does not match the Oxygen 6 template contract.',
+                'errors' => $validation['errors'],
+                'metaKey' => $metaKey,
+                'settingsJson' => $settingsJson,
+            ];
+        }
+
+        $settings = json_decode($settingsJson, true);
+
+        return [
+            'success' => true,
+            'status' => 200,
+            'metaKey' => $metaKey,
+            'settingsJson' => $settingsJson,
+            'settings' => is_array($settings) ? $settings : null,
+            'settingsHash' => sha1($settingsJson),
+        ];
     }
 
     public function validateTemplate(string $postType, array $tree, string $settingsJson): array
@@ -470,19 +647,34 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
             ];
         }
 
-        return [
-            'success' => false,
-            'status' => 'stub_not_exposed',
-            'message' => 'Template writes are validated but not exposed until the M5 template import milestone.',
-            'postType' => $postType,
-            'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
-        ];
+        $tree = $this->normalizeDocumentTreeForStorage($tree);
+        $encodedTree = wp_json_encode($tree);
+        if (!is_string($encodedTree)) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'message' => 'Failed to encode Oxygen document tree.',
+                'errors' => ['wp_json_encode returned a non-string value for the document tree.'],
+                'postType' => $postType,
+                'metaKeys' => ['_oxygen_data', '_oxygen_template_settings'],
+            ];
+        }
+
+        return $this->createOrUpdateDocumentPost([
+            'post_type' => $postType,
+            'post_title' => 'Imported ' . str_replace('_', ' ', $postType),
+            '_oxygen_data' => [
+                'tree_json_string' => $encodedTree,
+            ],
+            '_oxygen_template_settings' => $settingsJson,
+            'rollbackSnapshot' => $rollbackSnapshot,
+        ]);
     }
 
     public function validateBlock(array $tree, array $blockSettings): array
     {
         $treeValidation = $this->validateDocumentTree($this->normalizeDocumentTreeForStorage($tree));
-        $settingsValidation = $this->validateBlockSettings($blockSettings);
+        $settingsValidation = $this->validateBlockSettings($this->blockSettingsForStorage($blockSettings));
         $errors = array_merge($treeValidation['errors'], $settingsValidation['errors']);
 
         return [
@@ -493,7 +685,8 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
     public function writeBlock(array $tree, array $blockSettings, array $rollbackSnapshot = []): array
     {
-        $validation = $this->validateBlock($tree, $blockSettings);
+        $settingsForStorage = $this->blockSettingsForStorage($blockSettings);
+        $validation = $this->validateBlock($tree, $settingsForStorage);
         if (!$validation['valid']) {
             return [
                 'success' => false,
@@ -505,12 +698,133 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
             ];
         }
 
+        if (!function_exists('wp_insert_post') || !function_exists('wp_update_post')) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'message' => 'WordPress post persistence functions are unavailable.',
+                'errors' => ['wp_insert_post/wp_update_post are required for block persistence.'],
+                'postType' => 'oxygen_block',
+                'metaKeys' => ['_oxygen_data', '_breakdance_block_settings'],
+            ];
+        }
+
+        $post = is_array($blockSettings['_post'] ?? null) ? $blockSettings['_post'] : [];
+        $postId = (int) ($post['ID'] ?? $post['postId'] ?? $post['post_id'] ?? 0);
+        $isUpdate = $postId > 0;
+        $postPayload = [
+            'post_type' => 'oxygen_block',
+            'post_status' => $this->nonEmptyString($post['post_status'] ?? null, 'publish'),
+            'post_title' => $this->nonEmptyString(
+                $post['post_title'] ?? $post['title'] ?? $settingsForStorage['label'] ?? $settingsForStorage['name'] ?? null,
+                'Imported Oxygen Block'
+            ),
+            'post_name' => $this->nonEmptyString($post['post_name'] ?? $post['slug'] ?? null, ''),
+            'post_content' => $this->nonEmptyString($post['post_content'] ?? null, ''),
+        ];
+
+        $postRollback = [];
+        if ($isUpdate) {
+            $postRollback = $this->captureBlockPostRollback($postId);
+            $postPayload['ID'] = $postId;
+            $persistedPostId = wp_update_post($postPayload, true);
+        } else {
+            $persistedPostId = wp_insert_post($postPayload, true);
+        }
+
+        if (is_wp_error($persistedPostId)) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'message' => 'Failed to persist Oxygen block post.',
+                'errors' => [$persistedPostId->get_error_message()],
+                'postType' => 'oxygen_block',
+                'metaKeys' => ['_oxygen_data', '_breakdance_block_settings'],
+            ];
+        }
+
+        $postId = (int) $persistedPostId;
+        if ($postId < 1) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'message' => 'Failed to persist Oxygen block post.',
+                'errors' => ['WordPress returned an invalid post ID.'],
+                'postType' => 'oxygen_block',
+                'metaKeys' => ['_oxygen_data', '_breakdance_block_settings'],
+            ];
+        }
+
+        if ($postRollback !== [] && function_exists('update_post_meta')) {
+            $rollbackMetaKey = is_string($rollbackSnapshot['blockPostRollbackMetaKey'] ?? null)
+                ? (string) $rollbackSnapshot['blockPostRollbackMetaKey']
+                : '_oxy_html_converter_previous_oxygen_block_post';
+            update_post_meta($postId, $rollbackMetaKey, wp_json_encode($postRollback));
+        }
+
+        $rollbackPostStore = $this->blockPostRollbackStore($postId, $isUpdate, $postRollback);
+
+        $tree = $this->normalizeDocumentTreeForStorage($tree);
+        $documentWrite = $this->writePageDocument($postId, $tree, $rollbackSnapshot);
+        if (empty($documentWrite['success'])) {
+            $failureRollback = $this->rollbackFailedBlockWrite(
+                $postId,
+                $isUpdate,
+                $postRollback,
+                false,
+                $rollbackSnapshot,
+                $documentWrite
+            );
+
+            return array_merge($documentWrite, [
+                'postId' => $postId,
+                'postType' => 'oxygen_block',
+                'metaKeys' => ['_oxygen_data', '_breakdance_block_settings'],
+                'rollback' => $failureRollback,
+            ]);
+        }
+
+        $settingsWrite = $this->writeBlockSettingsMeta($postId, $settingsForStorage, $rollbackSnapshot);
+        if (empty($settingsWrite['success'])) {
+            $failureRollback = $this->rollbackFailedBlockWrite(
+                $postId,
+                $isUpdate,
+                $postRollback,
+                true,
+                $rollbackSnapshot,
+                $documentWrite
+            );
+
+            return array_merge($settingsWrite, [
+                'postId' => $postId,
+                'postType' => 'oxygen_block',
+                'metaKeys' => ['_oxygen_data', '_breakdance_block_settings'],
+                'rollback' => $failureRollback,
+            ]);
+        }
+
+        $this->invalidateDocumentCaches($postId);
+        $cacheRegenerated = $this->generateBlockRenderCache($postId);
+
         return [
-            'success' => false,
-            'status' => 'stub_not_exposed',
-            'message' => 'Block writes are validated but not exposed until the M6 component import milestone.',
+            'success' => true,
+            'status' => 200,
+            'action' => $isUpdate ? 'updated' : 'created',
+            'postId' => $postId,
             'postType' => 'oxygen_block',
             'metaKeys' => ['_oxygen_data', '_breakdance_block_settings'],
+            'oxygenDataMetaKey' => (string) ($documentWrite['metaKey'] ?? $this->getOxygenDataMetaKey()),
+            'blockSettingsMetaKey' => (string) ($settingsWrite['metaKey'] ?? $this->getBlockSettingsMetaKey()),
+            'treeHash' => (string) ($documentWrite['treeHash'] ?? ''),
+            'settingsHash' => (string) ($settingsWrite['settingsHash'] ?? ''),
+            'rollback' => [
+                'post' => $isUpdate ? $postRollback !== [] : true,
+                'postStore' => $rollbackPostStore,
+                'oxygenData' => (bool) ($documentWrite['rollbackAvailable'] ?? false),
+                'blockSettings' => (bool) ($settingsWrite['rollbackAvailable'] ?? false),
+            ],
+            'cacheRegenerated' => $cacheRegenerated,
+            'adapter' => $this->getAdapterId(),
         ];
     }
 
@@ -650,9 +964,57 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
     private function normalizeDocumentTreeForStorage(array $tree): array
     {
         $tree = $this->documentTree->build($tree);
-        unset($tree['status']);
 
         return $tree;
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     * @return array<string, mixed>
+     */
+    private function prepareDocumentTreeForJson(array $tree): array
+    {
+        if (isset($tree['root']) && is_array($tree['root'])) {
+            $tree['root'] = $this->prepareTreeNodeForJson($tree['root']);
+        }
+
+        if (array_key_exists('exportedLookupTable', $tree) && $tree['exportedLookupTable'] === []) {
+            $tree['exportedLookupTable'] = new \stdClass();
+        }
+
+        return $tree;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @return array<string, mixed>
+     */
+    private function prepareTreeNodeForJson(array $node): array
+    {
+        if (isset($node['data']) && is_array($node['data'])) {
+            if (array_key_exists('properties', $node['data']) && $node['data']['properties'] === []) {
+                $node['data']['properties'] = new \stdClass();
+            }
+
+            if (($node['data']['type'] ?? null) === 'OxygenElements\\Component'
+                && isset($node['data']['properties']['content']['content']['block'])
+                && is_array($node['data']['properties']['content']['content']['block'])
+                && array_key_exists('properties', $node['data']['properties']['content']['content']['block'])
+                && $node['data']['properties']['content']['content']['block']['properties'] === []
+            ) {
+                $node['data']['properties']['content']['content']['block']['properties'] = new \stdClass();
+            }
+        }
+
+        if (isset($node['children']) && is_array($node['children'])) {
+            foreach ($node['children'] as $index => $child) {
+                if (is_array($child)) {
+                    $node['children'][$index] = $this->prepareTreeNodeForJson($child);
+                }
+            }
+        }
+
+        return $node;
     }
 
     private function getOxygenDataMetaKey(): string
@@ -662,6 +1024,330 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
         }
 
         return '_oxygen_data';
+    }
+
+    private function getTemplateSettingsMetaKey(): string
+    {
+        if (function_exists('\Breakdance\BreakdanceOxygen\Strings\__bdox')) {
+            return \Breakdance\BreakdanceOxygen\Strings\__bdox('_meta_prefix') . 'template_settings';
+        }
+
+        return '_oxygen_template_settings';
+    }
+
+    private function getBlockSettingsMetaKey(): string
+    {
+        return '_breakdance_block_settings';
+    }
+
+    /**
+     * @param array<string, mixed> $blockSettings
+     * @return array<string, mixed>
+     */
+    private function blockSettingsForStorage(array $blockSettings): array
+    {
+        unset($blockSettings['_post']);
+
+        return $blockSettings;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function stringField(array $data, string $key, string $default = ''): string
+    {
+        $value = $data[$key] ?? null;
+
+        return is_string($value) ? trim($value) : $default;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function nonEmptyString($value, string $default): string
+    {
+        if (!is_scalar($value)) {
+            return $default;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : $default;
+    }
+
+    /**
+     * @param array<string, mixed> $oxygenData
+     * @return array<string, mixed>|null
+     */
+    private function decodeTreeFromEnvelope(array $oxygenData): ?array
+    {
+        if (!is_string($oxygenData['tree_json_string'] ?? null)) {
+            return null;
+        }
+
+        try {
+            $tree = json_decode((string) $oxygenData['tree_json_string'], true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            return null;
+        }
+
+        return is_array($tree) ? $tree : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function captureBlockPostRollback(int $postId): array
+    {
+        $post = null;
+        if (function_exists('get_post')) {
+            $post = get_post($postId);
+        } elseif (isset($GLOBALS['__wp_posts'][$postId])) {
+            $post = $GLOBALS['__wp_posts'][$postId];
+        }
+
+        if (!is_object($post)) {
+            return [];
+        }
+
+        return [
+            'ID' => (int) ($post->ID ?? $postId),
+            'post_type' => (string) ($post->post_type ?? ''),
+            'post_status' => (string) ($post->post_status ?? ''),
+            'post_title' => (string) ($post->post_title ?? ''),
+            'post_name' => (string) ($post->post_name ?? ''),
+            'post_content' => (string) ($post->post_content ?? ''),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $postRollback
+     * @return array<string, mixed>
+     */
+    private function blockPostRollbackStore(int $postId, bool $isUpdate, array $postRollback): array
+    {
+        return [
+            'owner' => 'oxygen6-storage-adapter',
+            'storeType' => 'post',
+            'store' => 'oxygen_block',
+            'postId' => $postId,
+            'oldExists' => $isUpdate && $postRollback !== [],
+            'oldValue' => $isUpdate ? $postRollback : null,
+            'restoreOperation' => $isUpdate ? 'wp_update_post' : 'wp_delete_post',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $postRollback
+     * @param array<string, mixed> $rollbackSnapshot
+     * @param array<string, mixed> $documentWrite
+     * @return array<string, mixed>
+     */
+    private function rollbackFailedBlockWrite(
+        int $postId,
+        bool $isUpdate,
+        array $postRollback,
+        bool $documentTouched,
+        array $rollbackSnapshot,
+        array $documentWrite
+    ): array {
+        $errors = [];
+        $deletedCreatedPost = false;
+        $restoredPost = false;
+        $restoredDocument = false;
+
+        if (!$isUpdate) {
+            if (function_exists('wp_delete_post')) {
+                $deletedCreatedPost = wp_delete_post($postId, true) !== false;
+            } elseif (isset($GLOBALS['__wp_posts']) && is_array($GLOBALS['__wp_posts'])) {
+                unset($GLOBALS['__wp_posts'][$postId], $GLOBALS['__wp_post_meta'][$postId]);
+                $deletedCreatedPost = true;
+            }
+
+            if (!$deletedCreatedPost) {
+                $errors[] = 'Failed to delete partially created oxygen_block post ' . (string) $postId . '.';
+            }
+
+            return [
+                'post' => true,
+                'postStore' => $this->blockPostRollbackStore($postId, false, []),
+                'deletedCreatedPost' => $deletedCreatedPost,
+                'oxygenData' => false,
+                'blockSettings' => false,
+                'errors' => $errors,
+            ];
+        }
+
+        if ($postRollback !== [] && function_exists('wp_update_post')) {
+            $restoreResult = wp_update_post($postRollback, true);
+            $restoredPost = !is_wp_error($restoreResult) && (int) $restoreResult > 0;
+            if (!$restoredPost) {
+                $errors[] = 'Failed to restore oxygen_block post record ' . (string) $postId . '.';
+            }
+        }
+
+        if ($documentTouched) {
+            $restoredDocument = $this->restoreBlockMetaAfterFailedWrite(
+                $postId,
+                $this->getOxygenDataMetaKey(),
+                is_string($rollbackSnapshot['rollbackMetaKey'] ?? null)
+                    ? (string) $rollbackSnapshot['rollbackMetaKey']
+                    : '_oxy_html_converter_previous_oxygen_data',
+                (bool) ($documentWrite['rollbackAvailable'] ?? false)
+            );
+
+            if (!$restoredDocument) {
+                $errors[] = 'Failed to restore _oxygen_data after block write failure.';
+            }
+        }
+
+        return [
+            'post' => $postRollback !== [],
+            'postStore' => $this->blockPostRollbackStore($postId, true, $postRollback),
+            'restoredPost' => $restoredPost,
+            'oxygenData' => $documentTouched,
+            'restoredOxygenData' => $restoredDocument,
+            'blockSettings' => false,
+            'errors' => $errors,
+        ];
+    }
+
+    private function restoreBlockMetaAfterFailedWrite(
+        int $postId,
+        string $metaKey,
+        string $rollbackMetaKey,
+        bool $rollbackAvailable
+    ): bool {
+        if (!$rollbackAvailable) {
+            if (function_exists('delete_post_meta')) {
+                delete_post_meta($postId, $metaKey);
+            } elseif (isset($GLOBALS['__wp_post_meta']) && is_array($GLOBALS['__wp_post_meta'])) {
+                unset($GLOBALS['__wp_post_meta'][$postId][$metaKey]);
+            }
+
+            return !$this->adapterPostMetaExists($postId, $metaKey);
+        }
+
+        $previous = function_exists('get_post_meta') ? get_post_meta($postId, $rollbackMetaKey, true) : '';
+        if ($previous === '' || !function_exists('update_post_meta')) {
+            return false;
+        }
+
+        update_post_meta($postId, $metaKey, $previous);
+
+        return function_exists('get_post_meta') && get_post_meta($postId, $metaKey, true) === $previous;
+    }
+
+    private function generateBlockRenderCache(int $postId): bool
+    {
+        if (function_exists('Breakdance\\Render\\generateCacheForPost')) {
+            \Breakdance\Render\generateCacheForPost($postId);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $rollbackSnapshot
+     * @return array<string, mixed>
+     */
+    private function writeTemplateSettingsMeta(int $postId, string $settingsJson, array $rollbackSnapshot = []): array
+    {
+        $validation = $this->validateTemplateSettingsJson($settingsJson);
+        if (!$validation['valid']) {
+            return [
+                'success' => false,
+                'status' => 422,
+                'message' => 'Oxygen template settings failed contract validation.',
+                'errors' => $validation['errors'],
+                'metaKey' => $this->getTemplateSettingsMetaKey(),
+            ];
+        }
+
+        $metaKey = $this->getTemplateSettingsMetaKey();
+        $previousMeta = function_exists('get_post_meta') ? get_post_meta($postId, $metaKey, true) : null;
+        $rollbackMetaKey = is_string($rollbackSnapshot['templateSettingsRollbackMetaKey'] ?? null)
+            ? (string) $rollbackSnapshot['templateSettingsRollbackMetaKey']
+            : '_oxy_html_converter_previous_oxygen_template_settings';
+        $rollbackAvailable = $previousMeta !== null && $previousMeta !== '';
+
+        if ($rollbackAvailable && function_exists('update_post_meta')) {
+            update_post_meta($postId, $rollbackMetaKey, $previousMeta);
+        }
+
+        if (function_exists('\Breakdance\Data\set_meta')) {
+            \Breakdance\Data\set_meta($postId, $metaKey, $settingsJson);
+        } else {
+            update_post_meta($postId, $metaKey, wp_slash(wp_json_encode($settingsJson)));
+        }
+
+        return [
+            'success' => true,
+            'status' => 200,
+            'metaKey' => $metaKey,
+            'settingsHash' => sha1($settingsJson),
+            'settingsBytes' => strlen($settingsJson),
+            'rollbackAvailable' => $rollbackAvailable,
+            'adapter' => $this->getAdapterId(),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $blockSettings
+     * @param array<string, mixed> $rollbackSnapshot
+     * @return array<string, mixed>
+     */
+    private function writeBlockSettingsMeta(int $postId, array $blockSettings, array $rollbackSnapshot = []): array
+    {
+        $validation = $this->validateBlockSettings($blockSettings);
+        if (!$validation['valid']) {
+            return [
+                'success' => false,
+                'status' => 422,
+                'message' => 'Oxygen block settings failed contract validation.',
+                'errors' => $validation['errors'],
+                'metaKey' => $this->getBlockSettingsMetaKey(),
+            ];
+        }
+
+        $encodedSettings = wp_json_encode($blockSettings);
+        if (!is_string($encodedSettings)) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'message' => 'Failed to encode Oxygen block settings.',
+                'errors' => ['wp_json_encode returned a non-string value for block settings.'],
+                'metaKey' => $this->getBlockSettingsMetaKey(),
+            ];
+        }
+
+        $metaKey = $this->getBlockSettingsMetaKey();
+        $previousMeta = function_exists('get_post_meta') ? get_post_meta($postId, $metaKey, true) : null;
+        $rollbackMetaKey = is_string($rollbackSnapshot['blockSettingsRollbackMetaKey'] ?? null)
+            ? (string) $rollbackSnapshot['blockSettingsRollbackMetaKey']
+            : '_oxy_html_converter_previous_breakdance_block_settings';
+        $rollbackAvailable = $previousMeta !== null && $previousMeta !== '';
+
+        if ($rollbackAvailable && function_exists('update_post_meta')) {
+            update_post_meta($postId, $rollbackMetaKey, $previousMeta);
+        }
+
+        if (function_exists('\Breakdance\Data\set_meta')) {
+            \Breakdance\Data\set_meta($postId, $metaKey, $blockSettings);
+        } else {
+            update_post_meta($postId, $metaKey, wp_slash($encodedSettings));
+        }
+
+        return [
+            'success' => true,
+            'status' => 200,
+            'metaKey' => $metaKey,
+            'settingsHash' => sha1($encodedSettings),
+            'settingsBytes' => strlen($encodedSettings),
+            'rollbackAvailable' => $rollbackAvailable,
+            'adapter' => $this->getAdapterId(),
+        ];
     }
 
     /**
@@ -678,13 +1364,48 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
             return null;
         }
 
-        try {
-            $decoded = json_decode(stripslashes($rawMeta), true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+        foreach ([$rawMeta, stripslashes($rawMeta)] as $candidate) {
+            try {
+                $decoded = json_decode($candidate, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException $e) {
+                continue;
+            }
+
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param mixed $rawMeta
+     */
+    private function decodeStoredTemplateSettings($rawMeta): ?string
+    {
+        if (!is_string($rawMeta) || $rawMeta === '') {
             return null;
         }
 
-        return is_array($decoded) ? $decoded : null;
+        foreach ([$rawMeta, stripslashes($rawMeta)] as $candidate) {
+            try {
+                $decoded = json_decode($candidate, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException $e) {
+                continue;
+            }
+
+            if (is_string($decoded)) {
+                return $decoded;
+            }
+        }
+
+        $validation = $this->validateTemplateSettingsJson($rawMeta);
+        if ($validation['valid']) {
+            return $rawMeta;
+        }
+
+        return null;
     }
 
     /**
@@ -770,8 +1491,43 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
                 $errors[] = $path . '.value is required.';
             }
 
-            if (!array_key_exists('dynamicData', $variable)) {
-                $errors[] = $path . '.dynamicData is required; use null for static variables.';
+            foreach ($variable as $key => $value) {
+                if (!in_array((string) $key, ['id', 'cssVariableName', 'label', 'value', 'type', 'dynamicData', 'collection'], true)) {
+                    $errors[] = $path . '.' . (string) $key . ' is not a supported Oxygen variable field.';
+                }
+            }
+
+            if (array_key_exists('dynamicData', $variable) && !is_array($variable['dynamicData'])) {
+                $errors[] = $path . '.dynamicData must be an object when present.';
+            }
+
+            $type = is_string($variable['type'] ?? null) ? (string) $variable['type'] : '';
+            if ($type !== '' && !in_array($type, ['color', 'unit', 'number', 'font_family', 'image_url'], true)) {
+                $errors[] = $path . '.type must be color, unit, number, font_family, or image_url.';
+            }
+
+            if ($type === 'unit') {
+                $value = $variable['value'] ?? null;
+                if (
+                    !is_array($value)
+                    || !array_key_exists('number', $value)
+                    || !is_string($value['unit'] ?? null)
+                    || !is_string($value['style'] ?? null)
+                    || trim((string) $value['style']) === ''
+                ) {
+                    $errors[] = $path . '.value must be a measurement object with number, unit, and style.';
+                }
+            }
+
+            if ($type === 'number' && !is_int($variable['value'] ?? null) && !is_float($variable['value'] ?? null)) {
+                $errors[] = $path . '.value must be a number for number variables.';
+            }
+
+            if ($type === 'image_url') {
+                $value = $variable['value'] ?? null;
+                if (!is_array($value) || !is_string($value['url'] ?? null) || trim((string) $value['url']) === '') {
+                    $errors[] = $path . '.value.url is required for image_url variables.';
+                }
             }
         }
 
@@ -787,55 +1543,11 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
      */
     private function validateGlobalSettings(array $settings): array
     {
-        $errors = [];
-
-        if (!isset($settings['settings']) || !is_array($settings['settings'])) {
-            $errors[] = 'settings must contain a top-level settings object.';
-        }
-
-        foreach (['colors', 'typography', 'containers', 'code'] as $section) {
-            if (isset($settings['settings'][$section]) && !is_array($settings['settings'][$section])) {
-                $errors[] = 'settings.' . $section . ' must be an object when present.';
-            }
-        }
-
-        if (isset($settings['settings']['colors']) && is_array($settings['settings']['colors'])) {
-            $palette = $settings['settings']['colors']['palette'] ?? null;
-            if ($palette !== null && !is_array($palette)) {
-                $errors[] = 'settings.colors.palette must be an object when present.';
-            } elseif (is_array($palette)) {
-                if (isset($palette['colors']) && !is_array($palette['colors'])) {
-                    $errors[] = 'settings.colors.palette.colors must be an array when present.';
-                }
-
-                if (isset($palette['gradients']) && !is_array($palette['gradients'])) {
-                    $errors[] = 'settings.colors.palette.gradients must be an array when present.';
-                } elseif (isset($palette['gradients'])) {
-                    foreach ($palette['gradients'] as $index => $gradient) {
-                        $path = 'settings.colors.palette.gradients.' . (int) $index;
-                        if (!is_array($gradient)) {
-                            $errors[] = $path . ' must be an object.';
-                            continue;
-                        }
-
-                        foreach (['label', 'cssVariableName'] as $field) {
-                            if (!is_string($gradient[$field] ?? null) || trim((string) $gradient[$field]) === '') {
-                                $errors[] = $path . '.' . $field . ' must be a non-empty string.';
-                            }
-                        }
-
-                        if (!isset($gradient['value']) || !is_array($gradient['value'])) {
-                            $errors[] = $path . '.value must be an object with svgValue.';
-                            continue;
-                        }
-
-                        if (!is_string($gradient['value']['svgValue'] ?? null) || trim((string) $gradient['value']['svgValue']) === '') {
-                            $errors[] = $path . '.value.svgValue must be a non-empty string.';
-                        }
-                    }
-                }
-            }
-        }
+        $validation = (new \OxyHtmlConverter\Validation\OxygenSchemaValidator())->validateGlobalSettings($settings);
+        $errors = array_map(
+            static fn (array $error): string => $error['message'],
+            $validation['errors']
+        );
 
         return [
             'valid' => $errors === [],
@@ -862,152 +1574,16 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
      */
     private function validateTemplateSettingsJson(string $settingsJson): array
     {
-        $errors = [];
-
-        try {
-            $settings = json_decode($settingsJson, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
-            return [
-                'valid' => false,
-                'errors' => ['_oxygen_template_settings contains invalid JSON: ' . $e->getMessage() . '.'],
-            ];
-        }
-
-        if ($settings === null) {
-            return [
-                'valid' => true,
-                'errors' => [],
-            ];
-        }
-
-        if (!is_array($settings)) {
-            return [
-                'valid' => false,
-                'errors' => ['_oxygen_template_settings must decode to an object or null.'],
-            ];
-        }
-
-        if (array_key_exists('type', $settings) && (!is_string($settings['type']) || trim($settings['type']) === '')) {
-            $errors[] = '_oxygen_template_settings.type must be a non-empty string when present.';
-        }
-
-        if (array_key_exists('ruleGroups', $settings)) {
-            if (!is_array($settings['ruleGroups'])) {
-                $errors[] = '_oxygen_template_settings.ruleGroups must be an array when present.';
-            } else {
-                foreach ($settings['ruleGroups'] as $groupIndex => $group) {
-                    $groupPath = '_oxygen_template_settings.ruleGroups.' . (int) $groupIndex;
-                    if (!is_array($group)) {
-                        $errors[] = $groupPath . ' must be an array.';
-                        continue;
-                    }
-
-                    foreach ($group as $ruleIndex => $rule) {
-                        $errors = array_merge($errors, $this->validateTemplateRule($rule, $groupPath . '.' . (int) $ruleIndex));
-                    }
-                }
-            }
-        }
-
-        if (array_key_exists('triggers', $settings) && !is_array($settings['triggers'])) {
-            $errors[] = '_oxygen_template_settings.triggers must be an array when present.';
-        }
-
-        if (array_key_exists('priority', $settings) && !is_int($settings['priority'])) {
-            $errors[] = '_oxygen_template_settings.priority must be an integer when present.';
-        }
-
-        if (array_key_exists('fallback', $settings) && !is_bool($settings['fallback'])) {
-            $errors[] = '_oxygen_template_settings.fallback must be a boolean when present.';
-        }
-
-        if (array_key_exists('disabled', $settings) && !is_bool($settings['disabled'])) {
-            $errors[] = '_oxygen_template_settings.disabled must be a boolean when present.';
-        }
+        $validation = (new \OxyHtmlConverter\Validation\OxygenSchemaValidator())->validateTemplateSettingsJson($settingsJson);
+        $errors = array_map(
+            static fn (array $error): string => $error['message'],
+            $validation['errors']
+        );
 
         return [
             'valid' => $errors === [],
             'errors' => $errors,
         ];
-    }
-
-    /**
-     * @param mixed $rule
-     * @return array<int, string>
-     */
-    private function validateTemplateRule($rule, string $path): array
-    {
-        if (!is_array($rule)) {
-            return [$path . ' must be an object.'];
-        }
-
-        $errors = [];
-        $operandsRequiringValue = [
-            'is' => true,
-            'is not' => true,
-            'is one of' => true,
-            'is all of' => true,
-            'is none of' => true,
-            'is before' => true,
-            'is after' => true,
-            'is greater than' => true,
-            'is less than' => true,
-            'contains' => true,
-            'does not contain' => true,
-        ];
-        $operandsWithoutValue = [
-            'is empty' => true,
-            'is not empty' => true,
-        ];
-
-        $operand = is_string($rule['operand'] ?? null) ? trim((string) $rule['operand']) : '';
-        if ($operand === '') {
-            $errors[] = $path . '.operand must be a non-empty string.';
-        } elseif (!isset($operandsRequiringValue[$operand]) && !isset($operandsWithoutValue[$operand])) {
-            $errors[] = $path . '.operand must be a registered Oxygen template operand.';
-        }
-
-        if (!is_string($rule['ruleSlug'] ?? null) || trim((string) $rule['ruleSlug']) === '') {
-            $errors[] = $path . '.ruleSlug must be a non-empty string.';
-        }
-
-        if ($operand !== '' && isset($operandsRequiringValue[$operand]) && !array_key_exists('value', $rule)) {
-            $errors[] = $path . '.value is required for operand "' . $operand . '".';
-        }
-
-        if (array_key_exists('value', $rule) && !$this->isValidTemplateRuleValue($rule['value'])) {
-            $errors[] = $path . '.value must be a string, string array, or object-value array.';
-        }
-
-        return $errors;
-    }
-
-    /**
-     * @param mixed $value
-     */
-    private function isValidTemplateRuleValue($value): bool
-    {
-        if (is_string($value)) {
-            return true;
-        }
-
-        if (!is_array($value)) {
-            return false;
-        }
-
-        foreach ($value as $item) {
-            if (is_string($item)) {
-                continue;
-            }
-
-            if (is_array($item) && is_string($item['value'] ?? null)) {
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
     }
 
     /**

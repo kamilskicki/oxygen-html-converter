@@ -130,7 +130,7 @@ function ensureParityScriptInContainer(options) {
   runDocker(["cp", localPath, `${options.container}:/var/www/html/fixture-page-parity.php`]);
 }
 
-function listFixtures(options) {
+function listFixtures(options, nativeNoCodeContract = null, fixtureIndex = null) {
   if (options.fixture) {
     return [ensureFixtureInContainer(options, options.fixture)];
   }
@@ -144,10 +144,24 @@ function listFixtures(options) {
     `find ${shellQuote(options.fixtureDir)} ${maxDepth}-type f -name '*.html' | sort`,
   ]);
 
-  return output
+  const fixtures = output
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+
+  if (nativeNoCodeContract && Array.isArray(nativeNoCodeContract.fixtures)) {
+    for (const fixture of nativeNoCodeContract.fixtures) {
+      fixtures.push(ensureFixtureInContainer(options, fixture.relativeFixture));
+    }
+  }
+
+  if (fixtureIndex && Array.isArray(fixtureIndex.stableHtmlFixtures)) {
+    for (const fixture of fixtureIndex.stableHtmlFixtures) {
+      fixtures.push(ensureFixtureInContainer(options, fixture.relativeFixture));
+    }
+  }
+
+  return Array.from(new Set(fixtures)).sort();
 }
 
 function relativeFixturePath(options, fixturePath) {
@@ -232,6 +246,191 @@ function loadBenchmark(options, fixturePath) {
   return JSON.parse(output);
 }
 
+function loadNativeNoCodeContract(localFixtureDir) {
+  const manifestCandidates = [
+    path.join(localFixtureDir, "native-no-code", "manifest.json"),
+    path.join(localFixtureDir, "manifest.json"),
+  ];
+  const manifestPath = manifestCandidates.find((candidate) => fs.existsSync(candidate));
+
+  if (!manifestPath) {
+    return {
+      manifestPath: null,
+      fixtures: [],
+      fixturesByRelativePath: new Map(),
+      failures: [
+        {
+          fixture: "native-no-code",
+          message: "Native no-code fixture manifest is missing.",
+        },
+      ],
+    };
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const manifestDir = path.dirname(manifestPath);
+  const fixtures = [];
+  const fixturesByRelativePath = new Map();
+  const coverage = new Set();
+  const failures = [];
+
+  for (const fixture of Array.isArray(manifest.fixtures) ? manifest.fixtures : []) {
+    const file = normalizeFixturePath(fixture.file || "");
+    if (!file) {
+      failures.push({
+        fixture: "native-no-code",
+        message: "Native no-code fixture entry is missing file.",
+      });
+      continue;
+    }
+
+    const absolutePath = path.join(manifestDir, ...file.split("/"));
+    const relativeFixture = normalizeFixturePath(path.relative(localFixtureDir, absolutePath));
+    if (!fs.existsSync(absolutePath)) {
+      failures.push({
+        fixture: relativeFixture,
+        message: "Native no-code fixture file is missing.",
+      });
+      continue;
+    }
+
+    for (const item of Array.isArray(fixture.coverage) ? fixture.coverage : []) {
+      coverage.add(String(item));
+    }
+
+    const normalized = {
+      ...fixture,
+      file,
+      absolutePath,
+      relativeFixture,
+      expected: fixture.expected && typeof fixture.expected === "object" ? fixture.expected : {},
+    };
+    fixtures.push(normalized);
+    fixturesByRelativePath.set(relativeFixture, normalized);
+  }
+
+  for (const item of Array.isArray(manifest.requiredCoverage) ? manifest.requiredCoverage : []) {
+    if (!coverage.has(String(item))) {
+      failures.push({
+        fixture: "native-no-code",
+        message: `Native no-code fixture coverage is missing: ${String(item)}.`,
+      });
+    }
+  }
+
+  return {
+    manifestPath,
+    fixtures,
+    fixturesByRelativePath,
+    failures,
+  };
+}
+
+function loadFixtureIndex(localFixtureDir) {
+  const manifestPath = path.join(localFixtureDir, "fixture-index.json");
+  if (!fs.existsSync(manifestPath)) {
+    return {
+      manifestPath: null,
+      stableHtmlFixtures: [],
+      supportingFixtures: [],
+      requiredGapIds: [],
+      failures: [
+        {
+          fixture: "fixture-index.json",
+          message: "M8 fixture index is missing.",
+        },
+      ],
+    };
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const stableHtmlFixtures = [];
+  const supportingFixtures = [];
+  const requiredGapIds = Array.isArray(manifest.requiredGapIds)
+    ? manifest.requiredGapIds.map(String)
+    : [];
+  const coveredGapIds = new Set();
+  const failures = [];
+  const devRoot = path.resolve(localFixtureDir, "..", "..");
+
+  for (const fixture of Array.isArray(manifest.stableHtmlFixtures) ? manifest.stableHtmlFixtures : []) {
+    const relativeFixture = normalizeFixturePath(fixture.fixture || "");
+    if (!relativeFixture) {
+      failures.push({
+        fixture: "fixture-index.json",
+        message: "M8 fixture index stable entry is missing fixture.",
+      });
+      continue;
+    }
+
+    const absolutePath = path.join(localFixtureDir, ...relativeFixture.split("/"));
+    if (!fs.existsSync(absolutePath)) {
+      failures.push({
+        fixture: relativeFixture,
+        message: "M8 indexed stable HTML fixture file is missing.",
+      });
+      continue;
+    }
+
+    for (const gapId of Array.isArray(fixture.gapIds) ? fixture.gapIds : []) {
+      coveredGapIds.add(String(gapId));
+    }
+
+    stableHtmlFixtures.push({
+      ...fixture,
+      relativeFixture,
+      absolutePath,
+      expected: fixture.expected && typeof fixture.expected === "object" ? fixture.expected : {},
+    });
+  }
+
+  for (const fixture of Array.isArray(manifest.supportingFixtures) ? manifest.supportingFixtures : []) {
+    const relativeFixture = normalizeFixturePath(fixture.fixture || "");
+    if (!relativeFixture) {
+      failures.push({
+        fixture: "fixture-index.json",
+        message: "M8 fixture index supporting entry is missing fixture.",
+      });
+      continue;
+    }
+
+    const absolutePath = path.join(devRoot, ...relativeFixture.split("/"));
+    if (!fs.existsSync(absolutePath)) {
+      failures.push({
+        fixture: relativeFixture,
+        message: "M8 indexed supporting fixture file is missing.",
+      });
+    }
+
+    for (const gapId of Array.isArray(fixture.gapIds) ? fixture.gapIds : []) {
+      coveredGapIds.add(String(gapId));
+    }
+
+    supportingFixtures.push({
+      ...fixture,
+      relativeFixture,
+      absolutePath,
+    });
+  }
+
+  for (const gapId of requiredGapIds) {
+    if (!coveredGapIds.has(gapId)) {
+      failures.push({
+        fixture: "fixture-index.json",
+        message: `M8 fixture index coverage is missing: ${gapId}.`,
+      });
+    }
+  }
+
+  return {
+    manifestPath,
+    stableHtmlFixtures,
+    supportingFixtures,
+    requiredGapIds,
+    failures,
+  };
+}
+
 function getCurrentClassMode(options) {
   return runDockerPhp(
     options,
@@ -259,6 +458,8 @@ function summarizeEntry(entry) {
   const parity = render.parity || {};
   const structure = parity.topStructureDeltas || [];
   const residual = entry.report.output || {};
+  const conversionSummary = entry.report.conversionSummary || {};
+  const codeBlocks = conversionSummary.codeBlocks || {};
   const delta = entry.report.delta || {};
 
   return {
@@ -276,10 +477,27 @@ function summarizeEntry(entry) {
     nativeResidualClassCount: residual.nativeResidualClassCount ?? null,
     unmirroredNativeResidualClassCount:
       residual.unmirroredNativeResidualClassCount ?? null,
-    htmlCode: residual.elementTypes?.["OxygenElements\\HtmlCode"] ?? 0,
-    cssCode: residual.elementTypes?.["OxygenElements\\CssCode"] ?? 0,
+    codeBlocks: {
+      total: Number(codeBlocks.total ?? 0),
+      html: Number(codeBlocks.html ?? residual.elementTypes?.["OxygenElements\\HtmlCode"] ?? 0),
+      css: Number(codeBlocks.css ?? residual.elementTypes?.["OxygenElements\\CssCode"] ?? 0),
+      javascript: Number(codeBlocks.javascript ?? residual.elementTypes?.["OxygenElements\\JavaScriptCode"] ?? 0),
+    },
+    htmlCode: Number(codeBlocks.html ?? residual.elementTypes?.["OxygenElements\\HtmlCode"] ?? 0),
+    cssCode: Number(codeBlocks.css ?? residual.elementTypes?.["OxygenElements\\CssCode"] ?? 0),
+    javascriptCode: Number(codeBlocks.javascript ?? residual.elementTypes?.["OxygenElements\\JavaScriptCode"] ?? 0),
+    fallbackCount: Number(conversionSummary.fallbackCount ?? 0),
+    hasFallbackCss: Boolean(conversionSummary.hasFallbackCss),
     mappedUtilityResidualCount: residual.mappedUtilityResidualCount ?? 0,
     selectorPersistence: entry.report.selectorPersistence || null,
+    unsupportedCount: Array.isArray(entry.report.stats?.unsupportedItems)
+      ? entry.report.stats.unsupportedItems.length
+      : 0,
+    unsupportedCategories: Array.isArray(entry.report.stats?.unsupportedItems)
+      ? entry.report.stats.unsupportedItems
+          .map((item) => (item && typeof item === "object" ? String(item.fallbackCategory || "") : ""))
+          .filter(Boolean)
+      : [],
     styleCategoryDeltas: parity.styleCategoryDeltas || {},
     topResidualClasses: Array.isArray(entry.report.topResidualClasses)
       ? entry.report.topResidualClasses.slice(0, 10)
@@ -291,6 +509,162 @@ function summarizeEntry(entry) {
       : 0,
     reportPath: entry.cli.reportPath,
   };
+}
+
+function buildNativeNoCodeFailures(fixtures, nativeNoCodeContract, options) {
+  const focusedFixture = options.fixture ? normalizeFixturePath(options.fixture) : null;
+  const expectedFixtures = focusedFixture
+    ? nativeNoCodeContract.fixtures.filter((fixture) => fixture.relativeFixture === focusedFixture)
+    : nativeNoCodeContract.fixtures;
+  const failures = focusedFixture && !focusedFixture.startsWith("native-no-code/")
+    ? []
+    : [...nativeNoCodeContract.failures];
+  const entriesByRelativePath = new Map(fixtures.map((fixture) => [fixture.fixture, fixture]));
+
+  for (const expectedFixture of expectedFixtures) {
+    const entry = entriesByRelativePath.get(expectedFixture.relativeFixture);
+    if (!entry) {
+      failures.push({
+        fixture: expectedFixture.relativeFixture,
+        message: "Native no-code fixture was not included in the baseline run.",
+      });
+      continue;
+    }
+
+    failures.push(...assertNativeNoCodeEntry(entry, expectedFixture));
+  }
+
+  return failures;
+}
+
+function buildFixtureIndexFailures(fixtures, fixtureIndex, options) {
+  const focusedFixture = options.fixture ? normalizeFixturePath(options.fixture) : null;
+  const failures = focusedFixture ? [] : [...fixtureIndex.failures];
+  const entriesByRelativePath = new Map(fixtures.map((fixture) => [fixture.fixture, fixture]));
+  const expectedFixtures = focusedFixture
+    ? fixtureIndex.stableHtmlFixtures.filter((fixture) => fixture.relativeFixture === focusedFixture)
+    : fixtureIndex.stableHtmlFixtures;
+
+  for (const expectedFixture of expectedFixtures) {
+    const entry = entriesByRelativePath.get(expectedFixture.relativeFixture);
+    if (!entry) {
+      failures.push({
+        fixture: expectedFixture.relativeFixture,
+        message: "M8 indexed stable fixture was not included in the baseline run.",
+      });
+      continue;
+    }
+
+    const expected = expectedFixture.expected || {};
+    const expectedCodeBlocks = expected.codeBlocks || {};
+    const actualCodeBlocks = entry.codeBlocks || {
+      total: Number(entry.htmlCode || 0) + Number(entry.cssCode || 0) + Number(entry.javascriptCode || 0),
+      html: Number(entry.htmlCode || 0),
+      css: Number(entry.cssCode || 0),
+      javascript: Number(entry.javascriptCode || 0),
+    };
+
+    for (const key of ["total", "html", "css", "javascript"]) {
+      if (!Object.prototype.hasOwnProperty.call(expectedCodeBlocks, key)) {
+        continue;
+      }
+
+      if (Number(actualCodeBlocks[key] || 0) !== Number(expectedCodeBlocks[key])) {
+        failures.push({
+          fixture: expectedFixture.relativeFixture,
+          message: `M8 fixture index ${key} code block count mismatch: ${Number(actualCodeBlocks[key] || 0)} !== ${Number(expectedCodeBlocks[key])}.`,
+        });
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(expected, "fallbackCount") && Number(entry.fallbackCount || 0) !== Number(expected.fallbackCount)) {
+      failures.push({
+        fixture: expectedFixture.relativeFixture,
+        message: `M8 fixture index fallback count mismatch: ${Number(entry.fallbackCount || 0)} !== ${Number(expected.fallbackCount)}.`,
+      });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(expected, "unsupportedCount") && Number(entry.unsupportedCount || 0) !== Number(expected.unsupportedCount)) {
+      failures.push({
+        fixture: expectedFixture.relativeFixture,
+        message: `M8 fixture index unsupported count mismatch: ${Number(entry.unsupportedCount || 0)} !== ${Number(expected.unsupportedCount)}.`,
+      });
+    }
+  }
+
+  return failures;
+}
+
+function assertNativeNoCodeEntry(entry, fixture) {
+  const failures = [];
+  const expected = fixture.expected || {};
+  const expectedCodeBlocks = expected.visibleCodeBlocks || {};
+  const actualCodeBlocks = entry.codeBlocks || {
+    total: Number(entry.htmlCode || 0) + Number(entry.cssCode || 0) + Number(entry.javascriptCode || 0),
+    html: Number(entry.htmlCode || 0),
+    css: Number(entry.cssCode || 0),
+    javascript: Number(entry.javascriptCode || 0),
+  };
+  const fallbackCssExpected = Boolean(expected.fallbackCss);
+
+  for (const key of ["total", "html", "css", "javascript"]) {
+    if (!Object.prototype.hasOwnProperty.call(expectedCodeBlocks, key)) {
+      continue;
+    }
+
+    if (actualCodeBlocks[key] !== Number(expectedCodeBlocks[key])) {
+      failures.push({
+        fixture: entry.fixture,
+        message: `Visible ${key} code block count mismatch: ${actualCodeBlocks[key]} !== ${Number(expectedCodeBlocks[key])}.`,
+      });
+    }
+  }
+
+  if (fixture.supported && (actualCodeBlocks.html > 0 || actualCodeBlocks.javascript > 0 || (!fallbackCssExpected && actualCodeBlocks.css > 0))) {
+    failures.push({
+      fixture: entry.fixture,
+      message: "Supported native no-code fixture emitted a visible code block.",
+    });
+  }
+
+  const expectedUnsupportedCount = Number(expected.unsupportedCount || 0);
+  if (Number(entry.unsupportedCount || 0) !== expectedUnsupportedCount) {
+    failures.push({
+      fixture: entry.fixture,
+      message: `Unsupported item count mismatch: ${Number(entry.unsupportedCount || 0)} !== ${expectedUnsupportedCount}.`,
+    });
+  }
+
+  const expectedCategories = Array.isArray(expected.fallbackCategories)
+    ? expected.fallbackCategories.map(String).sort()
+    : [];
+  const actualCategories = Array.isArray(entry.unsupportedCategories)
+    ? entry.unsupportedCategories.map(String).sort()
+    : [];
+  if (JSON.stringify(actualCategories) !== JSON.stringify(expectedCategories)) {
+    failures.push({
+      fixture: entry.fixture,
+      message: `Unsupported fallback categories mismatch: ${JSON.stringify(actualCategories)} !== ${JSON.stringify(expectedCategories)}.`,
+    });
+  }
+
+  const actualFallbackCss = Boolean(entry.hasFallbackCss);
+  if (actualFallbackCss !== fallbackCssExpected) {
+    failures.push({
+      fixture: entry.fixture,
+      message: `Fallback CSS expectation mismatch: ${String(actualFallbackCss)} !== ${String(fallbackCssExpected)}.`,
+    });
+  }
+
+  const minSelectors = Number(expected.minSelectors || 0);
+  if (Number(entry.selectorCount || 0) < minSelectors) {
+    failures.push({
+      fixture: entry.fixture,
+      message: `Selector count below expectation: ${Number(entry.selectorCount || 0)} < ${minSelectors}.`,
+    });
+  }
+
+  return failures;
 }
 
 function buildAggregate(fixtures) {
@@ -356,6 +730,8 @@ function buildMarkdown(summary) {
     `- Average residual ratio: ${summary.aggregate.averageResidualRatio ?? "n/a"}`,
     `- Average rendered class inflation: ${summary.aggregate.averageRenderedClassInflation ?? "n/a"}`,
     `- Render probe failures: ${summary.aggregate.renderProbeFailures.length === 0 ? "none" : summary.aggregate.renderProbeFailures.join(", ")}`,
+    `- Fixture index stable HTML: ${summary.fixtureIndex?.stableHtmlCount ?? "n/a"}`,
+    `- Fixture index failures: ${summary.fixtureIndex?.failures?.length ? summary.fixtureIndex.failures.map((item) => `${item.fixture}: ${item.message}`).join("; ") : "none"}`,
     "",
     "## Fixtures",
     "",
@@ -374,7 +750,10 @@ function buildMarkdown(summary) {
     lines.push(
       `- unmirrored native residual classes: ${fixture.unmirroredNativeResidualClassCount ?? "n/a"}`
     );
-    lines.push(`- HtmlCode/CssCode: ${fixture.htmlCode ?? 0}/${fixture.cssCode ?? 0}`);
+    lines.push(`- HtmlCode/CssCode/JavaScriptCode: ${fixture.htmlCode ?? 0}/${fixture.cssCode ?? 0}/${fixture.javascriptCode ?? 0}`);
+    lines.push(`- fallback routes: ${fixture.fallbackCount ?? 0}`);
+    lines.push(`- has fallback CSS: ${fixture.hasFallbackCss ? "yes" : "no"}`);
+    lines.push(`- unsupported: ${fixture.unsupportedCount ?? 0}`);
     lines.push(`- mapped utility residuals: ${fixture.mappedUtilityResidualCount ?? 0}`);
     lines.push(`- warnings: ${fixture.warningCount}`);
     lines.push(`- top extra structure delta: ${fixture.topExtraStructureDelta.map((item) => `${item.tag}:${item.delta}`).join(", ") || "none"}`);
@@ -393,6 +772,8 @@ function main() {
     throw new Error(`Local fixture directory does not exist: ${options.localFixtureDir}`);
   }
 
+  const nativeNoCodeContract = loadNativeNoCodeContract(options.localFixtureDir);
+  const fixtureIndex = loadFixtureIndex(options.localFixtureDir);
   const originalClassMode = getCurrentClassMode(options);
 
   try {
@@ -402,12 +783,14 @@ function main() {
       setClassMode(options, options.classMode);
     }
 
-    const fixtures = listFixtures(options);
+    const fixtures = listFixtures(options, nativeNoCodeContract, fixtureIndex);
     if (fixtures.length === 0) {
       throw new Error(`No fixtures found in ${options.fixtureDir}`);
     }
 
     const reports = fixtures.map((fixturePath) => summarizeEntry(loadReport(options, fixturePath)));
+    const nativeNoCodeFailures = buildNativeNoCodeFailures(reports, nativeNoCodeContract, options);
+    const fixtureIndexFailures = buildFixtureIndexFailures(reports, fixtureIndex, options);
     const summary = {
       generatedAt: new Date().toISOString(),
       container: options.container,
@@ -421,6 +804,18 @@ function main() {
       effectiveClassMode: options.classMode || originalClassMode,
       fixtures: reports,
       aggregate: buildAggregate(reports),
+      nativeNoCode: {
+        manifestPath: nativeNoCodeContract.manifestPath,
+        fixtureCount: nativeNoCodeContract.fixtures.length,
+        failures: nativeNoCodeFailures,
+      },
+      fixtureIndex: {
+        manifestPath: fixtureIndex.manifestPath,
+        stableHtmlCount: fixtureIndex.stableHtmlFixtures.length,
+        supportingFixtureCount: fixtureIndex.supportingFixtures.length,
+        requiredGapCount: fixtureIndex.requiredGapIds.length,
+        failures: fixtureIndexFailures,
+      },
     };
 
     const jsonPath = path.join(options.outputDir, "summary.json");
@@ -431,7 +826,7 @@ function main() {
     process.stdout.write(
       JSON.stringify(
         {
-          ok: true,
+          ok: nativeNoCodeFailures.length === 0 && fixtureIndexFailures.length === 0,
           fixtureCount: reports.length,
           outputDir: options.outputDir,
           jsonPath,
@@ -439,11 +834,17 @@ function main() {
           originalClassMode,
           effectiveClassMode: summary.effectiveClassMode,
           aggregate: summary.aggregate,
+          nativeNoCode: summary.nativeNoCode,
+          fixtureIndex: summary.fixtureIndex,
         },
         null,
         2
       ) + "\n"
     );
+
+    if (nativeNoCodeFailures.length > 0 || fixtureIndexFailures.length > 0) {
+      process.exitCode = 1;
+    }
   } finally {
     if (options.classMode && originalClassMode !== options.classMode) {
       setClassMode(options, originalClassMode);
@@ -451,4 +852,11 @@ function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+} else {
+  module.exports = {
+    buildFixtureIndexFailures,
+    summarizeEntry,
+  };
+}

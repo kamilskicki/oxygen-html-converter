@@ -139,7 +139,7 @@ class AjaxSecurityTest extends TestCase
         $this->assertTrue($batchResponse['data']['results'][0]['audit']['transformed']['safeMode'] ?? false);
     }
 
-    public function testExplicitUnsafeModePreservesScriptsAndReturnsAuditWarning(): void
+    public function testExplicitUnsafeModeWithoutExecutableOptInDoesNotPreserveScripts(): void
     {
         $ajax = new Ajax();
 
@@ -156,13 +156,923 @@ class AjaxSecurityTest extends TestCase
 
         $types = [];
         $this->collectElementTypes($response['data']['element'], $types);
+        $this->assertNotContains('OxygenElements\\JavaScriptCode', $types);
+
+        $warnings = $response['data']['audit']['diagnostics']['warnings'] ?? [];
+        $this->assertContains(
+            'Unsafe mode was requested without executable-code approval; scripts, event handlers, and unsafe HtmlCode remain stripped or report-only.',
+            $warnings
+        );
+    }
+
+    public function testExplicitExecutableOptInPreservesScriptsAndReturnsAuditWarning(): void
+    {
+        $ajax = new Ajax();
+
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'html' => '<script>console.log("x")</script><div>Hello</div>',
+            'safeMode' => 'false',
+            'allowExecutableCode' => 'true',
+        ];
+        $ajax->handleConvert();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertTrue($response['success']);
+        $this->assertFalse($response['data']['audit']['transformed']['safeMode'] ?? true);
+
+        $types = [];
+        $this->collectElementTypes($response['data']['element'], $types);
         $this->assertContains('OxygenElements\\JavaScriptCode', $types);
 
         $warnings = $response['data']['audit']['diagnostics']['warnings'] ?? [];
         $this->assertContains(
-            'Unsafe preservation mode was explicitly requested; scripts, event handlers, and external head assets may be preserved.',
+            'Executable-code fallback was explicitly approved; scripts, event handlers, and unsafe HtmlCode may be preserved.',
             $warnings
         );
+    }
+
+    public function testExecutableOptInRequiresUnfilteredHtmlCapability(): void
+    {
+        $GLOBALS['__wp_current_user_can'] = static function (string $capability): bool {
+            return $capability !== 'unfiltered_html';
+        };
+
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'html' => '<script>console.log("x")</script><div>Hello</div>',
+            'safeMode' => 'false',
+            'allowExecutableCode' => 'true',
+        ];
+
+        $ajax->handleConvert();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('unfiltered HTML', $response['data']['message']);
+
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'html' => '<script>console.log("x")</script><div>Hello</div>',
+            'safeMode' => 'false',
+            'allowExecutableCode' => 'true',
+        ];
+        $ajax->handlePreview();
+        $previewResponse = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($previewResponse['success']);
+        $this->assertSame(403, $previewResponse['status_code']);
+
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'safeMode' => 'false',
+            'allowExecutableCode' => 'true',
+            'batch' => [
+                '<script>console.log("x")</script><div>Hello</div>',
+            ],
+        ];
+        $ajax->handleBatchConvert();
+        $batchResponse = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($batchResponse['success']);
+        $this->assertSame(403, $batchResponse['status_code']);
+    }
+
+    public function testHandleImportPageRejectsExecutablePayloadWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->executableImportPayload()),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsExecutableStandaloneSiteKitManifestWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode([
+                'siteKitManifest' => [
+                    'version' => 1,
+                    'id' => 'unsafe-site-kit',
+                    'pages' => [[
+                        'id' => 'home',
+                        'title' => 'Home',
+                        'documentTree' => [
+                            'root' => [
+                                'id' => 1,
+                                'data' => [
+                                    'type' => 'OxygenElements\\JavaScriptCode',
+                                    'properties' => [
+                                        'content' => [
+                                            'content' => [
+                                                'javascript_code' => 'console.log("x");',
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                                'children' => [],
+                            ],
+                            '_nextNodeId' => 2,
+                        ],
+                    ]],
+                ],
+            ]),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
+    }
+
+    public function testHandleImportPageRejectsExecutableStandaloneSiteKitTokenAliasesWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode([
+                'siteKitManifest' => array_merge($this->minimalStandaloneSiteKitManifest(), [
+                    'tokens' => [
+                        'spacing' => [[
+                            'value' => 'calc(1px + url(javascript:alert(1)))',
+                            'uses' => 1,
+                            'suggestedName' => 'unsafe-space',
+                        ]],
+                    ],
+                ]),
+            ]),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
+    }
+
+    public function testHandleImportPageRejectsStandaloneSiteKitSelectorAliasesOverLimit(): void
+    {
+        $manifest = $this->minimalStandaloneSiteKitManifest();
+        $manifest['selectors'] = array_fill(0, 1001, [
+            'id' => 'selector-over-limit',
+            'name' => 'selector-over-limit',
+            'collection' => 'Site Kit',
+            'properties' => [],
+        ]);
+
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode([
+                'siteKitManifest' => $manifest,
+            ]),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(413, $response['status_code']);
+        $this->assertStringContainsString('Site-kit selector payload contains too many selectors', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
+    }
+
+    public function testHandleImportPageRejectsExecutablePayloadWithoutUnfilteredHtml(): void
+    {
+        $GLOBALS['__wp_current_user_can'] = static function (string $capability): bool {
+            return $capability !== 'unfiltered_html';
+        };
+
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'safeMode' => 'false',
+            'allowExecutableCode' => 'true',
+            'importPayload' => wp_json_encode($this->executableImportPayload([
+                'data' => [
+                    'type' => 'OxygenElements\\HtmlCode',
+                    'properties' => [
+                        'content' => [
+                            'content' => [
+                                'html_code' => '<iframe src="https://example.test"></iframe>',
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageAllowsExecutablePayloadWithOptInAndUnfilteredHtml(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'safeMode' => 'false',
+            'allowExecutableCode' => 'true',
+            'importPayload' => wp_json_encode($this->executableImportPayload()),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertTrue($response['success']);
+        $this->assertSame(1, $response['data']['postId']);
+    }
+
+    public function testHandleImportPageRejectsNativeExecutableAttributesWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->executableImportPayload([
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\Container',
+                    'properties' => [
+                        'settings' => [
+                            'advanced' => [
+                                'attributes' => [[
+                                    'name' => 'onclick',
+                                    'value' => 'alert(1)',
+                                ]],
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsEntityEncodedJavascriptUrlsInHtmlCodeWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->executableImportPayload([
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\HtmlCode',
+                    'properties' => [
+                        'content' => [
+                            'content' => [
+                                'html_code' => '<a href="jav&#x61;script:alert(1)">x</a>',
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsSvgDataUriInHtmlCodeWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->executableImportPayload([
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\HtmlCode',
+                    'properties' => [
+                        'content' => [
+                            'content' => [
+                                'html_code' => '<img src="data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+">',
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsSvgDataUriInNativeAttributesWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->executableImportPayload([
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\Container',
+                    'properties' => [
+                        'settings' => [
+                            'advanced' => [
+                                'attributes' => [[
+                                    'name' => 'src',
+                                    'value' => 'data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+',
+                                ]],
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsUnsafeCssCodeWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->executableImportPayload([
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\CssCode',
+                    'properties' => [
+                        'content' => [
+                            'content' => [
+                                'css_code' => 'body{background:url(javascript:alert(1))}',
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsUnsafePageScopedCssWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->executableImportPayload([
+                'id' => 1,
+                'data' => ['type' => 'OxygenElements\\Container', 'properties' => []],
+                'children' => [],
+            ]), [
+                'pageScopedCss' => 'body{background:url(javascript:alert(1))}',
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsUnsafeGlobalCssWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->executableImportPayload([
+                'id' => 1,
+                'data' => ['type' => 'OxygenElements\\Container', 'properties' => []],
+                'children' => [],
+            ]), [
+                'globalCss' => '@font-face{src:url(data:text/html,<script>alert(1)</script>)}',
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsUnsafeStyleRoutingCssWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->executableImportPayload([
+                'id' => 1,
+                'data' => ['type' => 'OxygenElements\\Container', 'properties' => []],
+                'children' => [],
+            ]), [
+                'styleRouting' => [
+                    'pageScopedCss' => 'body{background:url(javascript:alert(1))}',
+                    'routes' => [[
+                        'type' => 'page_fallback',
+                        'destination' => 'page_scoped_styles',
+                        'css' => '.probe{background:url(javascript:alert(1))}',
+                    ]],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsUnsafeSelectorCustomCssWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->selectorImportPayload([
+                'custom_css' => [
+                    'custom_css' => '.x{background:url(javascript:alert(1))}',
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxygen_oxy_selectors_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsCssEscapedUnsafeSelectorCustomCssWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->selectorImportPayload([
+                'custom_css' => [
+                    'custom_css' => '.x{background:url(\\6a avascript:alert(1))}',
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxygen_oxy_selectors_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsDataUriSelectorCustomCssWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->selectorImportPayload([
+                'custom_css' => [
+                    'custom_css' => '.x{background:url(data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+)}',
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxygen_oxy_selectors_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsSelectorBackgroundJavascriptUrlWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->selectorImportPayload([
+                'breakpoint_base' => [
+                    'background' => [
+                        'backgrounds' => [[
+                            'type' => 'image',
+                            'image' => [
+                                'url' => 'javascript:alert(1)',
+                            ],
+                        ]],
+                    ],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxygen_oxy_selectors_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsGlobalSettingsScriptCodeWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->cleanContainerImportPayload(), [
+                'oxygenGlobalSettings' => [
+                    'settings' => [
+                        'code' => [
+                            'stylesheets' => [],
+                            'scripts' => [[
+                                'name' => 'Unsafe script',
+                                'code' => 'alert(1);',
+                            ]],
+                        ],
+                    ],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxygen_global_settings_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsGlobalSettingsUnsafeStylesheetWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->cleanContainerImportPayload(), [
+                'globalSettings' => [
+                    'settings' => [
+                        'code' => [
+                            'stylesheets' => [[
+                                'name' => 'Unsafe stylesheet',
+                                'code' => 'body{background:url(javascript:alert(1))}',
+                            ]],
+                            'scripts' => [],
+                        ],
+                    ],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxygen_global_settings_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsBrandImageTokenExecutableUrlWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->cleanContainerImportPayload(), [
+                'designDocument' => [
+                    'tokens' => [
+                        'images' => [[
+                            'value' => 'javascript:alert(1)',
+                            'suggestedName' => 'Unsafe Image',
+                            'uses' => 1,
+                        ]],
+                    ],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxy_html_converter_brand_library', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsGlobalPaletteGradientSvgWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->cleanContainerImportPayload(), [
+                'oxygenGlobalSettings' => [
+                    'settings' => [
+                        'colors' => [
+                            'palette' => [
+                                'gradients' => [[
+                                    'label' => 'Unsafe gradient',
+                                    'cssVariableName' => 'unsafe-gradient',
+                                    'value' => [
+                                        'svgValue' => '<svg onload="alert(1)"></svg>',
+                                        'value' => 'linear-gradient(90deg,#000,#fff)',
+                                    ],
+                                ]],
+                            ],
+                        ],
+                    ],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxygen_global_settings_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsGlobalPaletteUnsafeColorWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->cleanContainerImportPayload(), [
+                'globalSettings' => [
+                    'settings' => [
+                        'colors' => [
+                            'palette' => [
+                                'colors' => [[
+                                    'label' => 'Unsafe color',
+                                    'cssVariableName' => 'unsafe-color',
+                                    'value' => 'url(javascript:alert(1))',
+                                ]],
+                            ],
+                        ],
+                    ],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxygen_global_settings_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsBrandColorTokenExecutableValueWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->cleanContainerImportPayload(), [
+                'designDocument' => [
+                    'tokens' => [
+                        'colors' => [[
+                            'value' => 'url(javascript:alert(1))',
+                            'suggestedName' => 'Unsafe color token',
+                            'uses' => 1,
+                        ]],
+                    ],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxy_html_converter_brand_library', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsBrandComponentSignatureExecutableMarkupWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->cleanContainerImportPayload(), [
+                'designDocument' => [
+                    'componentCandidates' => [[
+                        'suggestedName' => 'Unsafe Component',
+                        'signature' => '<svg onload="alert(1)"></svg>',
+                        'classes' => ['safe-class'],
+                        'occurrences' => 1,
+                    ]],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxy_html_converter_brand_library', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsBrandDesignProfileExecutableStyleSignatureWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode(array_merge($this->cleanContainerImportPayload(), [
+                'designDocument' => [
+                    'tokens' => [
+                        'numbers' => [[
+                            'value' => '1',
+                            'suggestedName' => 'safe-number',
+                            'uses' => 1,
+                        ]],
+                    ],
+                    'designProfile' => [
+                        'semanticClasses' => [[
+                            'semanticClass' => 'unsafe',
+                            'styleSignature' => 'url(javascript:alert(1))',
+                            'sourceClass' => 'unsafe',
+                        ]],
+                    ],
+                ],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxy_html_converter_brand_library', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsImportPlanDesignProfileExecutableStyleSignatureWithoutExplicitOptIn(): void
+    {
+        $payload = $this->cleanContainerImportPayload();
+        $payload['importPlan']['tokens'] = [
+            'numbers' => [[
+                'value' => '1',
+                'suggestedName' => 'safe-number',
+                'uses' => 1,
+            ]],
+        ];
+        $payload['importPlan']['designProfile'] = [
+            'semanticClasses' => [[
+                'semanticClass' => 'unsafe',
+                'styleSignature' => 'url(javascript:alert(1))',
+                'sourceClass' => 'unsafe',
+            ]],
+        ];
+
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($payload),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertArrayNotHasKey('oxy_html_converter_brand_library', $GLOBALS['__wp_options']);
+    }
+
+    public function testHandleImportPageRejectsNativeJavascriptInteractionsWithoutExplicitOptIn(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode($this->executableImportPayload([
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\Container',
+                    'properties' => [
+                        'settings' => [
+                            'interactions' => [
+                                'interactions' => [[
+                                    'trigger' => 'click',
+                                    'target' => 'this_element',
+                                    'actions' => [[
+                                        'name' => 'javascript_function',
+                                        'target' => 'this_element',
+                                        'js_function_name' => 'run',
+                                    ]],
+                                ]],
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ])),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsExecutablePayloadWhenSafeModeRemainsEnabled(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'safeMode' => 'true',
+            'allowExecutableCode' => 'true',
+            'importPayload' => wp_json_encode($this->executableImportPayload()),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testHandleImportPageRejectsExecutablePayloadWhenStrictNativeRemainsEnabled(): void
+    {
+        $ajax = new Ajax();
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'safeMode' => 'false',
+            'strictNative' => 'true',
+            'allowExecutableCode' => 'true',
+            'importPayload' => wp_json_encode($this->executableImportPayload()),
+        ];
+
+        $ajax->handleImportPage();
+        $response = $GLOBALS['__wp_send_json_last'];
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(403, $response['status_code']);
+        $this->assertStringContainsString('Executable code import', $response['data']['message']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
     }
 
     public function testHandleImportPageRejectsUnauthorizedExistingPostUpdate(): void
@@ -708,6 +1618,94 @@ class AjaxSecurityTest extends TestCase
         }
 
         return $json;
+    }
+
+    /**
+     * @param array<string, mixed>|null $element
+     * @return array<string, mixed>
+     */
+    private function executableImportPayload(?array $element = null): array
+    {
+        return [
+            'title' => 'Executable Import',
+            'element' => $element ?? [
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\JavaScriptCode',
+                    'properties' => [
+                        'content' => [
+                            'content' => [
+                                'javascript_code' => 'console.log("x");',
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ],
+            'importPlan' => [
+                'status' => 'ready',
+                'canImport' => true,
+                'nativeCoverage' => ['percent' => 100],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cleanContainerImportPayload(): array
+    {
+        return $this->executableImportPayload([
+            'id' => 1,
+            'data' => ['type' => 'OxygenElements\\Container', 'properties' => []],
+            'children' => [],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function minimalStandaloneSiteKitManifest(): array
+    {
+        return [
+            'version' => 1,
+            'id' => 'safe-site-kit',
+            'pages' => [[
+                'id' => 'home',
+                'title' => 'Home',
+                'documentTree' => [
+                    'root' => [
+                        'id' => 1,
+                        'data' => [
+                            'type' => 'OxygenElements\\Container',
+                            'properties' => [],
+                        ],
+                        'children' => [],
+                    ],
+                    '_nextNodeId' => 2,
+                ],
+            ]],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $properties
+     * @return array<string, mixed>
+     */
+    private function selectorImportPayload(array $properties): array
+    {
+        return array_merge($this->cleanContainerImportPayload(), [
+            'title' => 'Selector Probe',
+            'selectorPayload' => [
+                'selectors' => [[
+                    'id' => 'unsafe-selector',
+                    'name' => 'unsafe-selector',
+                    'collection' => 'Imported HTML',
+                    'properties' => $properties,
+                ]],
+                'collections' => ['Imported HTML'],
+            ],
+        ]);
     }
 
     private function documentTreeChain(int $depth): array

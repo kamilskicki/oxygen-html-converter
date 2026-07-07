@@ -217,6 +217,17 @@ class StyleExtractorTest extends TestCase
         $this->assertArrayNotHasKey('display', $properties['layout'] ?? []);
     }
 
+    public function testToOxygenPropertiesAppliesMultiAssignmentDeclarationsAtomically(): void
+    {
+        $properties = $this->extractor->toOxygenProperties([
+            'background-image' => 'url(javascript:alert(1))',
+            'border' => 'bogus solid #ff0000',
+        ]);
+
+        $this->assertArrayNotHasKey('background', $properties);
+        $this->assertArrayNotHasKey('borders', $properties);
+    }
+
     public function testExtractHandlesComplexValues(): void
     {
         $element = $this->createElementWithStyle(
@@ -351,6 +362,7 @@ class StyleExtractorTest extends TestCase
             'display' => 'flex',
             'justify-content' => 'center',
             'align-items' => 'flex-start',
+            'align-content' => 'space-between',
             'gap' => '24px',
             'padding' => '10px 20px',
             'font-size' => '18px',
@@ -362,6 +374,7 @@ class StyleExtractorTest extends TestCase
         $this->assertSame('flex', $properties['layout']['display']);
         $this->assertSame('center', $properties['layout']['flex_align']['primary_axis']);
         $this->assertSame('flex-start', $properties['layout']['flex_align']['cross_axis']);
+        $this->assertArrayNotHasKey('content_axis', $properties['layout']['flex_align']);
         $this->assertSame('24px', $properties['layout']['gap']['row']['style']);
         $this->assertSame('24px', $properties['layout']['gap']['column']['style']);
         $this->assertSame('10px', $properties['spacing']['spacing']['padding']['top']['style']);
@@ -432,5 +445,68 @@ class StyleExtractorTest extends TestCase
         $this->assertFalse($this->extractor->supportsDeclarationsFully([
             'width' => 'url(javascript:alert(1))',
         ]));
+
+        $this->assertFalse($this->extractor->supportsDeclarationsFully([
+            'display' => 'definitelybogus',
+        ]));
+
+        $this->assertFalse($this->extractor->supportsDeclarationsFully([
+            'font-weight' => 'definitelybogus',
+        ]));
+
+        $this->assertFalse($this->extractor->supportsDeclarationsFully([
+            'z-index' => 'definitelybogus',
+        ]));
+
+        $this->assertFalse($this->extractor->supportsDeclarationsFully([
+            'aspect-ratio' => 'bogus',
+        ]));
+
+        $this->assertFalse($this->extractor->supportsDeclarationsFully([
+            'grid-template-columns' => '1px cats',
+        ]));
+
+        foreach ([
+            ['grid-template-columns', 'minmax(nonsense,1fr)'],
+            ['grid-template-columns', 'repeat(3, minmax(nonsense, 1fr))'],
+            ['flex-grow', 'definitelybogus'],
+            ['flex-shrink', 'definitelybogus'],
+            ['order', 'definitelybogus'],
+            ['align-self', 'definitelybogus'],
+            ['background-size', 'definitelybogus'],
+            ['background-repeat', 'definitelybogus'],
+            ['background-attachment', 'definitelybogus'],
+            ['background-blend-mode', 'definitelybogus'],
+            ['filter', 'definitelybogus(1px)'],
+            ['backdrop-filter', 'definitelybogus(1px)'],
+        ] as [$property, $value]) {
+            $this->assertFalse(
+                $this->extractor->supportsDeclarationsFully([$property => $value]),
+                $property . ' should not be treated as fully supported with an invalid value'
+            );
+        }
+    }
+
+    public function testInvalidNativeValuesAreNotWrittenToOxygenProperties(): void
+    {
+        $this->assertSame([], $this->extractor->toOxygenProperties([
+            'grid-template-columns' => 'repeat(3, minmax(nonsense, 1fr))',
+        ]));
+
+        $properties = $this->extractor->toOxygenProperties([
+            'grid-template-columns' => 'minmax(nonsense,1fr)',
+            'flex-grow' => 'definitelybogus',
+            'flex-shrink' => 'definitelybogus',
+            'order' => 'definitelybogus',
+            'align-self' => 'definitelybogus',
+            'background-size' => 'definitelybogus',
+            'background-repeat' => 'definitelybogus',
+            'background-attachment' => 'definitelybogus',
+            'background-blend-mode' => 'definitelybogus',
+            'filter' => 'definitelybogus(1px)',
+            'backdrop-filter' => 'definitelybogus(1px)',
+        ]);
+
+        $this->assertSame([], $properties);
     }
 }

@@ -20,17 +20,12 @@
 - The Browser plugin files are present locally under:
   `C:\Users\Skicu\.codex\plugins\cache\openai-bundled\browser-use\0.1.0-alpha1`
 - The in-app browser backend is available in this environment and can attach to the currently open browser tab.
-- Browser verification in this run confirmed:
-- Browser verification in the previous successful browser-attached run confirmed:
-  - `wp-login.php` renders and accepts `admin` / `admin`
-  - `wp-admin/edit.php?post_type=page` renders and exposes `Edit in Oxygen` row actions
-  - `/?oxygen=builder&id=521` opens an Oxygen-titled page but then shows a 500 overlay instead of the usable builder UI
-- A later shell-only probe in this run timed out for frontend, login, admin, and document-builder URLs. Treat host reachability as intermittent until a fresh probe succeeds.
-- `smoke-builder-access.mjs --post-id 521` has produced two distinct states across recent runs:
-  - reachable state: frontend `200 OK`, login `200 OK`, admin `302 Found`, document builder `200 OK`
-  - degraded state: timeouts for all four probes
+- M8-03 live verification used Docker container `oxyconvo6-wordpress-1` and WordPress `home_url()` resolved to `http://oxyconvo6.localhost`.
+- `npm run sync:docker` syncs the Core plugin into `/var/www/html/wp-content/plugins/oxygen-html-converter` in that container.
+- `npm run test:live` has verified local admin login, fixture import, Builder open/save/reopen, nonblank canvas/editability signals, selector persistence, and site-kit page/header/footer/template smoke.
+- `npm run test:visual` has verified maintained fixture captures plus design-1/design-3 safe-mode smoke against the same local site.
 - Treat a successful HEAD or fetch probe as transport reachability only. It does not prove the builder JS booted correctly.
-- Docker CLI inspection returned a daemon access error from this environment. Do not assume container names without a successful `docker ps`.
+- If Docker is stopped or a different container is active, re-run `docker ps` and `npm run sync:docker` before browser work.
 
 ## Useful external knowledge files
 
@@ -44,8 +39,8 @@
 3. If Browser cannot attach, stop UI-driving work for that run.
 4. Read the `builder-dist`, `builder-manifest`, `builder-bundle`, and `integration-asset` entries from `check-local-environment.ps1` before retrying a broken builder session.
 5. Also read `bootstrap-error-anchor` and `integration-bootstrap` when present. Those checks distinguish a missing builder route from a source-backed integration bootstrap failure.
-6. Read `docker-sync-defaults` to see which live plugin copy `npm run sync:docker` will target once Docker is reachable.
-7. If Browser attaches but the builder shows the `[vp-wp] Entry assets/integration/oxygen/main.js not found.` overlay, treat plugin or asset drift as the blocker instead of continuing selector work.
+6. Read `docker-sync-defaults` to see which live plugin copy `npm run sync:docker` will target.
+7. If Browser attaches but Builder launch regresses, inspect the latest `artifacts/live-gate` or `artifacts/visual-review` failure artifact before continuing selector work.
 
 If PowerShell blocks direct script execution on this host, use:
 - `powershell -ExecutionPolicy Bypass -File .\scripts\check-local-environment.ps1`

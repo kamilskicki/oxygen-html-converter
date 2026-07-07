@@ -26,6 +26,12 @@ class Plugin
         'pro' => false,
         'batch_convert' => true,
         'preview' => true,
+        'tailwind_native_mapping' => true,
+        'tailwind_fallback_css' => true,
+        'tailwind_runtime_integration' => false,
+        'windpress_integration' => false,
+        'windpress_class_mode' => false,
+        'windpress_cache_reset' => false,
     ];
 
     public static function getInstance(): Plugin
@@ -169,12 +175,14 @@ class Plugin
             return;
         }
 
+        $loadInFooter = !$this->isOxygenBuilderRequest();
+
         wp_enqueue_script(
             'oxy-html-converter-options',
             OXY_HTML_CONVERTER_URL . 'assets/js/lib/converter-options.js',
             [],
             OXY_HTML_CONVERTER_VERSION,
-            true
+            $loadInFooter
         );
 
         wp_enqueue_script(
@@ -182,7 +190,7 @@ class Plugin
             OXY_HTML_CONVERTER_URL . 'assets/js/lib/clipboard-utils.js',
             [],
             OXY_HTML_CONVERTER_VERSION,
-            true
+            $loadInFooter
         );
 
         wp_enqueue_script(
@@ -190,7 +198,7 @@ class Plugin
             OXY_HTML_CONVERTER_URL . 'assets/js/lib/builder-client.js',
             ['oxy-html-converter-options'],
             OXY_HTML_CONVERTER_VERSION,
-            true
+            $loadInFooter
         );
 
         wp_enqueue_script(
@@ -198,7 +206,7 @@ class Plugin
             OXY_HTML_CONVERTER_URL . 'assets/js/lib/builder-paste.js',
             ['oxy-html-converter-clipboard-utils'],
             OXY_HTML_CONVERTER_VERSION,
-            true
+            $loadInFooter
         );
 
         wp_enqueue_script(
@@ -206,7 +214,7 @@ class Plugin
             OXY_HTML_CONVERTER_URL . 'assets/js/lib/builder-toast.js',
             [],
             OXY_HTML_CONVERTER_VERSION,
-            true
+            $loadInFooter
         );
 
         wp_enqueue_script(
@@ -214,7 +222,7 @@ class Plugin
             OXY_HTML_CONVERTER_URL . 'assets/js/lib/builder-modal.js',
             [],
             OXY_HTML_CONVERTER_VERSION,
-            true
+            $loadInFooter
         );
 
         wp_enqueue_script(
@@ -222,7 +230,7 @@ class Plugin
             OXY_HTML_CONVERTER_URL . 'assets/js/lib/builder-editability.js',
             [],
             OXY_HTML_CONVERTER_VERSION,
-            true
+            $loadInFooter
         );
 
         wp_enqueue_script(
@@ -238,13 +246,13 @@ class Plugin
                 'oxy-html-converter-builder-editability',
             ],
             OXY_HTML_CONVERTER_VERSION,
-            true
+            $loadInFooter
         );
 
         $scriptData = apply_filters('oxy_html_converter_builder_script_data', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('oxy_html_converter'),
-            'features' => apply_filters('oxy_html_converter_feature_flags', $this->featureFlags),
+            'features' => $this->uiConfigProvider->getFeatureFlags($this->featureFlags),
             'apiVersion' => OXY_HTML_CONVERTER_API_VERSION,
             'ui' => $this->getUiConfig(),
             'strings' => [

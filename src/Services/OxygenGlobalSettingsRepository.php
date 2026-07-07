@@ -29,12 +29,12 @@ class OxygenGlobalSettingsRepository
                 'sections' => [],
                 'paletteColors' => 0,
                 'cacheRegenerated' => false,
-                'skippedReason' => 'no_global_settings_or_color_tokens',
+                'skippedReason' => 'no_global_settings_or_tokens',
             ];
         }
 
         $settings = $this->getCurrentSettings();
-        $merged = $this->mergeGlobalSettings($settings, $incoming);
+        $merged = $this->mergeGlobalSettings($settings, $incoming, $this->shouldOverwriteGlobalSettings($payload));
 
         if (!$merged['changed']) {
             return [
@@ -99,7 +99,7 @@ class OxygenGlobalSettingsRepository
      * @param array<string, mixed> $incoming
      * @return array{settings: array<string, mixed>, changed: bool, changes: int, sections: array<int, string>, paletteColors: int}
      */
-    public function mergeGlobalSettings(array $current, array $incoming): array
+    public function mergeGlobalSettings(array $current, array $incoming, bool $overwrite = true): array
     {
         $merged = $current;
         $merged['settings'] = is_array($merged['settings'] ?? null) ? $merged['settings'] : [];
@@ -107,13 +107,13 @@ class OxygenGlobalSettingsRepository
         $sections = [];
         $changes = 0;
 
-        foreach (['colors', 'typography', 'containers', 'code'] as $section) {
+        foreach (['colors', 'typography', 'containers', 'code', 'other'] as $section) {
             if (!isset($incomingSettings[$section]) || !is_array($incomingSettings[$section])) {
                 continue;
             }
 
             $before = $merged['settings'][$section] ?? [];
-            $merged['settings'][$section] = $this->mergeSection($section, is_array($before) ? $before : [], $incomingSettings[$section]);
+            $merged['settings'][$section] = $this->mergeSection($section, is_array($before) ? $before : [], $incomingSettings[$section], $overwrite);
 
             if (($merged['settings'][$section] ?? []) !== $before) {
                 $changes++;
@@ -136,13 +136,13 @@ class OxygenGlobalSettingsRepository
      * @param array<string, mixed> $incoming
      * @return array<string, mixed>
      */
-    private function mergeSection(string $section, array $current, array $incoming): array
+    private function mergeSection(string $section, array $current, array $incoming, bool $overwrite): array
     {
         if ($section === 'colors') {
-            return $this->mergeColorsSection($current, $incoming);
+            return $this->mergeColorsSection($current, $incoming, $overwrite);
         }
 
-        return $this->mergeRecursive($current, $incoming);
+        return $this->mergeRecursive($current, $incoming, $overwrite);
     }
 
     /**
@@ -150,17 +150,25 @@ class OxygenGlobalSettingsRepository
      * @param array<string, mixed> $incoming
      * @return array<string, mixed>
      */
-    private function mergeColorsSection(array $current, array $incoming): array
+    private function mergeColorsSection(array $current, array $incoming, bool $overwrite): array
     {
         $incomingPaletteColors = $incoming['palette']['colors'] ?? null;
+        $incomingPaletteGradients = $incoming['palette']['gradients'] ?? null;
         unset($incoming['palette']['colors']);
+        unset($incoming['palette']['gradients']);
 
-        $merged = $this->mergeRecursive($current, $incoming);
+        $merged = $this->mergeRecursive($current, $incoming, $overwrite);
 
         if (is_array($incomingPaletteColors)) {
             $existingColors = is_array($current['palette']['colors'] ?? null) ? $current['palette']['colors'] : [];
             $merged['palette'] = is_array($merged['palette'] ?? null) ? $merged['palette'] : [];
-            $merged['palette']['colors'] = $this->mergePaletteColors($existingColors, $incomingPaletteColors);
+            $merged['palette']['colors'] = $this->mergePaletteColors($existingColors, $incomingPaletteColors, $overwrite);
+        }
+
+        if (is_array($incomingPaletteGradients)) {
+            $existingGradients = is_array($current['palette']['gradients'] ?? null) ? $current['palette']['gradients'] : [];
+            $merged['palette'] = is_array($merged['palette'] ?? null) ? $merged['palette'] : [];
+            $merged['palette']['gradients'] = $this->mergePaletteGradients($existingGradients, $incomingPaletteGradients, $overwrite);
         }
 
         return $merged;
@@ -171,7 +179,7 @@ class OxygenGlobalSettingsRepository
      * @param array<int, mixed> $incoming
      * @return array<int, array<string, mixed>>
      */
-    private function mergePaletteColors(array $existing, array $incoming): array
+    private function mergePaletteColors(array $existing, array $incoming, bool $overwrite): array
     {
         $colors = [];
         $indexByName = [];
@@ -211,15 +219,72 @@ class OxygenGlobalSettingsRepository
                 'value' => $value,
             ];
 
-            if (isset($indexByName[$name])) {
+            if (isset($indexByName[$name]) && $overwrite) {
                 $colors[$indexByName[$name]] = array_merge($colors[$indexByName[$name]], $record);
-            } else {
+            } elseif (!isset($indexByName[$name])) {
                 $indexByName[$name] = count($colors);
                 $colors[] = $record;
             }
         }
 
         return $colors;
+    }
+
+    /**
+     * @param array<int, mixed> $existing
+     * @param array<int, mixed> $incoming
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergePaletteGradients(array $existing, array $incoming, bool $overwrite): array
+    {
+        $gradients = [];
+        $indexByName = [];
+
+        foreach ($existing as $gradient) {
+            if (!is_array($gradient)) {
+                continue;
+            }
+
+            $name = $this->normalizePaletteColorName((string) ($gradient['cssVariableName'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $gradient['cssVariableName'] = $name;
+            $indexByName[$name] = count($gradients);
+            $gradients[] = $gradient;
+        }
+
+        foreach ($incoming as $gradient) {
+            if (!is_array($gradient)) {
+                continue;
+            }
+
+            $name = $this->normalizePaletteColorName((string) ($gradient['cssVariableName'] ?? ''));
+            $value = is_array($gradient['value'] ?? null) ? $gradient['value'] : null;
+            $svgValue = is_array($value) && is_string($value['svgValue'] ?? null) ? trim((string) $value['svgValue']) : '';
+
+            if ($name === '' || $svgValue === '') {
+                continue;
+            }
+
+            $record = [
+                'label' => is_scalar($gradient['label'] ?? null) && trim((string) $gradient['label']) !== ''
+                    ? trim((string) $gradient['label'])
+                    : ucwords(str_replace('-', ' ', preg_replace('/^ohc-/', '', $name) ?? $name)),
+                'cssVariableName' => $name,
+                'value' => $value,
+            ];
+
+            if (isset($indexByName[$name]) && $overwrite) {
+                $gradients[$indexByName[$name]] = array_merge($gradients[$indexByName[$name]], $record);
+            } elseif (!isset($indexByName[$name])) {
+                $indexByName[$name] = count($gradients);
+                $gradients[] = $record;
+            }
+        }
+
+        return $gradients;
     }
 
     /**
@@ -239,7 +304,7 @@ class OxygenGlobalSettingsRepository
             return $settings;
         }
 
-        return $this->mergeGlobalSettings($settings, $tokenSettings)['settings'];
+        return $this->mergeGlobalSettings($tokenSettings, $settings, true)['settings'];
     }
 
     /**
@@ -260,7 +325,59 @@ class OxygenGlobalSettingsRepository
             return is_array($settings['settings'] ?? null) ? $settings : ['settings' => $settings];
         }
 
+        $importPlan = is_array($payload['importPlan'] ?? null) ? $payload['importPlan'] : [];
+        foreach (['oxygenGlobalSettings', 'globalSettings'] as $key) {
+            if (isset($importPlan[$key]) && is_array($importPlan[$key])) {
+                $settings = $importPlan[$key];
+                return is_array($settings['settings'] ?? null) ? $settings : ['settings' => $settings];
+            }
+        }
+
         return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function shouldOverwriteGlobalSettings(array $payload): bool
+    {
+        foreach ([
+            ['overwriteGlobalSettings'],
+            ['globalSettingsOverwrite'],
+            ['options', 'overwriteGlobalSettings'],
+            ['manifest', 'overwriteGlobalSettings'],
+            ['importManifest', 'overwriteGlobalSettings'],
+            ['importPlan', 'overwriteGlobalSettings'],
+            ['importPlan', 'globalSettings', 'overwrite'],
+            ['importPlan', 'persistence', 'globalSettings', 'overwrite'],
+        ] as $path) {
+            $value = $this->valueAtPath($payload, $path);
+            if ($value === true || $value === 1 || $value === '1' || $value === 'true') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param list<string> $path
+     * @return mixed
+     */
+    private function valueAtPath(array $payload, array $path)
+    {
+        $current = $payload;
+
+        foreach ($path as $key) {
+            if (!is_array($current) || !array_key_exists($key, $current)) {
+                return null;
+            }
+
+            $current = $current[$key];
+        }
+
+        return $current;
     }
 
     /**
@@ -269,43 +386,7 @@ class OxygenGlobalSettingsRepository
      */
     private function buildSettingsFromTokens(array $payload): array
     {
-        $tokens = $this->resolveTokens($payload);
-        $colors = is_array($tokens['colors'] ?? null) ? $tokens['colors'] : [];
-        $paletteColors = [];
-
-        foreach ($colors as $token) {
-            if (!is_array($token)) {
-                continue;
-            }
-
-            $value = is_scalar($token['value'] ?? null) ? trim((string) $token['value']) : '';
-            $suggestedName = is_scalar($token['suggestedName'] ?? null) ? trim((string) $token['suggestedName']) : '';
-
-            if ($value === '' || $suggestedName === '' || preg_match('/^#[0-9a-f]{3,8}$/i', $value) !== 1) {
-                continue;
-            }
-
-            $name = $this->normalizeCssVariableName($suggestedName);
-            $paletteColors[] = [
-                'label' => ucwords(str_replace('-', ' ', preg_replace('/^ohc-/', '', $name) ?? $name)),
-                'cssVariableName' => $name,
-                'value' => strtoupper($value),
-            ];
-        }
-
-        if ($paletteColors === []) {
-            return [];
-        }
-
-        return [
-            'settings' => [
-                'colors' => [
-                    'palette' => [
-                        'colors' => $paletteColors,
-                    ],
-                ],
-            ],
-        ];
+        return (new OxygenGlobalSettingsInferenceService())->infer($this->resolveTokens($payload));
     }
 
     /**
@@ -327,20 +408,6 @@ class OxygenGlobalSettingsRepository
         return [];
     }
 
-    private function normalizeCssVariableName(string $name): string
-    {
-        $name = strtolower(trim($name));
-        $name = ltrim($name, '-');
-        $name = preg_replace('/[^a-z0-9]+/', '-', $name) ?? '';
-        $name = trim($name, '-');
-
-        if ($name === '') {
-            return '';
-        }
-
-        return str_starts_with($name, 'ohc-') ? $name : 'ohc-' . $name;
-    }
-
     private function normalizePaletteColorName(string $name): string
     {
         $name = strtolower(trim($name));
@@ -355,17 +422,78 @@ class OxygenGlobalSettingsRepository
      * @param array<string, mixed> $incoming
      * @return array<string, mixed>
      */
-    private function mergeRecursive(array $current, array $incoming): array
+    private function mergeRecursive(array $current, array $incoming, bool $overwrite): array
     {
         foreach ($incoming as $key => $value) {
+            if (is_array($value) && $value !== [] && array_is_list($value) && is_array($current[$key] ?? null)) {
+                $current[$key] = $this->mergeList($current[$key], $value, $overwrite);
+                continue;
+            }
+
             if (is_array($value) && is_array($current[$key] ?? null)) {
-                $current[$key] = $this->mergeRecursive($current[$key], $value);
+                $current[$key] = $this->mergeRecursive($current[$key], $value, $overwrite);
+            } elseif (array_key_exists($key, $current) && !$overwrite) {
+                continue;
             } else {
                 $current[$key] = $value;
             }
         }
 
         return $current;
+    }
+
+    /**
+     * @param array<int, mixed> $current
+     * @param array<int, mixed> $incoming
+     * @return array<int, mixed>
+     */
+    private function mergeList(array $current, array $incoming, bool $overwrite): array
+    {
+        $merged = array_values($current);
+        $indexByKey = [];
+
+        foreach ($merged as $index => $item) {
+            $indexByKey[$this->listItemKey($item)] = $index;
+        }
+
+        foreach ($incoming as $item) {
+            $key = $this->listItemKey($item);
+            if (isset($indexByKey[$key]) && $overwrite) {
+                $merged[$indexByKey[$key]] = $item;
+            } elseif (!isset($indexByKey[$key])) {
+                $indexByKey[$key] = count($merged);
+                $merged[] = $item;
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @param mixed $item
+     */
+    private function listItemKey($item): string
+    {
+        if (is_array($item)) {
+            foreach (['name', 'cssVariableName', 'id'] as $field) {
+                if (is_scalar($item[$field] ?? null) && trim((string) $item[$field]) !== '') {
+                    return $field . ':' . strtolower(trim((string) $item[$field]));
+                }
+            }
+
+            $preset = $item['preset'] ?? null;
+            if (is_array($preset) && is_scalar($preset['id'] ?? null) && trim((string) $preset['id']) !== '') {
+                return 'preset:' . strtolower(trim((string) $preset['id']));
+            }
+
+            if (is_scalar($preset) && trim((string) $preset) !== '') {
+                return 'preset:' . strtolower(trim((string) $preset));
+            }
+        }
+
+        $encoded = json_encode($item);
+
+        return 'hash:' . sha1(is_string($encoded) ? $encoded : serialize($item));
     }
 
     private function getStorageAdapter(): OxygenStorageAdapter

@@ -72,7 +72,51 @@ class AnimationDetectorTest extends TestCase
         $this->assertEquals(300, $result['delay']);
         $this->assertContains('stagger-3', $this->detector->getConsumedClasses());
         $this->assertContains('animate-on-scroll', $this->detector->getConsumedClasses());
-        $this->assertSame(['stagger-3'], $this->detector->getRemovableConsumedClasses());
+        $this->assertSame(['stagger-3', 'animate-on-scroll'], $this->detector->getRemovableConsumedClasses());
+    }
+
+    public function test_detects_reveal_delay_class_from_css_transition_delay(): void
+    {
+        $cssRules = [
+            ['selector' => '.reveal', 'declarations' => [
+                'opacity' => '0',
+                'transform' => 'translateY(30px)',
+                'transition' => 'opacity 0.6s ease, transform 0.6s ease',
+            ]],
+            ['selector' => '.reveal-delay-2', 'declarations' => [
+                'transition-delay' => '0.24s',
+            ]],
+        ];
+
+        $this->detector->analyzeCssRules($cssRules, '');
+
+        $doc = new DOMDocument();
+        $doc->loadHTML('<div class="reveal reveal-delay-2">Content</div>');
+        $node = $doc->getElementsByTagName('div')->item(0);
+
+        $result = $this->detector->detectAnimations($node, ['reveal', 'reveal-delay-2'], []);
+
+        $this->assertNotNull($result);
+        $this->assertEquals(240, $result['delay']);
+        $this->assertSame(['reveal-delay-2', 'reveal'], $this->detector->getRemovableConsumedClasses());
+    }
+
+    public function test_ignores_reveal_class_without_hidden_state_css(): void
+    {
+        $cssRules = [
+            ['selector' => '.reveal', 'declarations' => [
+                'color' => 'red',
+            ]],
+        ];
+
+        $this->detector->analyzeCssRules($cssRules, '');
+
+        $doc = new DOMDocument();
+        $doc->loadHTML('<div class="reveal">Content</div>');
+        $node = $doc->getElementsByTagName('div')->item(0);
+
+        $this->assertNull($this->detector->detectAnimations($node, ['reveal'], []));
+        $this->assertSame([], $this->detector->getRemovableConsumedClasses());
     }
 
     public function test_detects_keyframe_fadeInUp(): void
@@ -194,6 +238,11 @@ class AnimationDetectorTest extends TestCase
     transform: translateY(0);
 }
 
+.animate-on-scroll.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .stagger-1 { transition-delay: 0.1s; }
 .stagger-2 { transition-delay: 0.2s; }
 
@@ -223,6 +272,7 @@ CSS;
         $cleaned = $this->detector->cleanupConvertedCss($css);
 
         $this->assertStringNotContainsString('.animate-on-scroll', $cleaned);
+        $this->assertStringNotContainsString('.animate-on-scroll.is-visible', $cleaned);
         $this->assertStringNotContainsString('.stagger-1', $cleaned);
         $this->assertStringNotContainsString('.stagger-2', $cleaned);
         $this->assertStringContainsString('.other-class', $cleaned);

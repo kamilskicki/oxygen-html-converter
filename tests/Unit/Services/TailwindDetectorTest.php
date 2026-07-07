@@ -191,4 +191,14 @@ class TailwindDetectorTest extends TestCase
         $this->assertTrue($this->detector->isTailwindClass('dark:hover:text-white'));
         $this->assertTrue($this->detector->isTailwindClass('lg:focus:ring-2'));
     }
+
+    public function testReportsCoreOnlyIntegrationCapabilities(): void
+    {
+        $capabilities = $this->detector->getIntegrationCapabilities();
+
+        $this->assertSame('core_source_hint_detection', $capabilities['scope']);
+        $this->assertFalse($capabilities['runtimeDependency']);
+        $this->assertFalse($capabilities['fullUtilityParity']);
+        $this->assertSame('oxy_html_converter_convert_options', $capabilities['extensionPoint']);
+    }
 }

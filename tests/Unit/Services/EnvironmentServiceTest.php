@@ -22,6 +22,7 @@ class EnvironmentServiceTest extends TestCase
     {
         parent::setUp();
         unset($GLOBALS['__wp_options']['oxy_html_converter_class_mode']);
+        remove_all_filters();
         $this->service = new EnvironmentService();
     }
 
@@ -32,12 +33,20 @@ class EnvironmentServiceTest extends TestCase
     }
 
     #[Test]
-    public function it_should_use_windpress_mode_if_mode_is_windpress()
+    public function it_should_not_use_windpress_mode_if_feature_flag_is_disabled()
     {
-        // We need to mock getClassHandlingMode to return 'windpress'
-        // Since it's a simple service, we can create a partial mock or a subclass for testing
         $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
         $mockService->shouldReceive('getClassHandlingMode')->andReturn('windpress');
+
+        $this->assertFalse($mockService->shouldUseWindPressMode());
+    }
+
+    #[Test]
+    public function it_should_use_windpress_mode_if_mode_and_feature_flag_are_enabled()
+    {
+        $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
+        $mockService->shouldReceive('getClassHandlingMode')->andReturn('windpress');
+        $mockService->shouldReceive('isWindPressClassModeEnabled')->andReturn(true);
 
         $this->assertTrue($mockService->shouldUseWindPressMode());
     }
@@ -56,6 +65,7 @@ class EnvironmentServiceTest extends TestCase
     {
         $mockService = Mockery::mock(EnvironmentService::class)->makePartial();
         $mockService->shouldReceive('getClassHandlingMode')->andReturn('auto');
+        $mockService->shouldReceive('isWindPressClassModeEnabled')->andReturn(true);
 
         // Test when active
         $mockService->shouldReceive('isWindPressActive')->once()->andReturn(true);
@@ -64,6 +74,20 @@ class EnvironmentServiceTest extends TestCase
         // Test when inactive
         $mockService->shouldReceive('isWindPressActive')->once()->andReturn(false);
         $this->assertFalse($mockService->shouldUseWindPressMode());
+    }
+
+    #[Test]
+    public function it_reports_windpress_class_mode_enabled_from_feature_flags()
+    {
+        $this->assertFalse($this->service->isWindPressClassModeEnabled());
+
+        add_filter('oxy_html_converter_feature_flags', static function (array $flags): array {
+            $flags['windpress_integration'] = true;
+            $flags['windpress_class_mode'] = true;
+            return $flags;
+        });
+
+        $this->assertTrue($this->service->isWindPressClassModeEnabled());
     }
 
     #[Test]

@@ -16,6 +16,7 @@ class DocumentCssExtractorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        remove_all_filters();
         $this->previousClassMode = $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] ?? null;
     }
 
@@ -27,6 +28,7 @@ class DocumentCssExtractorTest extends TestCase
             $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] = $this->previousClassMode;
         }
 
+        remove_all_filters();
         parent::tearDown();
     }
 
@@ -67,8 +69,53 @@ class DocumentCssExtractorTest extends TestCase
         $this->assertStringContainsString('.leading-\\[0\\.9\\]', $css);
     }
 
+    public function testNativeModeDoesNotEmitFallbackForNativeMappedUtilities(): void
+    {
+        $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] = 'native';
+
+        $doc = new \DOMDocument();
+        $doc->loadHTML('<div class="grid grid-cols-3 gap-4 p-4 text-6xl font-bold opacity-50">Hello</div>');
+
+        $extractor = new DocumentCssExtractor(
+            new HeuristicsService(),
+            new TailwindDetector(),
+            new TailwindPropertyMapper(),
+            new TailwindCssFallbackGenerator()
+        );
+
+        $css = $extractor->extract($doc);
+
+        $this->assertStringNotContainsString('Tailwind utility fallback', $css);
+        $this->assertStringNotContainsString('.p-4', $css);
+        $this->assertStringNotContainsString('.text-6xl', $css);
+        $this->assertStringNotContainsString('.grid-cols-3', $css);
+    }
+
+    public function testNativeModeKeepsFallbackForResponsiveAndStateUtilities(): void
+    {
+        $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] = 'native';
+
+        $doc = new \DOMDocument();
+        $doc->loadHTML('<div class="p-4 md:grid-cols-3 hover:bg-[#ff0084]">Hello</div>');
+
+        $extractor = new DocumentCssExtractor(
+            new HeuristicsService(),
+            new TailwindDetector(),
+            new TailwindPropertyMapper(),
+            new TailwindCssFallbackGenerator()
+        );
+
+        $css = $extractor->extract($doc);
+
+        $this->assertStringContainsString('Tailwind utility fallback', $css);
+        $this->assertStringContainsString('.md\\:grid-cols-3', $css);
+        $this->assertStringContainsString('.hover\\:bg-\\[\\#ff0084\\]:hover', $css);
+        $this->assertStringNotContainsString('.p-4 {', $css);
+    }
+
     public function testWindPressModeStillExtractsTailwindFallbackForStyleRouter(): void
     {
+        $this->enableWindPressIntegration();
         $GLOBALS['__wp_options']['oxy_html_converter_class_mode'] = 'windpress';
 
         $doc = new \DOMDocument();
@@ -86,5 +133,15 @@ class DocumentCssExtractorTest extends TestCase
         $this->assertStringContainsString('Tailwind utility fallback', $css);
         $this->assertStringContainsString('.text-6xl', $css);
         $this->assertStringContainsString('.leading-\\[0\\.9\\]', $css);
+        $this->assertStringContainsString('.p-4', $css);
+    }
+
+    private function enableWindPressIntegration(): void
+    {
+        add_filter('oxy_html_converter_feature_flags', static function (array $flags): array {
+            $flags['windpress_integration'] = true;
+            $flags['windpress_class_mode'] = true;
+            return $flags;
+        });
     }
 }

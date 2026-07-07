@@ -22,6 +22,7 @@
   const $includeCss = $("#oxy-include-css");
   const $inlineStyles = $("#oxy-inline-styles");
   const $safeMode = $("#oxy-safe-mode");
+  const $allowExecutableCode = $("#oxy-allow-executable-code");
   const $strictNative = $("#oxy-strict-native");
 
   const $previewResult = $("#oxy-preview-result");
@@ -56,6 +57,10 @@
       includeCssElement: $includeCss.is(":checked"),
       inlineStyles: $inlineStyles.is(":checked"),
       safeMode: $safeMode.is(":checked"),
+      allowExecutableCode:
+        !$safeMode.is(":checked") &&
+        !$strictNative.is(":checked") &&
+        $allowExecutableCode.is(":checked"),
       strictNative: $strictNative.is(":checked"),
       debugMode: false,
     };
@@ -283,19 +288,21 @@
   function applyPreset(preset) {
     isApplyingPreset = true;
     const values = presetUtils
-      ? presetUtils.getPresetValues(preset)
-      : {
-          wrapInContainer: true,
-          includeCssElement: true,
-          inlineStyles: true,
-          safeMode: true,
-          strictNative: false,
+        ? presetUtils.getPresetValues(preset)
+        : {
+            wrapInContainer: true,
+            includeCssElement: false,
+            inlineStyles: true,
+            safeMode: true,
+            allowExecutableCode: false,
+            strictNative: false,
         };
 
     $wrapContainer.prop("checked", !!values.wrapInContainer);
     $includeCss.prop("checked", !!values.includeCssElement);
     $inlineStyles.prop("checked", !!values.inlineStyles);
     $safeMode.prop("checked", !!values.safeMode);
+    $allowExecutableCode.prop("checked", !!values.allowExecutableCode);
     $strictNative.prop("checked", !!values.strictNative);
     isApplyingPreset = false;
   }
@@ -347,6 +354,7 @@
   $includeCss.on("change", handleManualOptionChange);
   $inlineStyles.on("change", handleManualOptionChange);
   $safeMode.on("change", handleManualOptionChange);
+  $allowExecutableCode.on("change", handleManualOptionChange);
   $strictNative.on("change", handleManualOptionChange);
 
   applyPreset(String($preset.val() || "balanced"));

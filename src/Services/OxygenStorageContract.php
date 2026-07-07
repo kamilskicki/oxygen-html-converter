@@ -6,7 +6,7 @@ namespace OxyHtmlConverter\Services;
 
 final class OxygenStorageContract
 {
-    public const SUPPORTED_OXYGEN_VERSION = '6.1.0-beta.1';
+    public const SUPPORTED_OXYGEN_VERSION = '6.1.0';
 
     public const REQUIRED_CONTRACT_FIXTURES = [
         'page-tree' => 'page-tree.json',
@@ -63,9 +63,9 @@ final class OxygenStorageContract
     {
         return dirname(__DIR__, 2)
             . DIRECTORY_SEPARATOR
-            . 'tests'
+            . 'src'
             . DIRECTORY_SEPARATOR
-            . 'fixtures'
+            . 'Contracts'
             . DIRECTORY_SEPARATOR
             . 'oxygen6-contracts';
     }

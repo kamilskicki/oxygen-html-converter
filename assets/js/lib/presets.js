@@ -11,16 +11,18 @@
   const PRESET_VALUES = {
     balanced: {
       wrapInContainer: true,
-      includeCssElement: true,
+      includeCssElement: false,
       inlineStyles: true,
       safeMode: true,
+      allowExecutableCode: false,
       strictNative: false,
     },
     safe: {
       wrapInContainer: true,
-      includeCssElement: true,
+      includeCssElement: false,
       inlineStyles: false,
       safeMode: true,
+      allowExecutableCode: false,
       strictNative: false,
     },
     strict: {
@@ -28,6 +30,7 @@
       includeCssElement: false,
       inlineStyles: true,
       safeMode: true,
+      allowExecutableCode: false,
       strictNative: true,
     },
     fidelity: {
@@ -35,6 +38,7 @@
       includeCssElement: true,
       inlineStyles: true,
       safeMode: false,
+      allowExecutableCode: false,
       strictNative: false,
     },
   };
@@ -71,6 +75,7 @@
       includeCssElement: preset.includeCssElement,
       inlineStyles: preset.inlineStyles,
       safeMode: preset.safeMode,
+      allowExecutableCode: preset.allowExecutableCode,
       strictNative: preset.strictNative,
     };
   }
@@ -78,9 +83,10 @@
   function resolvePresetFromOptions(options) {
     const normalized = {
       wrapInContainer: coerceBoolean(options && options.wrapInContainer, true),
-      includeCssElement: coerceBoolean(options && options.includeCssElement, true),
+      includeCssElement: coerceBoolean(options && options.includeCssElement, false),
       inlineStyles: coerceBoolean(options && options.inlineStyles, true),
       safeMode: coerceBoolean(options && options.safeMode, true),
+      allowExecutableCode: coerceBoolean(options && options.allowExecutableCode, false),
       strictNative: coerceBoolean(options && options.strictNative, false),
     };
 
@@ -92,6 +98,7 @@
         preset.includeCssElement === normalized.includeCssElement &&
         preset.inlineStyles === normalized.inlineStyles &&
         preset.safeMode === normalized.safeMode &&
+        preset.allowExecutableCode === normalized.allowExecutableCode &&
         preset.strictNative === normalized.strictNative
       ) {
         return name;

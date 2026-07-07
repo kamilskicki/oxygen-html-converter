@@ -95,25 +95,48 @@ class GridDetector
             
             $cols = $this->getGridTemplateColumns($classNames);
             if ($cols && !isset($properties['grid']['simple_grid_template_columns'])) {
-                $properties['grid']['enable_advanced_mode'] = true;
-                $properties['grid_template_columns'][0]['size'] = $this->valueNormalizer->normalizeMeasurement($cols) ?? $cols;
+                $normalizedCols = $this->valueNormalizer->normalizeForPath(
+                    ['layout', 'grid_template_columns', '0', 'size'],
+                    $cols,
+                    'grid-template-columns'
+                );
+                if ($normalizedCols !== null) {
+                    $properties['grid']['enable_advanced_mode'] = true;
+                    $properties['grid_template_columns'][0]['size'] = $normalizedCols;
+                }
             }
             
             $gaps = $this->getGridGap($classNames);
             foreach ($gaps as $key => $val) {
                 if ($key === 'gap') {
-                    $properties['gap']['row'] = $this->valueNormalizer->normalizeMeasurement($val) ?? $val;
-                    $properties['gap']['column'] = $this->valueNormalizer->normalizeMeasurement($val) ?? $val;
+                    $properties['gap']['row'] = $this->valueNormalizer->normalizeForPath(
+                        ['layout', 'gap', 'row'],
+                        $val,
+                        'row-gap'
+                    );
+                    $properties['gap']['column'] = $this->valueNormalizer->normalizeForPath(
+                        ['layout', 'gap', 'column'],
+                        $val,
+                        'column-gap'
+                    );
                     continue;
                 }
 
                 if ($key === 'column-gap') {
-                    $properties['gap']['column'] = $this->valueNormalizer->normalizeMeasurement($val) ?? $val;
+                    $properties['gap']['column'] = $this->valueNormalizer->normalizeForPath(
+                        ['layout', 'gap', 'column'],
+                        $val,
+                        'column-gap'
+                    );
                     continue;
                 }
 
                 if ($key === 'row-gap') {
-                    $properties['gap']['row'] = $this->valueNormalizer->normalizeMeasurement($val) ?? $val;
+                    $properties['gap']['row'] = $this->valueNormalizer->normalizeForPath(
+                        ['layout', 'gap', 'row'],
+                        $val,
+                        'row-gap'
+                    );
                     continue;
                 }
 

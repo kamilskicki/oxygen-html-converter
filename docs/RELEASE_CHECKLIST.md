@@ -1,51 +1,117 @@
 # Release Checklist (Core)
 
-## Fast Gate
+Use this checklist before merging or tagging the Core remediation line.
+
+Core path:
+
+```powershell
+cd "D:\WordPress\Html to Oxygen\oxygen-html-converter-dev\plugins\core"
+```
+
+## Scope And Docs Gate
 
 1. Confirm version and release docs are in sync:
    - `oxygen-html-converter.php`
    - `README.md`
+   - `CHANGELOG.md`
+   - `docs/SUPPORTED_SCOPE.md`
    - `docs/RELEASE_NOTES_0.9.0_BETA.md`
    - `docs/DOD-0.9.0-BETA.md`
-2. Run `npm run check`.
-3. Confirm `package-lock.json` and `composer install --dry-run` remain consistent with repo state.
+   - `..\..\knowledge\KBAI\m8-remediation-summary.md`
+2. Confirm every open GAP has a Core, Pro, future, or unsupported disposition in KBAI or fixture metadata.
+3. Confirm release docs describe Safe Mode/no-code behavior, unsupported form and dynamic-data boundaries, component/template/site-kit scope, and live smoke requirements.
 
-## Local Live Gate
+## Stable Local Gate
 
-1. Run `npm run test:live`.
-2. Confirm the run covers:
-   - plugin sync into the maintained local WordPress/Oxygen container
-   - fixture parity baseline artifacts in `artifacts/`
-   - admin converter preview/convert smoke
-   - builder open -> import/save -> reopen smoke with no `Validation Error` / `IO-TS decoding failed`
+Run:
 
-## ZIP Artifact Gate
+```powershell
+composer install
+vendor\bin\phpunit
+vendor\bin\phpstan analyse --configuration=phpstan.neon.dist
+vendor\bin\phpcs --runtime-set ignore_warnings_on_exit 1 --standard=phpcs.xml.dist
+npm run test:js
+npm run test:fixtures:local
+npm run check
+```
 
-1. Run `npm run build:zip`.
-2. Install the fresh ZIP through wp-admin on the maintained Oxygen stack with `npm run install:zip`.
-3. Run `npm run test:live:artifact`.
-4. Run `npm run test:visual`.
-5. Confirm the artifact gate covers:
-   - real ZIP upload/update through wp-admin
-   - admin preview/convert smoke against the installed artifact
-   - builder `Ctrl+Shift+H` import modal smoke
-   - builder `Ctrl+V` paste smoke
-   - maintained fixture screenshot pairs and targeted frontend interaction smoke
+Expected:
 
-## Packaging
+- Composer exits 0; existing Legacy/test-bootstrap PSR-4 warnings are allowed only while non-growing and documented.
+- Stable PHPUnit, PHPStan, PHPCS, JS tests, fixture audit, and aggregate check pass.
+- Legacy tests under `tests/Legacy` remain outside the default gate unless explicitly requested.
 
-1. Run `npm run build:zip`.
-2. Verify the ZIP excludes `.distignore` entries.
-3. Verify the ZIP installs and activates through wp-admin on the maintained Oxygen stack.
+## Live Smoke Gate
 
-## Release Verify
+Run against the maintained local WordPress/Oxygen stack:
 
-1. Run `npm run release:verify` for the deterministic local gate.
-2. Run `npm run release:verify:live` on the maintained Docker/Oxygen stack before publishing.
-3. Confirm the generated ZIP layout matches the expected plugin root structure.
+```powershell
+npm run sync:docker
+npm run test:live
+npm run test:visual
+```
+
+Current maintained target:
+
+```text
+http://oxyconvo6.localhost
+oxyconvo6-wordpress-1
+```
+
+Note: older PRD text and some historical notes say `oxyconvo.localhost`. In this workspace, the maintained and verified M8 target is `http://oxyconvo6.localhost` with Docker container `oxyconvo6-wordpress-1`; use that target unless the environment is deliberately reconfigured.
+
+Confirm the run covers:
+
+- plugin sync into the maintained local WordPress/Oxygen container
+- fixture import with current `fixture-index.json` expectations
+- frontend nonblank render and visual smoke
+- Builder open, import/save, reopen, and editability smoke
+- selectors/classes/variables/templates/components/site-kit checks where relevant
+- failure artifacts under `artifacts/live-gate`, `artifacts/visual-review`, or `artifacts/visual-review/capture-failures`
+
+## Release Verify Gate
+
+Run:
+
+```powershell
+php scripts/release_verify.php
+php scripts/release_verify.php --with-live
+```
+
+Expected:
+
+- deterministic local checks pass
+- live checks pass or any intentionally excluded check has written approval and an explicit release risk
+- generated evidence records command, date, exit code, and artifact paths
+
+## Artifact Gate
+
+Run before publishing a ZIP:
+
+```powershell
+npm run build:zip
+npm run install:zip
+npm run test:live:artifact
+npm run test:visual
+```
+
+Confirm:
+
+- the ZIP excludes `.distignore` entries
+- the ZIP installs and activates through wp-admin on the maintained Oxygen stack
+- artifact live smoke passes against the installed ZIP, not the working tree copy
+
+## Merge Gate
+
+Before merge:
+
+1. Re-run the Stable Local Gate and Live Smoke Gate after the final docs/code changes.
+2. Confirm `git status` contains only intentional Core/docs/fixture/KBAI changes for this release line.
+3. Confirm no gate failure represents baseline growth. Any failure must be fixed or recorded with an approved exclusion before merge.
+4. Confirm `CHANGELOG.md` includes user/operator-visible behavior changes and known operational implications.
 
 ## Publish
 
 1. Create the git tag for the release line.
-2. Publish the GitHub Release manually with changelog summary.
-3. Monitor issues and builder regressions after release.
+2. Publish the GitHub Release manually with changelog summary and release notes.
+3. Monitor issues, Builder regressions, live smoke failures, and unsupported-boundary reports after release.

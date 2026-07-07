@@ -202,6 +202,22 @@ class ElementMapperTest extends TestCase
         $this->assertArrayHasKey('html_code', $this->mapper->buildProperties($form)['content']['content']);
     }
 
+    public function testFormControlsMapToHtmlCodeWithoutNativeFieldPretence(): void
+    {
+        $doc = new DOMDocument();
+        @$doc->loadHTML(
+            '<form action="/lead"><input name="email" required><textarea name="message"></textarea><select name="topic"><option>Sales</option></select></form>'
+        );
+
+        foreach (['form', 'input', 'textarea', 'select'] as $tag) {
+            $node = $doc->getElementsByTagName($tag)->item(0);
+            $this->assertInstanceOf(DOMElement::class, $node);
+            $this->assertSame(ElementTypes::HTML_CODE, $this->mapper->getElementType($tag, $node));
+            $this->assertSame(ElementTypes::HTML_CODE, $this->mapper->getElementType($tag));
+            $this->assertArrayHasKey('html_code', $this->mapper->buildProperties($node)['content']['content']);
+        }
+    }
+
     public function testBuildPropertiesForVideo(): void
     {
         $video = $this->createElement('video', [

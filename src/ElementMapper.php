@@ -5,6 +5,7 @@ namespace OxyHtmlConverter;
 use DOMElement;
 use DOMText;
 use DOMNode;
+use OxyHtmlConverter\Services\EnvironmentService;
 use OxyHtmlConverter\Services\GridDetector;
 use OxyHtmlConverter\ElementTypes;
 
@@ -14,11 +15,13 @@ use OxyHtmlConverter\ElementTypes;
 class ElementMapper
 {
     private GridDetector $gridDetector;
+    private EnvironmentService $environment;
     private bool $preferEssentialElements = false;
 
     public function __construct()
     {
         $this->gridDetector = new GridDetector();
+        $this->environment = new EnvironmentService();
     }
 
     /**
@@ -74,6 +77,8 @@ class ElementMapper
         'img'    => ElementTypes::IMAGE,
         'video'  => ElementTypes::HTML5_VIDEO,
         'iframe' => ElementTypes::HTML_CODE,
+        'object' => ElementTypes::HTML_CODE,
+        'embed'  => ElementTypes::HTML_CODE,
         'svg'    => ElementTypes::HTML_CODE,
         'i'      => ElementTypes::HTML_CODE,
 
@@ -111,7 +116,7 @@ class ElementMapper
      */
     private const KEEP_INNER_HTML = [
         'table', 'pre', 'code', 'svg', 'form',
-        'select', 'textarea', 'iframe', 'video'
+        'select', 'textarea', 'iframe', 'object', 'embed', 'video'
     ];
 
     /**
@@ -571,6 +576,10 @@ class ElementMapper
     {
         $classAttr = $node->getAttribute('class');
         $properties = [];
+
+        if ($this->environment->shouldUseWindPressMode()) {
+            return $properties;
+        }
 
         // Check for grid and apply all detected properties
         $gridProps = $this->gridDetector->getGridProperties($classAttr);

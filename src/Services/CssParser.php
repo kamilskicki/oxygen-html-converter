@@ -15,17 +15,20 @@ class CssParser
      */
     public function parse(string $css): array
     {
-        $rules = [];
+        return $this->parseRuleBlocks($css);
+    }
 
-        // Brace-depth-aware parser to handle nested @keyframes, @media, @property blocks
+    /**
+     * @return array<int, array{selector:string, declarations:array<string, string>, media?:string}>
+     */
+    private function parseRuleBlocks(string $css, ?string $media = null): array
+    {
+        $rules = [];
         $len = strlen($css);
-        $depth = 0;
-        $selector = '';
-        $block = '';
+        $ruleStart = 0;
         $inString = false;
         $stringChar = '';
         $inComment = false;
-        $isAtRule = false;
 
         for ($i = 0; $i < $len; $i++) {
             $char = $css[$i];
@@ -44,9 +47,6 @@ class CssParser
                 if ($char === $stringChar && !$this->isEscaped($css, $i)) {
                     $inString = false;
                 }
-                if ($depth === 1 && !$isAtRule) {
-                    $block .= $char;
-                }
                 continue;
             }
 
@@ -59,67 +59,73 @@ class CssParser
             if ($char === '"' || $char === "'") {
                 $inString = true;
                 $stringChar = $char;
-                if ($depth === 1 && !$isAtRule) {
-                    $block .= $char;
-                }
                 continue;
             }
 
-            if ($char === '{') {
-                if ($depth === 0) {
-                    // Starting a new top-level block
-                    $isAtRule = (strpos(trim($selector), '@') === 0);
-                }
-                $depth++;
-                if ($depth === 1 && !$isAtRule) {
-                    // Opening brace for a normal rule — don't add to block
+            if ($char !== '{') {
+                continue;
+            }
+
+            $blockEnd = $this->findMatchingBlockEnd($css, $i);
+            if ($blockEnd === null) {
+                break;
+            }
+
+            $selector = $this->normalizeSelectorPrelude(substr($css, $ruleStart, $i - $ruleStart));
+            $block = substr($css, $i + 1, $blockEnd - $i - 1);
+            $ruleStart = $blockEnd + 1;
+            $i = $blockEnd;
+
+            if ($selector === '') {
+                continue;
+            }
+
+            if (preg_match('/^@media\s+(.+)$/i', $selector, $matches) === 1) {
+                $rules = array_merge($rules, $this->parseRuleBlocks($block, $this->combineMediaConditions($media, trim($matches[1]))));
+                continue;
+            }
+
+            if (strpos($selector, '@') === 0) {
+                continue;
+            }
+
+            $declarations = $this->parseDeclarations($block);
+            foreach (explode(',', $selector) as $sel) {
+                $sel = trim($sel);
+                if ($sel === '') {
                     continue;
                 }
-                if ($depth > 1 && !$isAtRule) {
-                    $block .= $char;
-                }
-                continue;
-            }
 
-            if ($char === '}') {
-                $depth--;
-                if ($depth === 0) {
-                    if (!$isAtRule) {
-                        // Emit the normal rule
-                        $selectors = explode(',', $selector);
-                        $declarations = $this->parseDeclarations($block);
+                $rule = [
+                    'selector' => $sel,
+                    'declarations' => $declarations,
+                ];
 
-                        foreach ($selectors as $sel) {
-                            $sel = trim($sel);
-                            if ($sel) {
-                                $rules[] = [
-                                    'selector' => $sel,
-                                    'declarations' => $declarations,
-                                ];
-                            }
-                        }
-                    }
-                    // Reset for next rule (at-rules are skipped)
-                    $selector = '';
-                    $block = '';
-                    $isAtRule = false;
-                    continue;
+                if ($media !== null && $media !== '') {
+                    $rule['media'] = $media;
                 }
-                if (!$isAtRule) {
-                    $block .= $char;
-                }
-                continue;
-            }
 
-            // Accumulate characters
-            if ($depth === 0) {
-                $selector .= $char;
-            } elseif ($depth >= 1 && !$isAtRule) {
-                $block .= $char;
+                $rules[] = $rule;
             }
         }
 
         return $rules;
+    }
+
+    private function normalizeSelectorPrelude(string $selector): string
+    {
+        $withoutComments = preg_replace('!/\*.*?\*/!s', '', $selector);
+
+        return trim(is_string($withoutComments) ? $withoutComments : $selector);
+    }
+
+    private function combineMediaConditions(?string $parent, string $child): string
+    {
+        if ($parent === null || trim($parent) === '') {
+            return $child;
+        }
+
+        return trim($parent) . ' and ' . $child;
     }
 
     /**
@@ -420,6 +426,61 @@ class CssParser
         }
 
         $offset = $len - 1;
+    }
+
+    private function findMatchingBlockEnd(string $input, int $blockStart): ?int
+    {
+        $len = strlen($input);
+        $depth = 1;
+        $inString = false;
+        $stringChar = '';
+        $inComment = false;
+
+        for ($i = $blockStart + 1; $i < $len; $i++) {
+            $char = $input[$i];
+            $next = $input[$i + 1] ?? '';
+
+            if ($inComment) {
+                if ($char === '*' && $next === '/') {
+                    $inComment = false;
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($inString) {
+                if ($char === $stringChar && !$this->isEscaped($input, $i)) {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '/' && $next === '*') {
+                $inComment = true;
+                $i++;
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $inString = true;
+                $stringChar = $char;
+                continue;
+            }
+
+            if ($char === '{') {
+                $depth++;
+                continue;
+            }
+
+            if ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    return $i;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function stripImportant(string $value): string

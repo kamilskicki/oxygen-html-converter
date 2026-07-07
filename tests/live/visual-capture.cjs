@@ -1,3 +1,4 @@
+const fs = require("fs");
 const path = require("path");
 const { pathToFileURL } = require("url");
 
@@ -16,6 +17,34 @@ function loadPlaywright() {
         "or set OXY_HTML_CONVERTER_PLAYWRIGHT_MODULE to a resolvable module path."
     );
   }
+}
+
+function collectPageDiagnostics(page) {
+  const diagnostics = {
+    console: [],
+    pageErrors: [],
+    requestFailures: [],
+  };
+
+  page.on("console", (message) => {
+    diagnostics.console.push({
+      type: message.type(),
+      text: message.text(),
+      location: message.location(),
+    });
+  });
+  page.on("pageerror", (error) => {
+    diagnostics.pageErrors.push(String(error && error.stack ? error.stack : error));
+  });
+  page.on("requestfailed", (request) => {
+    diagnostics.requestFailures.push({
+      url: request.url(),
+      method: request.method(),
+      failure: request.failure()?.errorText || "",
+    });
+  });
+
+  return diagnostics;
 }
 
 function parseArgs(argv) {
@@ -62,6 +91,23 @@ function parseArgs(argv) {
 
 async function evaluateVisualState(page) {
   return page.evaluate(() => {
+    const isVisuallyPresent = (el) => {
+      if (!el) {
+        return false;
+      }
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number.parseFloat(style.opacity || "1") > 0.01 &&
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.top < window.innerHeight
+      );
+    };
     const body = document.body;
     const loader = document.querySelector(".loader");
     const letters = Array.from(document.querySelectorAll(".letter"));
@@ -80,15 +126,16 @@ async function evaluateVisualState(page) {
       loader.getAttribute("aria-hidden") === "true" ||
       loaderStyle.display === "none" ||
       loaderStyle.visibility === "hidden" ||
-      loaderStyle.opacity === "0";
+      loaderStyle.opacity === "0" ||
+      !isVisuallyPresent(loader);
 
     const lettersReady =
       letters.length === 0 ||
-      letters.every((el) => el.classList.contains("visible"));
+      letters.every((el) => el.classList.contains("visible") || isVisuallyPresent(el));
 
     const markersReady = heroMarkers.every((id) => {
       const el = document.getElementById(id);
-      return !el || el.classList.contains("visible");
+      return !el || el.classList.contains("visible") || isVisuallyPresent(el);
     });
 
     return {
@@ -157,6 +204,83 @@ async function capture(page, url, outFile, options) {
   };
 }
 
+async function captureFailureState(page) {
+  try {
+    return await page.evaluate(() => ({
+      url: location.href,
+      title: document.title,
+      bodyClass: document.body ? document.body.className : "",
+      textSample: document.body ? document.body.innerText.slice(0, 2000) : "",
+    }));
+  } catch (error) {
+    return {
+      stateError: String(error && error.stack ? error.stack : error),
+    };
+  }
+}
+
+async function writeFailureScreenshot(page, filePath) {
+  try {
+    await page.screenshot({ path: filePath, fullPage: true });
+    return filePath;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCaptureFailureArtifact(params) {
+  const {
+    sourcePath,
+    frontendUrl,
+    outSource,
+    outFrontend,
+    error,
+    sourcePage,
+    frontendPage,
+    sourceDiagnostics,
+    frontendDiagnostics,
+  } = params;
+  const fixtureId = path.basename(path.dirname(outFrontend));
+  const outputRoot = path.dirname(path.dirname(outFrontend));
+  const failureDir = path.join(outputRoot, "capture-failures");
+  fs.mkdirSync(failureDir, { recursive: true });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const baseName = `${fixtureId}-${timestamp}`;
+  const sourceScreenshot = await writeFailureScreenshot(
+    sourcePage,
+    path.join(failureDir, `${baseName}-source.png`)
+  );
+  const frontendScreenshot = await writeFailureScreenshot(
+    frontendPage,
+    path.join(failureDir, `${baseName}-frontend.png`)
+  );
+  const jsonPath = path.join(failureDir, `${baseName}.json`);
+
+  fs.writeFileSync(
+    jsonPath,
+    JSON.stringify(
+      {
+        fixtureId,
+        sourcePath,
+        frontendUrl,
+        outSource,
+        outFrontend,
+        sourceScreenshot,
+        frontendScreenshot,
+        error: String(error && error.stack ? error.stack : error),
+        sourceState: await captureFailureState(sourcePage),
+        frontendState: await captureFailureState(frontendPage),
+        sourceDiagnostics,
+        frontendDiagnostics,
+      },
+      null,
+      2
+    )
+  );
+
+  return jsonPath;
+}
+
 (async () => {
   const { chromium } = loadPlaywright();
   const { sourcePath, frontendUrl, outSource, outFrontend, options } = parseArgs(
@@ -172,6 +296,8 @@ async function capture(page, url, outFile, options) {
 
   const sourcePage = await context.newPage();
   const frontendPage = await context.newPage();
+  const sourceDiagnostics = collectPageDiagnostics(sourcePage);
+  const frontendDiagnostics = collectPageDiagnostics(frontendPage);
 
   try {
     const sourceUrl = pathToFileURL(path.resolve(sourcePath)).href;
@@ -185,6 +311,20 @@ async function capture(page, url, outFile, options) {
         2
       ) + "\n"
     );
+  } catch (error) {
+    const artifactPath = await writeCaptureFailureArtifact({
+      sourcePath,
+      frontendUrl,
+      outSource,
+      outFrontend,
+      error,
+      sourcePage,
+      frontendPage,
+      sourceDiagnostics,
+      frontendDiagnostics,
+    });
+    error.message = `${error.message}\nVisual capture failure artifact: ${artifactPath}`;
+    throw error;
   } finally {
     await sourcePage.close();
     await frontendPage.close();

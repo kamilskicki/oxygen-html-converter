@@ -11,6 +11,8 @@ namespace OxyHtmlConverter\Services;
  */
 class TailwindCssFallbackGenerator
 {
+    private OxygenValueNormalizer $valueNormalizer;
+
     private const BASE_COMPATIBILITY_CSS = [
         '*, ::before, ::after { box-sizing: border-box; }',
         'img, svg, video, canvas { display: block; max-width: 100%; }',
@@ -216,6 +218,25 @@ class TailwindCssFallbackGenerator
         'unit' => '8px',
     ];
 
+    public function __construct(?OxygenValueNormalizer $valueNormalizer = null)
+    {
+        $this->valueNormalizer = $valueNormalizer ?? new OxygenValueNormalizer();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getFallbackPolicy(): array
+    {
+        return [
+            'scope' => 'core_safety_css',
+            'runtimeDependency' => false,
+            'defaultDestination' => 'page_css',
+            'windPressDestination' => 'page_scoped_styles',
+            'extensionPoint' => 'oxy_html_converter_convert_options',
+        ];
+    }
+
     /**
      * @param array<int, string> $classTokens
      */
@@ -285,7 +306,7 @@ class TailwindCssFallbackGenerator
                 continue;
             }
 
-            if (in_array($part, ['hover', 'focus', 'active', 'group-hover'], true)) {
+            if (in_array($part, ['hover', 'focus', 'active', 'disabled', 'visited', 'checked', 'first', 'last', 'odd', 'even', 'group-hover', 'dark'], true)) {
                 $variant = $part;
                 continue;
             }
@@ -310,8 +331,32 @@ class TailwindCssFallbackGenerator
             case 'active':
                 return $escaped . ':active';
 
+            case 'disabled':
+                return $escaped . ':disabled';
+
+            case 'visited':
+                return $escaped . ':visited';
+
+            case 'checked':
+                return $escaped . ':checked';
+
+            case 'first':
+                return $escaped . ':first-child';
+
+            case 'last':
+                return $escaped . ':last-child';
+
+            case 'odd':
+                return $escaped . ':nth-child(odd)';
+
+            case 'even':
+                return $escaped . ':nth-child(even)';
+
             case 'group-hover':
                 return '.group:hover ' . $escaped;
+
+            case 'dark':
+                return '.dark ' . $escaped;
 
             default:
                 return $escaped;
@@ -396,7 +441,10 @@ class TailwindCssFallbackGenerator
         }
 
         if (preg_match('/^grid-cols-\[(.+)\]$/', $utility, $matches)) {
-            return ['grid-template-columns: ' . $this->normalizeArbitraryValue($matches[1]) . ' !important;'];
+            $value = $this->normalizeArbitraryValue($matches[1]);
+            return $this->valueNormalizer->normalizeMeasurement($value) === null
+                ? []
+                : ['grid-template-columns: ' . $value . ' !important;'];
         }
 
         if (preg_match('/^col-span-(\d+)$/', $utility, $matches)) {
@@ -528,15 +576,21 @@ class TailwindCssFallbackGenerator
         }
 
         if (preg_match('/^leading-\[(.+)\]$/', $utility, $matches)) {
-            return ['line-height: ' . $this->normalizeArbitraryValue($matches[1]) . ' !important;'];
+            $value = $this->normalizeArbitraryValue($matches[1]);
+            return $this->isSafeCssValue($value) ? ['line-height: ' . $value . ' !important;'] : [];
         }
 
         if (preg_match('/^tracking-\[(.+)\]$/', $utility, $matches)) {
-            return ['letter-spacing: ' . $this->normalizeArbitraryValue($matches[1]) . ' !important;'];
+            $value = $this->normalizeArbitraryValue($matches[1]);
+            return $this->isSafeCssValue($value) ? ['letter-spacing: ' . $value . ' !important;'] : [];
         }
 
         if (preg_match('/^text-\[(.+)\]$/', $utility, $matches)) {
             $value = $this->normalizeArbitraryValue($matches[1]);
+            if (!$this->isSafeCssValue($value)) {
+                return [];
+            }
+
             if ($this->looksLikeColor($value)) {
                 return ['color: ' . $value . ' !important;'];
             }
@@ -709,11 +763,6 @@ class TailwindCssFallbackGenerator
      */
     private function mapSpacingUtilityToDeclarations(string $utility): array
     {
-        if (preg_match('/^gap-(.+)$/', $utility, $matches)) {
-            $value = $this->resolveSpacingValue($matches[1]);
-            return $value === null ? [] : ['gap: ' . $value . ' !important;'];
-        }
-
         if (preg_match('/^gap-x-(.+)$/', $utility, $matches)) {
             $value = $this->resolveSpacingValue($matches[1]);
             return $value === null ? [] : ['column-gap: ' . $value . ' !important;'];
@@ -722,6 +771,11 @@ class TailwindCssFallbackGenerator
         if (preg_match('/^gap-y-(.+)$/', $utility, $matches)) {
             $value = $this->resolveSpacingValue($matches[1]);
             return $value === null ? [] : ['row-gap: ' . $value . ' !important;'];
+        }
+
+        if (preg_match('/^gap-(.+)$/', $utility, $matches)) {
+            $value = $this->resolveSpacingValue($matches[1]);
+            return $value === null ? [] : ['gap: ' . $value . ' !important;'];
         }
 
         if (preg_match('/^(p|px|py|pt|pr|pb|pl)-(.+)$/', $utility, $matches)) {
@@ -793,7 +847,8 @@ class TailwindCssFallbackGenerator
         }
 
         if (preg_match('/^\[(.+)\]$/', $token, $matches)) {
-            return $this->normalizeArbitraryValue($matches[1]);
+            $value = $this->normalizeArbitraryValue($matches[1]);
+            return $this->isSafeCssValue($value) ? $value : null;
         }
 
         if (preg_match('/^\d+$/', $token) === 1) {
@@ -903,12 +958,12 @@ class TailwindCssFallbackGenerator
 
         if (preg_match('/^\[(.+)\]$/', $value, $matches)) {
             $normalized = $this->normalizeArbitraryValue($matches[1]);
-            if ($this->looksLikeColor($normalized)) {
+            if ($this->isSafeCssValue($normalized) && $this->looksLikeColor($normalized)) {
                 return $this->applyOpacityToColor($normalized, $opacity);
             }
         }
 
-        if ($this->looksLikeColor($value)) {
+        if ($this->isSafeCssValue($value) && $this->looksLikeColor($value)) {
             return $this->applyOpacityToColor($value, $opacity);
         }
 
@@ -938,6 +993,12 @@ class TailwindCssFallbackGenerator
         }
 
         return $color;
+    }
+
+    private function isSafeCssValue(string $value): bool
+    {
+        return $value !== ''
+            && preg_match('/[;{}<>]|javascript\s*:/i', $value) !== 1;
     }
 
     private function resolveSpacingScale(int $step): ?string

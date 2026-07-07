@@ -11,6 +11,16 @@ module.exports = async function runLiveGateTests() {
   );
 
   assert.equal(
+    liveGate.parseArgs([]).siteKitManifest,
+    "site-kit/manifest.json"
+  );
+
+  assert.equal(
+    liveGate.parseArgs(["--skip-site-kit"]).skipSiteKit,
+    true
+  );
+
+  assert.equal(
     liveGate.buildSlug("Maximus-maximus_transformacja_domu"),
     "perf-maximus-maximus-transformacja-domu"
   );
@@ -18,6 +28,26 @@ module.exports = async function runLiveGateTests() {
   assert.equal(
     liveGate.buildSlug("Maximus-maximus_transformacja_domu", "live-gate-"),
     "live-gate-maximus-maximus-transformacja-domu"
+  );
+
+  assert.deepEqual(
+    liveGate.sortFixturePagesBySlugOrder(
+      [
+        { slug: "live-gate-native-no-code-08-fallback-css" },
+        { slug: "live-gate-native-no-code-01-text" },
+        { slug: "live-gate-native-no-code-02-image" },
+      ],
+      [
+        "live-gate-native-no-code-01-text",
+        "live-gate-native-no-code-02-image",
+        "live-gate-native-no-code-08-fallback-css",
+      ]
+    ).map((fixture) => fixture.slug),
+    [
+      "live-gate-native-no-code-01-text",
+      "live-gate-native-no-code-02-image",
+      "live-gate-native-no-code-08-fallback-css",
+    ]
   );
 
   assert.equal(
@@ -137,5 +167,75 @@ module.exports = async function runLiveGateTests() {
       "Validation Error: malformed builder payload"
     ),
     false
+  );
+
+  const siteKitProof = {
+    ok: true,
+    ids: {
+      page: 11,
+      template: 12,
+      header: 13,
+      footer: 14,
+      part: 15,
+      post: 16,
+    },
+    import: {
+      objects: {
+        pages: [{}],
+        templates: [{}],
+        headers: [{}],
+        footers: [{}],
+        parts: [{}],
+      },
+    },
+    siteOptions: {
+      show_on_front: "page",
+      page_on_front: 11,
+    },
+    menu: {
+      locations: {
+        primary: 3,
+      },
+      primaryMenuId: 3,
+      items: [
+        {
+          type: "post_type",
+          objectId: 11,
+        },
+      ],
+    },
+    templateSettings: {
+      template: {
+        type: "all-singles",
+      },
+      header: {
+        type: "everywhere",
+      },
+      footer: {
+        type: "everywhere",
+      },
+    },
+    hasTree: {
+      page: true,
+      template: true,
+      header: true,
+      footer: true,
+      part: true,
+    },
+    urls: {
+      home: "http://oxyconvo6.localhost/",
+      page: "http://oxyconvo6.localhost/home/",
+      post: "http://oxyconvo6.localhost/post/",
+    },
+  };
+
+  assert.doesNotThrow(() => liveGate.assertSiteKitImportProof(siteKitProof));
+  assert.throws(
+    () =>
+      liveGate.assertSiteKitImportProof({
+        ...siteKitProof,
+        siteOptions: { show_on_front: "posts", page_on_front: 11 },
+      }),
+    /show_on_front/
   );
 };

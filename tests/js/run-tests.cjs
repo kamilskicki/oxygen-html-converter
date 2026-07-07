@@ -5,6 +5,7 @@ const tests = [
   ["builder-client", require("./builder-client.test.cjs")],
   ["builder-editability", require("./builder-editability.test.cjs")],
   ["live-gate", require("./live-gate.test.cjs")],
+  ["fixture-baseline", require("./fixture-baseline.test.cjs")],
   ["converter", require("./converter.test.cjs")],
   ["admin-request-client", require("./admin-request-client.test.cjs")],
   ["admin-renderers", require("./admin-renderers.test.cjs")],

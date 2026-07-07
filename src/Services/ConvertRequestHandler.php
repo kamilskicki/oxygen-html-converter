@@ -26,13 +26,18 @@ class ConvertRequestHandler
         $result = $builder->convert($html);
 
         if (empty($result['success'])) {
+            $data = [
+                'message' => $result['error'] ?? 'Conversion failed',
+                'errors' => $result['errors'] ?? [],
+            ];
+            if (isset($result['stats']) && is_array($result['stats'])) {
+                $data['stats'] = $result['stats'];
+            }
+
             return [
                 'success' => false,
                 'status' => 400,
-                'data' => [
-                    'message' => $result['error'] ?? 'Conversion failed',
-                    'errors' => $result['errors'] ?? [],
-                ],
+                'data' => $data,
             ];
         }
 

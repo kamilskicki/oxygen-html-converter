@@ -43,15 +43,21 @@ class RequestOptions
             $startingNodeId = 1;
         }
 
+        $safeMode = $this->parseBool($input['safeMode'] ?? true, true);
+        $strictNative = $this->parseBool($input['strictNative'] ?? false, false);
+
         return [
             'startingNodeId' => $startingNodeId,
             'wrapInContainer' => $this->parseBool($input['wrapInContainer'] ?? true, true),
-            'includeCssElement' => $this->parseBool($input['includeCssElement'] ?? true, true),
+            'includeCssElement' => $this->parseBool($input['includeCssElement'] ?? false, false),
             'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? true, true),
+            'safeMode' => $safeMode,
             'unsafeModeExplicit' => array_key_exists('safeMode', $input)
-                && !$this->parseBool($input['safeMode'] ?? true, true),
-            'strictNative' => $this->parseBool($input['strictNative'] ?? false, false),
+                && !$safeMode,
+            'allowExecutableCode' => !$safeMode
+                && !$strictNative
+                && $this->parseBool($input['allowExecutableCode'] ?? false, false),
+            'strictNative' => $strictNative,
             'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
         ];
     }
@@ -62,12 +68,18 @@ class RequestOptions
      */
     public function normalizeBatch(array $input): array
     {
+        $safeMode = $this->parseBool($input['safeMode'] ?? true, true);
+        $strictNative = $this->parseBool($input['strictNative'] ?? false, false);
+
         return [
             'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? true, true),
+            'safeMode' => $safeMode,
             'unsafeModeExplicit' => array_key_exists('safeMode', $input)
-                && !$this->parseBool($input['safeMode'] ?? true, true),
-            'strictNative' => $this->parseBool($input['strictNative'] ?? false, false),
+                && !$safeMode,
+            'allowExecutableCode' => !$safeMode
+                && !$strictNative
+                && $this->parseBool($input['allowExecutableCode'] ?? false, false),
+            'strictNative' => $strictNative,
             'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
         ];
     }
@@ -78,12 +90,18 @@ class RequestOptions
      */
     public function normalizePreview(array $input): array
     {
+        $safeMode = $this->parseBool($input['safeMode'] ?? true, true);
+        $strictNative = $this->parseBool($input['strictNative'] ?? false, false);
+
         return [
             'inlineStyles' => $this->parseBool($input['inlineStyles'] ?? true, true),
-            'safeMode' => $this->parseBool($input['safeMode'] ?? true, true),
+            'safeMode' => $safeMode,
             'unsafeModeExplicit' => array_key_exists('safeMode', $input)
-                && !$this->parseBool($input['safeMode'] ?? true, true),
-            'strictNative' => $this->parseBool($input['strictNative'] ?? false, false),
+                && !$safeMode,
+            'allowExecutableCode' => !$safeMode
+                && !$strictNative
+                && $this->parseBool($input['allowExecutableCode'] ?? false, false),
+            'strictNative' => $strictNative,
             'debugMode' => $this->parseBool($input['debugMode'] ?? false, false),
         ];
     }

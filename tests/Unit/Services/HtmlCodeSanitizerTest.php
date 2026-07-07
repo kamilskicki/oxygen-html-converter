@@ -54,6 +54,24 @@ class HtmlCodeSanitizerTest extends TestCase
         $this->assertStringContainsString('src="#"', $sanitized);
     }
 
+    public function testSanitizeFragmentBlocksObfuscatedJavaScriptFormUrls(): void
+    {
+        $sanitizer = new HtmlCodeSanitizer();
+
+        $sanitized = $sanitizer->sanitizeFragment(
+            '<form action="jav&#x61;script:alert(1)">'
+            . '<button formaction="java&#10;script:alert(2)">Send</button>'
+            . '</form>'
+        );
+
+        $lower = strtolower($sanitized);
+        $this->assertStringNotContainsString('javascript:', $lower);
+        $this->assertStringNotContainsString('jav&#x61;script:', $lower);
+        $this->assertStringNotContainsString('java&#10;script:', $lower);
+        $this->assertStringNotContainsString('action=', $lower);
+        $this->assertStringNotContainsString('formaction=', $lower);
+    }
+
     public function testSanitizeFragmentBlocksSchemeRelativeAndMailtoHeaderInjectionUrls(): void
     {
         $sanitizer = new HtmlCodeSanitizer();

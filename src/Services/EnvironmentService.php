@@ -9,6 +9,9 @@ namespace OxyHtmlConverter\Services;
  */
 class EnvironmentService
 {
+    public const FEATURE_FLAG_WINDPRESS_INTEGRATION = 'windpress_integration';
+    public const FEATURE_FLAG_WINDPRESS_CLASS_MODE = 'windpress_class_mode';
+
     private ?BuilderContractService $builderContractService = null;
     private ?array $essentialButtonContractStatus = null;
 
@@ -67,6 +70,10 @@ class EnvironmentService
     {
         $mode = $this->getClassHandlingMode();
 
+        if (!$this->isWindPressClassModeEnabled()) {
+            return false;
+        }
+
         if ($mode === 'windpress') {
             return true;
         }
@@ -76,6 +83,14 @@ class EnvironmentService
         }
 
         return false;
+    }
+
+    public function isWindPressClassModeEnabled(): bool
+    {
+        $flags = $this->featureFlags();
+
+        return !empty($flags[self::FEATURE_FLAG_WINDPRESS_INTEGRATION])
+            && !empty($flags[self::FEATURE_FLAG_WINDPRESS_CLASS_MODE]);
     }
 
     /**
@@ -182,5 +197,20 @@ class EnvironmentService
         }
 
         return $this->builderContractService;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function featureFlags(): array
+    {
+        if (!function_exists('apply_filters')) {
+            return [];
+        }
+
+        return (array) apply_filters('oxy_html_converter_feature_flags', [
+            self::FEATURE_FLAG_WINDPRESS_INTEGRATION => false,
+            self::FEATURE_FLAG_WINDPRESS_CLASS_MODE => false,
+        ]);
     }
 }

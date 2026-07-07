@@ -76,23 +76,39 @@ class ConversionReportTest extends TestCase
             'Forms are not approved for native Core import.',
             'blocking',
             'Core import plan',
-            'Replace with an approved form integration or explicitly choose unsafe fallback.'
+            'Replace with an approved form integration or explicitly choose unsafe fallback.',
+            [
+                'sourceSnippet' => '<form id="lead">...</form>',
+                'selector' => 'form#lead',
+                'fallbackCategory' => 'unsupported_form',
+                'safeModeImpact' => 'Safe Mode strips functional form behavior.',
+            ]
         );
         $this->report->addUnsupportedItem(
             'form#lead',
             'Forms are not approved for native Core import.',
             'blocking',
             'Core import plan',
-            'Replace with an approved form integration or explicitly choose unsafe fallback.'
+            'Replace with an approved form integration or explicitly choose unsafe fallback.',
+            [
+                'sourceSnippet' => '<form id="lead">...</form>',
+                'selector' => 'form#lead',
+                'fallbackCategory' => 'unsupported_form',
+                'safeModeImpact' => 'Safe Mode strips functional form behavior.',
+            ]
         );
 
         $data = $this->report->toArray();
 
-        $this->assertCount(1, $data['unsupportedItems']);
+        $this->assertCount(2, $data['unsupportedItems']);
         $this->assertSame('form#lead', $data['unsupportedItems'][0]['location']);
         $this->assertSame('Forms are not approved for native Core import.', $data['unsupportedItems'][0]['reason']);
         $this->assertSame('blocking', $data['unsupportedItems'][0]['severity']);
         $this->assertSame('Core import plan', $data['unsupportedItems'][0]['owner']);
+        $this->assertSame('<form id="lead">...</form>', $data['unsupportedItems'][0]['sourceSnippet']);
+        $this->assertSame('form#lead', $data['unsupportedItems'][0]['selector']);
+        $this->assertSame('unsupported_form', $data['unsupportedItems'][0]['fallbackCategory']);
+        $this->assertSame('Safe Mode strips functional form behavior.', $data['unsupportedItems'][0]['safeModeImpact']);
         $this->assertSame(
             'Replace with an approved form integration or explicitly choose unsafe fallback.',
             $data['unsupportedItems'][0]['remediation']

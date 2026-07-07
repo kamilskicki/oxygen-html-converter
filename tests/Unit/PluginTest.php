@@ -52,6 +52,26 @@ class PluginTest extends TestCase
         $this->assertArrayHasKey('ui', $GLOBALS['__wp_localized_scripts']['oxy-html-converter']['l10n']);
     }
 
+    public function testEnqueueBuilderScriptsLoadsInHeadForOxygenBuilderRequests(): void
+    {
+        $_GET['oxygen'] = 'builder';
+        $plugin = Plugin::getInstance();
+        $plugin->enqueueBuilderScripts();
+
+        $this->assertFalse($GLOBALS['__wp_enqueued_scripts']['oxy-html-converter-builder-editability']['in_footer']);
+        $this->assertFalse($GLOBALS['__wp_enqueued_scripts']['oxy-html-converter']['in_footer']);
+    }
+
+    public function testEnqueueBuilderScriptsKeepsFooterLoadingForToolPage(): void
+    {
+        $_GET['page'] = 'oxy-html-converter-tool';
+        $plugin = Plugin::getInstance();
+        $plugin->enqueueBuilderScripts('tools_page_oxy-html-converter-tool');
+
+        $this->assertTrue($GLOBALS['__wp_enqueued_scripts']['oxy-html-converter-builder-editability']['in_footer']);
+        $this->assertTrue($GLOBALS['__wp_enqueued_scripts']['oxy-html-converter']['in_footer']);
+    }
+
     public function testEnqueueGlobalStylesRegistersPersistedImportedCss(): void
     {
         $GLOBALS['__wp_options']['oxy_html_converter_global_styles'] = wp_json_encode([

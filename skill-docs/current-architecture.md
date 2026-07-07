@@ -1,6 +1,6 @@
-# Current Architecture
+# Maximus Example Architecture
 
-This file maps the implementation to concrete files and functions.
+This file maps the Maximus site-kit example implementation to concrete files and functions. It is useful proof material, but the generic Core acceptance contract is the stable fixture/live/visual gate documented in `quality-gates.md`.
 
 ## Entry Point
 

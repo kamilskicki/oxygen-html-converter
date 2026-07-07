@@ -10,6 +10,7 @@ use OxyHtmlConverter\Report\ConversionReport;
 class FrameworkDetector
 {
     private ConversionReport $report;
+    private array $reportedFrameworks = [];
 
     public function __construct(ConversionReport $report)
     {
@@ -25,20 +26,47 @@ class FrameworkDetector
 
         if ($this->hasAlpineAttributes($node)) {
             $detected[] = 'Alpine.js';
-            $this->report->addWarning('Alpine.js detected. Ensure Alpine.js script is included in your WordPress site.');
+            $this->reportFrameworkWarning('Alpine.js', 'Alpine.js detected. Ensure Alpine.js script is included in your WordPress site.');
         }
 
         if ($this->hasHtmxAttributes($node)) {
             $detected[] = 'HTMX';
-            $this->report->addWarning('HTMX detected. Ensure HTMX script is included in your WordPress site.');
+            $this->reportFrameworkWarning('HTMX', 'HTMX detected. Ensure HTMX script is included in your WordPress site.');
         }
 
         if ($this->hasStimulusAttributes($node)) {
             $detected[] = 'Stimulus.js';
-            $this->report->addWarning('Stimulus.js detected. Ensure Stimulus.js is properly initialized in your project.');
+            $this->reportFrameworkWarning('Stimulus.js', 'Stimulus.js detected. Ensure Stimulus.js is properly initialized in your project.');
         }
 
         return $detected;
+    }
+
+    public function resetReportedFrameworks(): void
+    {
+        $this->reportedFrameworks = [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function detectDocument(\DOMDocument $document): array
+    {
+        $detected = [];
+
+        foreach ($document->getElementsByTagName('*') as $node) {
+            if (!($node instanceof \DOMElement)) {
+                continue;
+            }
+
+            foreach ($this->detect($node) as $framework) {
+                $detected[] = $framework;
+            }
+        }
+
+        sort($detected);
+
+        return array_values(array_unique($detected));
     }
 
     /**
@@ -106,5 +134,15 @@ class FrameworkDetector
         }
 
         return false;
+    }
+
+    private function reportFrameworkWarning(string $framework, string $message): void
+    {
+        if (isset($this->reportedFrameworks[$framework])) {
+            return;
+        }
+
+        $this->reportedFrameworks[$framework] = true;
+        $this->report->addWarning($message);
     }
 }

@@ -6,6 +6,16 @@ namespace OxyHtmlConverter\Services;
 
 final class OxygenStorageAdapterFactory
 {
+    /**
+     * Runtime versions that are compatible with the pinned Oxygen 6 storage contract fixtures.
+     *
+     * @var array<int, string>
+     */
+    private const SUPPORTED_RUNTIME_OXYGEN_VERSIONS = [
+        OxygenStorageContract::SUPPORTED_OXYGEN_VERSION,
+        '6.1.0',
+    ];
+
     private BuilderContractService $contractService;
     private string $fixtureDirectory;
     private ?string $runtimeOxygenVersion;
@@ -23,17 +33,18 @@ final class OxygenStorageAdapterFactory
 
     public function supports(string $oxygenVersion): bool
     {
-        return $oxygenVersion === OxygenStorageContract::SUPPORTED_OXYGEN_VERSION;
+        return in_array($oxygenVersion, self::SUPPORTED_RUNTIME_OXYGEN_VERSIONS, true);
     }
 
     public function create(): OxygenStorageAdapter
     {
+        // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal compatibility errors, not rendered directly.
         if ($this->runtimeOxygenVersion !== null && !$this->supports($this->runtimeOxygenVersion)) {
             throw new \RuntimeException(
                 sprintf(
-                    'Unsupported Oxygen runtime version "%s"; supported version is "%s".',
+                    'Unsupported Oxygen runtime version "%s"; supported versions are "%s".',
                     $this->runtimeOxygenVersion,
-                    OxygenStorageContract::SUPPORTED_OXYGEN_VERSION
+                    implode('", "', self::SUPPORTED_RUNTIME_OXYGEN_VERSIONS)
                 )
             );
         }
@@ -56,6 +67,7 @@ final class OxygenStorageAdapterFactory
                 )
             );
         }
+        // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 
         return new OxygenSixStorageAdapter(new OxygenStorageContract(
             $version,

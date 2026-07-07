@@ -2,6 +2,7 @@
 
 namespace OxyHtmlConverter\Tests\Unit;
 
+use OxyHtmlConverter\ElementTypes;
 use OxyHtmlConverter\TreeBuilder;
 use PHPUnit\Framework\TestCase;
 
@@ -54,6 +55,53 @@ HTML;
 
         $interactions = $result['element']['data']['properties']['settings']['interactions']['interactions'] ?? [];
         $this->assertSame([], $interactions);
+
+        $items = $result['stats']['unsupportedItems'] ?? [];
+        $this->assertNotEmpty($items);
+        $this->assertSame('removed_inline_behavior', $items[0]['fallbackCategory']);
+        $this->assertSame('button[onclick]', $items[0]['selector']);
+        $this->assertStringContainsString('behavior attribute', $items[0]['reason']);
+    }
+
+    public function testDefaultTreeBuilderDoesNotEmitExecutableCodeWithoutOptIn(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert('<script>console.log("x")</script><div>Hello</div>');
+
+        $this->assertTrue($result['success']);
+
+        $types = [];
+        $this->collectElementTypes($result['element'], $types);
+        $this->assertNotContains('OxygenElements\\JavaScriptCode', $types);
+        $this->assertNotEmpty($result['stats']['unsupportedItems'] ?? []);
+    }
+
+    public function testUnsafeModeWithoutExecutableOptInStillStripsScripts(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $result = $builder->convert('<script>console.log("x")</script><div>Hello</div>');
+
+        $this->assertTrue($result['success']);
+
+        $types = [];
+        $this->collectElementTypes($result['element'], $types);
+        $this->assertNotContains('OxygenElements\\JavaScriptCode', $types);
+        $this->assertSame('removed_executable', $result['stats']['unsupportedItems'][0]['fallbackCategory'] ?? null);
+    }
+
+    public function testExplicitExecutableCodeOptInAllowsUnsafeJavaScriptFallback(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
+        $result = $builder->convert('<script>console.log("x")</script><div>Hello</div>');
+
+        $this->assertTrue($result['success']);
+
+        $types = [];
+        $this->collectElementTypes($result['element'], $types);
+        $this->assertContains('OxygenElements\\JavaScriptCode', $types);
     }
 
     public function testDisablingInlineStylesSkipsDesignStyleExtraction(): void
@@ -106,6 +154,296 @@ HTML;
         $this->assertStringNotContainsString('javascript:', $payload);
         $this->assertStringNotContainsString('<form', $payload);
         $this->assertStringNotContainsString('action=', $payload);
+    }
+
+    public function testUnsupportedHtmlCodeFallbackReportsActionableTaxonomy(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(true);
+        $result = $builder->convert(
+            '<form id="lead" class="signup" action="javascript:alert(1)"><input name="email"><button>Join</button></form>'
+        );
+
+        $this->assertTrue($result['success']);
+
+        $items = $result['stats']['unsupportedItems'] ?? [];
+
+        $this->assertNotEmpty($items);
+        $this->assertSame('form#lead.signup', $items[0]['selector']);
+        $this->assertSame('unsupported_form', $items[0]['fallbackCategory']);
+        $this->assertSame('blocking', $items[0]['severity']);
+        $this->assertStringContainsString('form#lead', $items[0]['location']);
+        $this->assertStringContainsString('<form', $items[0]['sourceSnippet']);
+        $this->assertStringContainsString('Safe Mode', $items[0]['safeModeImpact']);
+        $this->assertNotSame('', $items[0]['remediation']);
+    }
+
+    public function testCoreReportsFormsAsUnsupportedAndSanitizesUnsafeFieldFallbackByDefault(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(true);
+        $result = $builder->convert(
+            '<form id="lead" action="javascript:alert(1)" method="post" target="_blank" onsubmit="evil()">'
+            . '<input type="email" name="email" required minlength="3" pattern=".+@.+" formaction="javascript:alert(2)" formtarget="_blank">'
+            . '<textarea name="message" maxlength="200"></textarea>'
+            . '<select name="topic"><option>Sales</option></select>'
+            . '<button type="submit" formaction="javascript:alert(3)">Send</button>'
+            . '</form>'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(ElementTypes::HTML_CODE, $result['element']['data']['type']);
+
+        $payload = strtolower((string) ($result['element']['data']['properties']['content']['content']['html_code'] ?? ''));
+        foreach ([
+            '<form',
+            '<input',
+            '<textarea',
+            '<select',
+            'action=',
+            'method=',
+            'target=',
+            'onsubmit=',
+            'formaction=',
+            'formtarget=',
+            'required',
+            'minlength',
+            'pattern=',
+            'javascript:',
+        ] as $blocked) {
+            $this->assertStringNotContainsString($blocked, $payload);
+        }
+
+        $item = $result['stats']['unsupportedItems'][0] ?? [];
+        $this->assertSame('unsupported_form', $item['fallbackCategory'] ?? null);
+        $this->assertStringContainsString('Forms are not imported as editable native controls', $item['reason'] ?? '');
+        $this->assertStringContainsString('action/formaction/target', $item['safeModeImpact'] ?? '');
+        $this->assertStringContainsString('approved WordPress/form integration', $item['remediation'] ?? '');
+        $this->assertStringContainsString('[unsafe-url]:', $item['sourceSnippet'] ?? '');
+    }
+
+    public function testUnsafeFormHtmlCodeFallbackRequiresExplicitOptIn(): void
+    {
+        $html = '<form id="lead" action="https://example.test/lead" method="post" target="_blank" onsubmit="evil()">'
+            . '<input type="email" name="email" required minlength="3">'
+            . '<button type="submit" formaction="https://example.test/alt" formtarget="_blank">Send</button>'
+            . '</form>';
+
+        $defaultBuilder = new TreeBuilder();
+        $defaultBuilder->setSafeMode(false);
+        $defaultResult = $defaultBuilder->convert($html);
+        $this->assertTrue($defaultResult['success']);
+        $defaultPayload = strtolower((string) ($defaultResult['element']['data']['properties']['content']['content']['html_code'] ?? ''));
+        $this->assertStringNotContainsString('<form', $defaultPayload);
+        $this->assertStringContainsString('explicit unsafe code-fallback opt-in', $defaultResult['stats']['unsupportedItems'][0]['reason'] ?? '');
+
+        $unsafeBuilder = new TreeBuilder();
+        $unsafeBuilder->setSafeMode(false);
+        $unsafeBuilder->setAllowExecutableCode(true);
+        $unsafeResult = $unsafeBuilder->convert($html);
+        $this->assertTrue($unsafeResult['success']);
+        $unsafePayload = strtolower((string) ($unsafeResult['element']['data']['properties']['content']['content']['html_code'] ?? ''));
+
+        $this->assertStringContainsString('<form', $unsafePayload);
+        $this->assertStringContainsString('action="https://example.test/lead"', $unsafePayload);
+        $this->assertStringContainsString('method="post"', $unsafePayload);
+        $this->assertStringContainsString('target="_blank"', $unsafePayload);
+        $this->assertStringContainsString('onsubmit="evil()"', $unsafePayload);
+        $this->assertStringContainsString('<input', $unsafePayload);
+        $this->assertStringContainsString('required', $unsafePayload);
+        $this->assertStringContainsString('formaction="https://example.test/alt"', $unsafePayload);
+        $this->assertSame('unsupported_form', $unsafeResult['stats']['unsupportedItems'][0]['fallbackCategory'] ?? null);
+        $this->assertStringContainsString('unsafe visible HtmlCode fallback', $unsafeResult['stats']['unsupportedItems'][0]['reason'] ?? '');
+        $this->assertStringContainsString('explicitly approved', $unsafeResult['stats']['unsupportedItems'][0]['safeModeImpact'] ?? '');
+    }
+
+    public function testStandaloneFormAssociatedButtonAttributesAreReportedWhenStripped(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(true);
+        $result = $builder->convert(
+            '<button formaction="javascript:alert(1)" formtarget="_blank" formmethod="post">Send</button>'
+        );
+
+        $this->assertTrue($result['success']);
+
+        $attributes = $result['element']['data']['properties']['settings']['advanced']['attributes'] ?? [];
+        $this->assertSame([], $attributes);
+
+        $items = array_values(array_filter(
+            $result['stats']['unsupportedItems'] ?? [],
+            static fn (array $item): bool => ($item['fallbackCategory'] ?? '') === 'unsupported_form'
+        ));
+
+        $this->assertCount(3, $items);
+        $selectors = array_column($items, 'selector');
+        $this->assertContains('button[formaction]', $selectors);
+        $this->assertContains('button[formtarget]', $selectors);
+        $this->assertContains('button[formmethod]', $selectors);
+        $this->assertStringContainsString('Form-associated submission attribute', $items[0]['reason']);
+        $this->assertStringContainsString('approved WordPress/form integration', $items[0]['remediation']);
+    }
+
+    public function testSafeModeReportsObjectAndEmbedAsUnsupportedExecutableContainers(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(true);
+        $result = $builder->convert(
+            '<section><object data="https://example.test/app.swf"></object><embed src="https://example.test/app.swf"></section>'
+        );
+
+        $this->assertTrue($result['success']);
+
+        $items = $result['stats']['unsupportedItems'] ?? [];
+        $selectors = array_column($items, 'selector');
+        $categories = array_column($items, 'fallbackCategory');
+
+        $this->assertContains('object', $selectors);
+        $this->assertContains('embed', $selectors);
+        $this->assertContains('unsupported_embed', $categories);
+    }
+
+    public function testUnsupportedOnlyInputCarriesReportStats(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(true);
+        $result = $builder->convert('<script>alert(1)</script><iframe srcdoc="<script>alert(1)</script>"></iframe>');
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('No convertible content found in HTML', $result['error']);
+        $this->assertNotEmpty($result['stats']['unsupportedItems'] ?? []);
+        $this->assertContains(
+            'removed_executable',
+            array_column($result['stats']['unsupportedItems'], 'fallbackCategory')
+        );
+        $this->assertContains(
+            'unsupported_embed',
+            array_column($result['stats']['unsupportedItems'], 'fallbackCategory')
+        );
+    }
+
+    public function testHeadAssetsReportActionableUnsupportedItemsInSafeMode(): void
+    {
+        $html = '<!doctype html><html><head>'
+            . '<link rel="stylesheet" href="https://cdn.example.test/app.css">'
+            . '<script src="https://cdn.example.test/app.js"></script>'
+            . '<script>window.tailwind.config = { theme: {} };</script>'
+            . '</head><body><i data-lucide="star"></i><main>Body</main></body></html>';
+
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(true);
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $items = $result['stats']['unsupportedItems'] ?? [];
+        $categories = array_column($items, 'fallbackCategory');
+
+        $this->assertContains('removed_head_stylesheet', $categories);
+        $this->assertContains('removed_head_script', $categories);
+        $this->assertContains('removed_icon_asset', $categories);
+        $this->assertSame([], $result['headLinkElements']);
+        $this->assertSame([], $result['headScriptElements']);
+        $this->assertSame([], $result['iconScriptElements']);
+
+        foreach ($items as $item) {
+            $this->assertNotSame('', trim((string) ($item['location'] ?? '')));
+            $this->assertNotSame('', trim((string) ($item['selector'] ?? '')));
+            $this->assertNotSame('', trim((string) ($item['sourceSnippet'] ?? '')));
+            $this->assertNotSame('', trim((string) ($item['reason'] ?? '')));
+            $this->assertNotSame('', trim((string) ($item['safeModeImpact'] ?? '')));
+            $this->assertNotSame('', trim((string) ($item['remediation'] ?? '')));
+        }
+    }
+
+    public function testHeadAssetsReportActionableUnsupportedItemsInUnsafeMode(): void
+    {
+        $html = '<!doctype html><html><head>'
+            . '<link rel="stylesheet" href="https://cdn.example.test/app.css">'
+            . '<script src="https://cdn.example.test/app.js"></script>'
+            . '<script>window.tailwind.config = { theme: {} };</script>'
+            . '</head><body><main>Body</main></body></html>';
+
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $items = $result['stats']['unsupportedItems'] ?? [];
+        $categories = array_column($items, 'fallbackCategory');
+
+        $this->assertContains('unsafe_head_stylesheet_fallback', $categories);
+        $this->assertContains('unsafe_head_script_fallback', $categories);
+        $this->assertNotEmpty($result['headLinkElements']);
+        $this->assertNotEmpty($result['headScriptElements']);
+    }
+
+    public function testUnsafeModeWithoutExecutableOptInDoesNotPreserveHeadAssets(): void
+    {
+        $html = '<!doctype html><html><head>'
+            . '<link rel="stylesheet" href="https://cdn.example.test/app.css">'
+            . '<script src="https://cdn.example.test/app.js"></script>'
+            . '</head><body><main>Body</main></body></html>';
+
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame([], $result['headLinkElements']);
+        $this->assertSame([], $result['headScriptElements']);
+
+        $categories = array_column($result['stats']['unsupportedItems'] ?? [], 'fallbackCategory');
+        $this->assertContains('removed_head_stylesheet', $categories);
+        $this->assertContains('removed_head_script', $categories);
+    }
+
+    public function testHeadExternalScriptSnippetsPreserveSafeSourceIdentity(): void
+    {
+        $html = '<!doctype html><html><head>'
+            . '<script src="https://cdn.example.test/one.js"></script>'
+            . '<script src="https://cdn.example.test/two.js"></script>'
+            . '</head><body><main>Body</main></body></html>';
+
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $scriptItems = array_values(array_filter(
+            $result['stats']['unsupportedItems'] ?? [],
+            static fn (array $item): bool => ($item['fallbackCategory'] ?? '') === 'unsafe_head_script_fallback'
+        ));
+
+        $this->assertCount(2, $scriptItems);
+        $this->assertStringContainsString('one.js', $scriptItems[0]['sourceSnippet']);
+        $this->assertStringContainsString('two.js', $scriptItems[1]['sourceSnippet']);
+        $this->assertStringContainsString('[removed script]', $scriptItems[0]['sourceSnippet']);
+    }
+
+    public function testUnsupportedItemCountsPreserveRepeatedIdenticalOccurrences(): void
+    {
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(true);
+        $result = $builder->convert(
+            '<section>'
+            . '<form class="lead"><input name="email"></form>'
+            . '<form class="lead"><input name="email"></form>'
+            . '</section>'
+        );
+
+        $this->assertTrue($result['success']);
+
+        $items = array_values(array_filter(
+            $result['stats']['unsupportedItems'] ?? [],
+            static fn (array $item): bool => ($item['selector'] ?? '') === 'form.lead'
+        ));
+
+        $this->assertCount(2, $items);
     }
 
     public function testSafeModeSanitizesTextRichTextLinkImageButtonAndAttributeSinks(): void
@@ -267,6 +605,8 @@ HTML;
 HTML;
 
         $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
         $result = $builder->convert($html);
 
         $this->assertTrue($result['success']);
@@ -305,6 +645,8 @@ HTML;
 HTML;
 
         $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
         $result = $builder->convert($html);
 
         $this->assertTrue($result['success']);
@@ -336,6 +678,8 @@ HTML;
 HTML;
 
         $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
         $result = $builder->convert($html);
 
         $this->assertTrue($result['success']);
@@ -362,6 +706,8 @@ HTML;
 HTML;
 
         $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
         $result = $builder->convert($html);
 
         $this->assertTrue($result['success']);
@@ -393,14 +739,35 @@ HTML;
         $this->assertStringContainsString('.md\\:text-8xl { font-size: 6rem !important; line-height: 1 !important; color: inherit !important; }', $css);
 
         $typography = $result['element']['data']['properties']['design']['typography'] ?? [];
-        $this->assertSame('#ffffff', $typography['color'] ?? null);
+        $this->assertSame('#FFFFFFFF', $typography['color'] ?? null);
         $this->assertSame('uppercase', $typography['text_transform'] ?? null);
-        $this->assertSame('3.75rem', $typography['font_size'] ?? null);
-        $this->assertSame('1', $typography['line_height'] ?? null);
-        $this->assertSame('-0.025em', $typography['letter_spacing'] ?? null);
+        $this->assertSame('3.75rem', $typography['font_size']['style'] ?? null);
+        $this->assertSame('1', $typography['line_height']['style'] ?? null);
+        $this->assertSame('-0.025em', $typography['letter_spacing']['style'] ?? null);
     }
 
-    public function testScrollRevealBaseClassIsPreservedWhenEntranceAnimationIsAdded(): void
+    public function testRejectsUnsafeArbitraryGridFallbackCss(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert('<div class="grid-cols-[1fr;}body{color:red] text-[#ff0084]">Hello</div>');
+
+        $this->assertTrue($result['success']);
+
+        $css = (string) ($result['cssElement']['data']['properties']['content']['content']['css_code'] ?? '');
+        $this->assertStringNotContainsString('body{color:red', $css);
+        $this->assertStringNotContainsString('grid-template-columns: 1fr', $css);
+        $this->assertStringNotContainsString('body{color:red', $result['extractedCss']);
+        $this->assertStringNotContainsString('grid-template-columns: 1fr', $result['extractedCss']);
+        $this->assertStringNotContainsString('body{color:red', $result['pageScopedCss']);
+        $this->assertStringNotContainsString('grid-template-columns: 1fr', $result['pageScopedCss']);
+        $this->assertSame('#FF0084FF', $result['element']['data']['properties']['design']['typography']['color'] ?? null);
+        $this->assertContains(
+            'grid-cols-[1fr;}body{color:red]',
+            $result['element']['data']['properties']['settings']['advanced']['classes'] ?? []
+        );
+    }
+
+    public function testScrollRevealClassesAreRemovedWhenEntranceAnimationIsAdded(): void
     {
         $html = <<<HTML
 <style>
@@ -424,10 +791,139 @@ HTML;
 
         $classes = $result['element']['data']['properties']['settings']['advanced']['classes'] ?? [];
         $animation = $result['element']['data']['properties']['settings']['animations']['entrance_animation'] ?? null;
+        $designEffects = $result['element']['data']['properties']['design']['effects'] ?? [];
 
         $this->assertNotNull($animation);
-        $this->assertContains('reveal', $classes);
-        $this->assertContains('reveal-delay-2', $classes);
+        $this->assertNotContains('reveal', $classes);
+        $this->assertNotContains('reveal-delay-2', $classes);
+        $this->assertArrayNotHasKey('opacity', is_array($designEffects) ? $designEffects : []);
+        $this->assertStringNotContainsString('.reveal', (string) ($result['extractedCss'] ?? ''));
+        $this->assertStringNotContainsString('opacity: 0', (string) ($result['extractedCss'] ?? ''));
+    }
+
+    public function testJavascriptVisibleStateCssIsPromotedWithoutRemovingSemanticClasses(): void
+    {
+        $html = <<<HTML
+<style>
+.hero__descriptor {
+    color: #00ffcc;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.hero__descriptor.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.hero__line {
+    width: 0;
+    height: 3px;
+    background: red;
+    transition: width 1.2s ease;
+}
+.hero__line.visible {
+    width: min(500px, 60%);
+}
+.loader {
+    position: fixed;
+    transition: transform 0.8s ease;
+}
+.loader.done {
+    transform: translateY(-100%);
+}
+</style>
+<section>
+  <div class="loader">Loading</div>
+  <div class="hero__line"></div>
+  <p class="hero__descriptor">Visible content</p>
+</section>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $descriptor = $this->findFirstElementWithClass($result['element'], 'hero__descriptor');
+        $this->assertNotNull($descriptor);
+        $this->assertContains(
+            'hero__descriptor',
+            $descriptor['data']['properties']['settings']['advanced']['classes'] ?? []
+        );
+
+        $designEffects = $descriptor['data']['properties']['design']['effects'] ?? [];
+        $this->assertArrayNotHasKey('opacity', is_array($designEffects) ? $designEffects : []);
+
+        $css = (string) ($result['extractedCss'] ?? '');
+        $this->assertStringContainsString('JS-dependent final states promoted', $css);
+        $this->assertStringContainsString('.hero__descriptor { opacity: 1 !important; transform: translateY(0) !important; }', $css);
+        $this->assertStringContainsString('.hero__line { width: min(500px, 60%) !important; }', $css);
+        $this->assertStringContainsString(
+            '.loader { transform: translateY(-100%) !important; pointer-events: none !important; }',
+            $css
+        );
+    }
+
+    public function testJavascriptVisibleStateCssIsNotPromotedWhenExecutableJavascriptIsPreserved(): void
+    {
+        $html = <<<HTML
+<style>
+.hero {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.hero.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>
+<div class="hero">Animated content</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelector('.hero').classList.add('visible');
+});
+</script>
+HTML;
+
+        $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $javascriptPayloads = [];
+        $this->collectJavascriptPayloads($result['element'], $javascriptPayloads);
+        $this->assertNotSame([], $javascriptPayloads);
+        $this->assertStringNotContainsString(
+            'JS-dependent final states promoted',
+            (string) ($result['extractedCss'] ?? '')
+        );
+    }
+
+    public function testNonHiddenVisibleStateCssIsNotPromotedToDefaultState(): void
+    {
+        $html = <<<HTML
+<style>
+.card {
+    transition: transform 0.2s ease;
+}
+.card.visible {
+    transform: scale(1.08);
+}
+</style>
+<div class="card">Card</div>
+HTML;
+
+        $builder = new TreeBuilder();
+        $result = $builder->convert($html);
+
+        $this->assertTrue($result['success']);
+
+        $css = (string) ($result['extractedCss'] ?? '');
+        $this->assertStringNotContainsString('JS-dependent final states promoted', $css);
+        $this->assertStringNotContainsString('.card { transform: scale(1.08)', $css);
     }
 
     public function testTextOnlyDivContainerConvertsDirectlyToTextElement(): void
@@ -502,6 +998,8 @@ document.addEventListener('DOMContentLoaded', function () {
 HTML;
 
         $builder = new TreeBuilder();
+        $builder->setSafeMode(false);
+        $builder->setAllowExecutableCode(true);
         $result = $builder->convert($html);
 
         $this->assertTrue($result['success']);
@@ -533,6 +1031,27 @@ HTML;
             }
 
             $match = $this->findElementByAdvancedId($child, $advancedId);
+            if ($match !== null) {
+                return $match;
+            }
+        }
+
+        return null;
+    }
+
+    private function findFirstElementWithClass(array $element, string $className): ?array
+    {
+        $classes = $element['data']['properties']['settings']['advanced']['classes'] ?? [];
+        if (is_array($classes) && in_array($className, $classes, true)) {
+            return $element;
+        }
+
+        foreach (($element['children'] ?? []) as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+
+            $match = $this->findFirstElementWithClass($child, $className);
             if ($match !== null) {
                 return $match;
             }

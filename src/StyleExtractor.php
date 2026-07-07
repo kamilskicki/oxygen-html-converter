@@ -57,7 +57,6 @@ class StyleExtractor
         'flex-direction'   => ['layout', 'flex_direction'],
         'justify-content'  => ['layout', 'flex_align', 'primary_axis'],
         'align-items'      => ['layout', 'flex_align', 'cross_axis'],
-        'align-content'    => ['layout', 'flex_align', 'content_axis'],
         'row-gap'          => ['layout', 'gap', 'row'],
         'column-gap'       => ['layout', 'gap', 'column'],
         'grid-auto-flow'   => ['layout', 'grid_auto_flow'],
@@ -156,6 +155,7 @@ class StyleExtractor
                 continue;
             }
 
+            $normalizedAssignments = [];
             foreach (self::controlAssignmentsForDeclaration((string) $cssProp, $value) as $assignment) {
                 $normalizedValue = $this->valueNormalizer->normalizeForPath(
                     $assignment['path'],
@@ -164,10 +164,18 @@ class StyleExtractor
                 );
 
                 if ($normalizedValue === null) {
-                    continue;
+                    $normalizedAssignments = [];
+                    break;
                 }
 
-                $this->setNestedValue($properties, $assignment['path'], $normalizedValue);
+                $normalizedAssignments[] = [
+                    'path' => $assignment['path'],
+                    'value' => $normalizedValue,
+                ];
+            }
+
+            foreach ($normalizedAssignments as $assignment) {
+                $this->setNestedValue($properties, $assignment['path'], $assignment['value']);
             }
         }
 
@@ -276,6 +284,13 @@ class StyleExtractor
             return self::gridChildSpanAssignments($cssProp, (string) $value);
         }
 
+        if (preg_match('/^grid-(column|row)-(start|end)$/', $cssProp, $matches) === 1) {
+            return [[
+                'path' => ['grid_child', $matches[1] . '_' . $matches[2]],
+                'value' => $value,
+            ]];
+        }
+
         if ($cssProp === 'background' || str_starts_with($cssProp, 'background-')) {
             return self::backgroundAssignments($cssProp, (string) $value);
         }
@@ -346,7 +361,10 @@ class StyleExtractor
         $simpleKey = $axis === 'columns' ? 'simple_grid_template_columns' : 'simple_grid_template_rows';
         $advancedKey = $axis === 'columns' ? 'grid_template_columns' : 'grid_template_rows';
 
-        if (preg_match('/^repeat\(\s*(\d+)\s*,/i', trim($value), $matches) === 1) {
+        if (
+            preg_match('/^repeat\(\s*(\d+)\s*,/i', trim($value), $matches) === 1
+            && (new OxygenValueNormalizer())->normalizeMeasurement($value) !== null
+        ) {
             return [[
                 'path' => ['layout', 'grid', $simpleKey],
                 'value' => $matches[1],

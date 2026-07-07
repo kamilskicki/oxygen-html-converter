@@ -30,6 +30,20 @@ class Plugin
     {
         $flags['pro'] = true;
         $flags['pro_stub'] = true;
+        $flags['component_variant_mapper'] = false;
+        $flags['component_repeated_region_mapper'] = false;
+        $flags['component_list_mapper'] = false;
+        $flags['component_form_mapper'] = false;
+        $flags['component_dynamic_data_mapper'] = false;
+        $flags['component_scoped_css_mapper'] = false;
+        $flags['tailwind_runtime_integration'] = false;
+        $flags['windpress_integration'] = false;
+        $flags['windpress_class_mode'] = false;
+        $flags['windpress_cache_reset'] = false;
+        $flags['dynamic_binding_mapper'] = false;
+        $flags['loop_mapper'] = false;
+        $flags['woocommerce_mapper'] = false;
+
         return $flags;
     }
 

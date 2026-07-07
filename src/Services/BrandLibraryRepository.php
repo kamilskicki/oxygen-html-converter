@@ -40,7 +40,7 @@ class BrandLibraryRepository
             : [];
 
         $tokenChanges = 0;
-        foreach (['colors' => 'color', 'fonts' => 'font', 'spacing' => 'spacing'] as $group => $type) {
+        foreach ($this->tokenGroups() as $group => $type) {
             $incomingTokens = is_array($tokenPlan[$group] ?? null) && $tokenPlan[$group] !== []
                 ? $tokenPlan[$group]
                 : (is_array($designTokens[$group] ?? null) ? $designTokens[$group] : []);
@@ -68,6 +68,9 @@ class BrandLibraryRepository
             }
         }
 
+        $globalSettingsChanges = $this->mergeGlobalSettings($library, $payload);
+        $designProfileChanges = $this->mergeDesignProfile($library, $payload);
+
         $library['updatedAt'] = gmdate('c');
         update_option(self::OPTION_NAME, wp_json_encode($library));
 
@@ -75,6 +78,8 @@ class BrandLibraryRepository
             'saved' => true,
             'tokenChanges' => $tokenChanges,
             'componentChanges' => $componentChanges,
+            'globalSettingsChanges' => $globalSettingsChanges,
+            'designProfileChanges' => $designProfileChanges,
             'library' => $library,
         ];
     }
@@ -94,8 +99,28 @@ class BrandLibraryRepository
                 'colors' => array_values(is_array($tokens['colors'] ?? null) ? $tokens['colors'] : []),
                 'fonts' => array_values(is_array($tokens['fonts'] ?? null) ? $tokens['fonts'] : []),
                 'spacing' => array_values(is_array($tokens['spacing'] ?? null) ? $tokens['spacing'] : []),
+                'images' => array_values(is_array($tokens['images'] ?? null) ? $tokens['images'] : []),
+                'measurements' => array_values(is_array($tokens['measurements'] ?? null) ? $tokens['measurements'] : []),
+                'numbers' => array_values(is_array($tokens['numbers'] ?? null) ? $tokens['numbers'] : []),
             ],
             'components' => array_values(is_array($library['components'] ?? null) ? $library['components'] : []),
+            'globalSettings' => is_array($library['globalSettings'] ?? null) ? $library['globalSettings'] : [],
+            'designProfile' => is_array($library['designProfile'] ?? null) ? $library['designProfile'] : [],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function tokenGroups(): array
+    {
+        return [
+            'colors' => 'color',
+            'fonts' => 'font',
+            'spacing' => 'spacing',
+            'images' => 'image',
+            'measurements' => 'measurement',
+            'numbers' => 'number',
         ];
     }
 
@@ -125,6 +150,10 @@ class BrandLibraryRepository
             'firstSeenAt' => $now,
             'lastSeenAt' => $now,
         ];
+
+        if (array_key_exists('dynamicData', $token)) {
+            $entry['dynamicData'] = $token['dynamicData'];
+        }
 
         if ($existingIndex === null) {
             $library['tokens'][$group][] = $entry;
@@ -198,6 +227,185 @@ class BrandLibraryRepository
         }
 
         return null;
+    }
+
+    /**
+     * @param array<string, mixed> $library
+     * @param array<string, mixed> $payload
+     */
+    private function mergeGlobalSettings(array &$library, array $payload): int
+    {
+        $incoming = $this->resolveGlobalSettings($payload);
+        if ($incoming === []) {
+            return 0;
+        }
+
+        $before = $library['globalSettings'] ?? [];
+        $library['globalSettings'] = $this->mergeRecursive(is_array($before) ? $before : [], $incoming);
+
+        return $library['globalSettings'] === $before ? 0 : 1;
+    }
+
+    /**
+     * @param array<string, mixed> $library
+     * @param array<string, mixed> $payload
+     */
+    private function mergeDesignProfile(array &$library, array $payload): int
+    {
+        $incoming = $this->resolveDesignProfile($payload);
+        if ($incoming === []) {
+            return 0;
+        }
+
+        $before = $library['designProfile'] ?? [];
+        $library['designProfile'] = $this->mergeDesignProfileData(is_array($before) ? $before : [], $incoming);
+
+        return $library['designProfile'] === $before ? 0 : 1;
+    }
+
+    /**
+     * @param array<string, mixed> $current
+     * @param array<string, mixed> $incoming
+     * @return array<string, mixed>
+     */
+    private function mergeDesignProfileData(array $current, array $incoming): array
+    {
+        $merged = $this->mergeRecursive($current, $incoming);
+
+        foreach ([
+            'semanticClasses' => ['semanticClass', 'styleSignature', 'sourceClass'],
+            'duplicateStylePatterns' => ['semanticClass', 'styleSignature'],
+            'skippedStylePatterns' => ['reason', 'styleSignature'],
+            'elementApplications' => ['tag', 'id', 'sourceClasses', 'appliedClasses'],
+        ] as $field => $keyFields) {
+            $existing = is_array($current[$field] ?? null) ? $current[$field] : [];
+            $next = is_array($incoming[$field] ?? null) ? $incoming[$field] : [];
+            $merged[$field] = $this->mergeListBySignature($existing, $next, $keyFields);
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @param array<int, mixed> $existing
+     * @param array<int, mixed> $incoming
+     * @param list<string> $keyFields
+     * @return list<array<string, mixed>>
+     */
+    private function mergeListBySignature(array $existing, array $incoming, array $keyFields): array
+    {
+        $items = [];
+        $indexBySignature = [];
+
+        foreach (array_merge($existing, $incoming) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $signature = $this->profileItemSignature($item, $keyFields);
+            if (isset($indexBySignature[$signature])) {
+                $items[$indexBySignature[$signature]] = array_merge($items[$indexBySignature[$signature]], $item);
+                continue;
+            }
+
+            $indexBySignature[$signature] = count($items);
+            $items[] = $item;
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @param list<string> $keyFields
+     */
+    private function profileItemSignature(array $item, array $keyFields): string
+    {
+        $parts = [];
+
+        foreach ($keyFields as $field) {
+            $value = $item[$field] ?? null;
+            if (is_array($value)) {
+                sort($value);
+                $parts[] = $field . ':' . implode(',', array_map('strval', $value));
+            } elseif (is_scalar($value)) {
+                $parts[] = $field . ':' . (string) $value;
+            }
+        }
+
+        if ($parts === []) {
+            $encoded = json_encode($item);
+            return 'hash:' . sha1(is_string($encoded) ? $encoded : serialize($item));
+        }
+
+        return implode('|', $parts);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function resolveGlobalSettings(array $payload): array
+    {
+        foreach (['oxygenGlobalSettings', 'globalSettings'] as $key) {
+            if (isset($payload[$key]) && is_array($payload[$key])) {
+                return is_array($payload[$key]['settings'] ?? null) ? $payload[$key] : ['settings' => $payload[$key]];
+            }
+        }
+
+        $importPlan = is_array($payload['importPlan'] ?? null) ? $payload['importPlan'] : [];
+        foreach (['oxygenGlobalSettings', 'globalSettings'] as $key) {
+            if (isset($importPlan[$key]) && is_array($importPlan[$key])) {
+                return is_array($importPlan[$key]['settings'] ?? null) ? $importPlan[$key] : ['settings' => $importPlan[$key]];
+            }
+        }
+
+        $designDocument = is_array($payload['designDocument'] ?? null) ? $payload['designDocument'] : [];
+        foreach (['oxygenGlobalSettings', 'globalSettings'] as $key) {
+            if (isset($designDocument[$key]) && is_array($designDocument[$key])) {
+                $settings = $designDocument[$key];
+                return is_array($settings['settings'] ?? null) ? $settings : ['settings' => $settings];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function resolveDesignProfile(array $payload): array
+    {
+        $importPlan = is_array($payload['importPlan'] ?? null) ? $payload['importPlan'] : [];
+        if (isset($importPlan['designProfile']) && is_array($importPlan['designProfile'])) {
+            return $importPlan['designProfile'];
+        }
+
+        $designDocument = is_array($payload['designDocument'] ?? null) ? $payload['designDocument'] : [];
+        if (isset($designDocument['designProfile']) && is_array($designDocument['designProfile'])) {
+            return $designDocument['designProfile'];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $current
+     * @param array<string, mixed> $incoming
+     * @return array<string, mixed>
+     */
+    private function mergeRecursive(array $current, array $incoming): array
+    {
+        foreach ($incoming as $key => $value) {
+            if (is_array($value) && is_array($current[$key] ?? null)) {
+                $current[$key] = $this->mergeRecursive($current[$key], $value);
+            } else {
+                $current[$key] = $value;
+            }
+        }
+
+        return $current;
     }
 
     private function deterministicId(string $seed): string

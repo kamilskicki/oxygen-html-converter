@@ -11,9 +11,10 @@
   function buildRequestFields(options, converterOptions) {
     const defaults = {
       wrapInContainer: true,
-      includeCssElement: true,
+      includeCssElement: false,
       inlineStyles: true,
       safeMode: true,
+      allowExecutableCode: false,
       strictNative: false,
       debugMode: false,
     };

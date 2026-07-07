@@ -14,7 +14,8 @@ class PreviewRequestHandler
         private readonly PreviewSummaryBuilder $summaryBuilder,
         private readonly ConversionAuditBuilder $auditBuilder,
         private readonly ?DesignDocumentBuilder $designDocumentBuilder = null,
-        private readonly ?ImportPlanBuilder $importPlanBuilder = null
+        private readonly ?ImportPlanBuilder $importPlanBuilder = null,
+        private readonly ?OxygenTokenBindingService $tokenBindingService = null
     )
     {
     }
@@ -29,16 +30,25 @@ class PreviewRequestHandler
         $result = $builder->convert($html);
 
         if (empty($result['success'])) {
+            $data = [
+                'message' => $result['error'] ?? 'Preview failed',
+            ];
+            if (isset($result['stats']) && is_array($result['stats'])) {
+                $data['stats'] = $result['stats'];
+                $data['audit'] = $this->auditBuilder->build($result, $options);
+            }
+
             return [
                 'success' => false,
                 'status' => 400,
-                'data' => [
-                    'message' => $result['error'] ?? 'Preview failed',
-                ],
+                'data' => $data,
             ];
         }
 
         $designDocument = $this->getDesignDocumentBuilder()->build($html, $result);
+        $result = $this->getTokenBindingService()->applyToConversionResult($result, [
+            'designDocument' => $designDocument,
+        ]);
         $importPlan = $this->getImportPlanBuilder()->build($result, $designDocument, $options);
         $resultWithAnalysis = array_merge($result, [
             'designDocument' => $designDocument,
@@ -57,6 +67,7 @@ class PreviewRequestHandler
             'styleRouting' => is_array($result['styleRouting'] ?? null) ? $result['styleRouting'] : [],
             'warnings' => $result['stats']['warnings'],
             'errors' => $result['stats']['errors'] ?? [],
+            'tokenUsage' => is_array($result['tokenUsage'] ?? null) ? $result['tokenUsage'] : [],
             'designDocument' => $designDocument,
             'importPlan' => $importPlan,
             'audit' => $this->auditBuilder->build($resultWithAnalysis, $options),
@@ -77,5 +88,10 @@ class PreviewRequestHandler
     private function getImportPlanBuilder(): ImportPlanBuilder
     {
         return $this->importPlanBuilder ?? new ImportPlanBuilder();
+    }
+
+    private function getTokenBindingService(): OxygenTokenBindingService
+    {
+        return $this->tokenBindingService ?? new OxygenTokenBindingService();
     }
 }

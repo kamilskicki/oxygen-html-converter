@@ -636,7 +636,7 @@ composer lint:phpstan: OK
 composer lint:phpcs: OK
 ```
 
-Intentional boundary:
+Intentional boundary at this 2026-05-20 stage, superseded by the 2026-05-26 Fluent Forms pivot below:
 
 - The contact form remains an Oxygen-native editable visual layout. Functional submit wiring should be done through the chosen form system, such as Fluent Forms or Oxygen Forms, and should not be guessed by the importer.
 

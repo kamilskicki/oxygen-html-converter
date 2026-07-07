@@ -7,6 +7,18 @@ use PHPUnit\Framework\TestCase;
 
 class TailwindCssFallbackGeneratorTest extends TestCase
 {
+    public function testReportsCoreFallbackPolicyWithoutRuntimeDependency(): void
+    {
+        $generator = new TailwindCssFallbackGenerator();
+        $policy = $generator->getFallbackPolicy();
+
+        $this->assertSame('core_safety_css', $policy['scope']);
+        $this->assertFalse($policy['runtimeDependency']);
+        $this->assertSame('page_css', $policy['defaultDestination']);
+        $this->assertSame('page_scoped_styles', $policy['windPressDestination']);
+        $this->assertSame('oxy_html_converter_convert_options', $policy['extensionPoint']);
+    }
+
     public function testGeneratesBaseAndResponsiveTypographyRules(): void
     {
         $generator = new TailwindCssFallbackGenerator();
@@ -108,6 +120,7 @@ class TailwindCssFallbackGeneratorTest extends TestCase
 
         $css = $generator->generate([
             'hover:text-white',
+            'disabled:bg-[#ff0084]',
             'group-hover:text-gray-200',
             'hover:border-[#ff0084]/50',
             'group-hover:bg-[#ff0084]/20',
@@ -119,6 +132,7 @@ class TailwindCssFallbackGeneratorTest extends TestCase
         ]);
 
         $this->assertStringContainsString('.hover\:text-white:hover { color: #ffffff !important; }', $css);
+        $this->assertStringContainsString('.disabled\:bg-\[\#ff0084\]:disabled { background-color: #ff0084 !important; }', $css);
         $this->assertStringContainsString('.group:hover .group-hover\:text-gray-200 { color: #e5e7eb !important; }', $css);
         $this->assertStringContainsString('.hover\:border-\[\#ff0084\]\/50:hover { border-color: rgba(255, 0, 132, 0.500) !important; }', $css);
         $this->assertStringContainsString('.group:hover .group-hover\:bg-\[\#ff0084\]\/20 { background-color: rgba(255, 0, 132, 0.200) !important; }', $css);
@@ -141,6 +155,8 @@ class TailwindCssFallbackGeneratorTest extends TestCase
             'lg:col-span-5',
             'lg:col-start-2',
             'gap-8',
+            'gap-x-4',
+            'gap-y-6',
             'gap-gutter-grid',
             'px-8',
             'py-section-gap',
@@ -158,6 +174,8 @@ class TailwindCssFallbackGeneratorTest extends TestCase
         $this->assertStringContainsString('.grid { display: grid !important; }', $css);
         $this->assertStringContainsString('.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }', $css);
         $this->assertStringContainsString('.gap-8 { gap: 2rem !important; }', $css);
+        $this->assertStringContainsString('.gap-x-4 { column-gap: 1rem !important; }', $css);
+        $this->assertStringContainsString('.gap-y-6 { row-gap: 1.5rem !important; }', $css);
         $this->assertStringContainsString('.gap-gutter-grid { gap: 24px !important; }', $css);
         $this->assertStringContainsString('.px-8 { padding-left: 2rem !important; padding-right: 2rem !important; }', $css);
         $this->assertStringContainsString('.py-section-gap { padding-top: 120px !important; padding-bottom: 120px !important; }', $css);
@@ -175,5 +193,23 @@ class TailwindCssFallbackGeneratorTest extends TestCase
         $this->assertStringContainsString('.translate-x-20 { --tw-translate-x: 5rem !important; transform: translate(var(--tw-translate-x, 0), var(--tw-translate-y, 0))', $css);
         $this->assertStringContainsString('.-skew-x-12 { --tw-skew-x: -12deg !important; transform: translate(var(--tw-translate-x, 0), var(--tw-translate-y, 0))', $css);
         $this->assertStringContainsString('.border-b { border-bottom-width: 1px !important; }', $css);
+    }
+
+    public function testRejectsUnsafeArbitraryFallbackValues(): void
+    {
+        $generator = new TailwindCssFallbackGenerator();
+
+        $css = $generator->generate([
+            'bg-[#fff;}body{color:red]',
+            'p-[1rem;}body{color:red]',
+            'grid-cols-[1fr;}body{color:red]',
+            'text-[#ff0084]',
+        ]);
+
+        $this->assertStringContainsString('.text-\[\#ff0084\] { color: #ff0084 !important; }', $css);
+        $this->assertStringNotContainsString('body{color:red', $css);
+        $this->assertStringNotContainsString('background-color: #fff', $css);
+        $this->assertStringNotContainsString('padding: 1rem', $css);
+        $this->assertStringNotContainsString('grid-template-columns: 1fr', $css);
     }
 }

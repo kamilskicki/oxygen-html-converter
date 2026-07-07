@@ -5,7 +5,11 @@ It documents the current implementation, Oxygen 6 patterns learned during the Ma
 
 ## Current Result
 
-The current Maximus site build is not only an HTML-to-Oxygen import. It is a repeatable Oxygen-native design kit build:
+The Maximus site build remains the main custom proof example. It is not the generic acceptance contract for every Core import.
+
+For generic Core completion, use the stable fixture index, local fixture audit, live gate, visual gate, and release checks documented in `quality-gates.md` and `knowledge/KBAI`.
+
+The Maximus proof is not only an HTML-to-Oxygen import. It is a repeatable Oxygen-native design kit build:
 
 - 7 WordPress pages imported from Maximus fixtures.
 - 1 Oxygen Header.
@@ -33,6 +37,16 @@ Main runnable command:
 
 ```powershell
 npm run build:site:maximus
+```
+
+Current Core QA commands from the plugin root:
+
+```powershell
+npm run check
+npm run test:fixtures:local
+npm run sync:docker
+npm run test:live
+npm run test:visual
 ```
 
 ## Document Map

@@ -207,9 +207,14 @@ class AdminPage
             wp_die(esc_html__('You do not have permission to access this page.', 'oxygen-html-converter'));
         }
 
+        $ui = $this->getUiConfig();
         $classMode = $this->sanitizeClassHandlingMode(get_option('oxy_html_converter_class_mode', 'native'));
+        if (!$this->isWindPressClassModeAvailable($ui) && in_array($classMode, ['auto', 'windpress'], true)) {
+            $classMode = 'native';
+        }
+
         $elementMappingMode = $this->sanitizeElementMappingMode(get_option('oxy_html_converter_element_mapping_mode', 'auto'));
-        $viewData = $this->viewDataBuilder->build($classMode, $elementMappingMode, $this->getUiConfig());
+        $viewData = $this->viewDataBuilder->build($classMode, $elementMappingMode, $ui);
         $this->renderer->render($viewData);
     }
 
@@ -219,5 +224,16 @@ class AdminPage
     private function getUiConfig(): array
     {
         return $this->uiConfigProvider->getConfig();
+    }
+
+    /**
+     * @param array<string, mixed> $ui
+     */
+    private function isWindPressClassModeAvailable(array $ui): bool
+    {
+        $integrations = is_array($ui['integrations'] ?? null) ? $ui['integrations'] : [];
+        $windPress = is_array($integrations['windpress'] ?? null) ? $integrations['windpress'] : [];
+
+        return (bool) ($windPress['classModeSelection'] ?? false);
     }
 }

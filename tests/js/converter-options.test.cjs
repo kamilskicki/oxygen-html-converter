@@ -5,9 +5,10 @@ const converterOptions = require("../../assets/js/lib/converter-options.js");
 module.exports = function runConverterOptionsTests() {
   assert.deepEqual(converterOptions.buildConvertRequestFields({}), {
     wrapInContainer: "true",
-    includeCssElement: "true",
+    includeCssElement: "false",
     inlineStyles: "true",
     safeMode: "true",
+    allowExecutableCode: "false",
     strictNative: "false",
     debugMode: "false",
   });
@@ -18,6 +19,7 @@ module.exports = function runConverterOptionsTests() {
       includeCssElement: "no",
       inlineStyles: "yes",
       safeMode: "yes",
+      allowExecutableCode: "yes",
       strictNative: "on",
       debugMode: 1,
     }),
@@ -26,9 +28,28 @@ module.exports = function runConverterOptionsTests() {
       includeCssElement: "false",
       inlineStyles: "true",
       safeMode: "true",
+      allowExecutableCode: "false",
       strictNative: "true",
       debugMode: "true",
     }
+  );
+
+  assert.equal(
+    converterOptions.buildConvertRequestFields({
+      safeMode: false,
+      strictNative: false,
+      allowExecutableCode: true,
+    }).allowExecutableCode,
+    "true"
+  );
+
+  assert.equal(
+    converterOptions.buildConvertRequestFields({
+      safeMode: false,
+      strictNative: true,
+      allowExecutableCode: true,
+    }).allowExecutableCode,
+    "false"
   );
 
   assert.equal(converterOptions.coerceBoolean("off", true), false);
