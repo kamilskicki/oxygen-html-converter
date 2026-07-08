@@ -18,7 +18,9 @@ class OxygenPageImporterTest extends TestCase
     {
         parent::setUp();
 
-        $GLOBALS['__wp_options'] = [];
+        $GLOBALS['__wp_options'] = [
+            'oxygen_is_copy_from_frontend_enabled' => 'yes',
+        ];
         $GLOBALS['__wp_posts'] = [];
         $GLOBALS['__wp_post_meta'] = [];
         $GLOBALS['__wp_nav_menus'] = [];
@@ -119,8 +121,9 @@ class OxygenPageImporterTest extends TestCase
         $variables = json_decode((string) $GLOBALS['__wp_options']['oxygen_variables_json_string'], true);
         $this->assertSame(['color', 'unit', 'font_family'], array_column($variables, 'type'));
 
-        $globalSettings = json_decode((string) $GLOBALS['__wp_options']['oxygen_global_settings_json_string'], true);
-        $this->assertSame('ohc-color-731b19', $globalSettings['settings']['colors']['palette']['colors'][0]['cssVariableName']);
+        $this->assertArrayNotHasKey('oxygen_global_settings_json_string', $GLOBALS['__wp_options']);
+        $this->assertFalse($result['oxygenGlobalSettingsPersistence']['saved']);
+        $this->assertSame('no_global_settings_or_tokens', $result['oxygenGlobalSettingsPersistence']['skippedReason']);
 
         $manifest = json_decode(stripslashes((string) $GLOBALS['__wp_post_meta'][1][OxygenPageImporter::MANIFEST_META_KEY]), true);
         $this->assertSame('source-1', $manifest['sourceHash']);
@@ -128,9 +131,9 @@ class OxygenPageImporterTest extends TestCase
         $this->assertSame(1, $manifest['selectorPersistence']['saved']);
         $this->assertSame(3, $manifest['variablePersistence']['created']);
         $this->assertSame(0, $manifest['componentPersistence']['candidates']);
-        $this->assertTrue($manifest['oxygenGlobalSettingsPersistence']['saved']);
+        $this->assertFalse($manifest['oxygenGlobalSettingsPersistence']['saved']);
         $this->assertTrue($manifest['brandLibraryPersistence']['saved']);
-        $this->assertContains('colors', $manifest['oxygenGlobalSettingsPersistence']['sections']);
+        $this->assertSame([], $manifest['oxygenGlobalSettingsPersistence']['sections']);
         $this->assertFalse($manifest['windPressCacheReset']['attempted']);
         $this->assertTrue($manifest['rollback']['available']);
         $this->assertNotEmpty($manifest['rollback']['snapshot']['stores']);
@@ -1188,7 +1191,8 @@ class OxygenPageImporterTest extends TestCase
         $this->assertArrayHasKey('_oxygen_template_settings', $GLOBALS['__wp_post_meta'][6]);
         $this->assertArrayHasKey('oxygen_oxy_selectors_json_string', $GLOBALS['__wp_options']);
         $this->assertArrayHasKey(OxygenVariableRepository::OPTION_NAME, $GLOBALS['__wp_options']);
-        $this->assertArrayHasKey(OxygenGlobalSettingsRepository::OPTION_NAME, $GLOBALS['__wp_options']);
+        $this->assertArrayNotHasKey(OxygenGlobalSettingsRepository::OPTION_NAME, $GLOBALS['__wp_options']);
+        $this->assertFalse($result['oxygenGlobalSettingsPersistence']['saved']);
         $this->assertArrayHasKey(PageStyleRepository::META_KEY, $GLOBALS['__wp_post_meta'][1]);
         $this->assertSame('page', $GLOBALS['__wp_options']['show_on_front']);
         $this->assertSame(1, $GLOBALS['__wp_options']['page_on_front']);
@@ -1556,7 +1560,7 @@ class OxygenPageImporterTest extends TestCase
         update_post_meta((int) $postId, PageStyleRepository::META_KEY, 'old-page-styles');
         update_option('oxygen_oxy_selectors_json_string', 'old-selectors');
         update_option('oxygen_oxy_selectors_collections_json_string', 'old-selector-collections');
-        update_option('breakdance_classes_json_string', 'old-breakdance-classes');
+        update_option('oxygen_breakdance_classes_json_string', 'old-breakdance-classes');
         update_option(OxygenVariableRepository::OPTION_NAME, 'old-variables');
         update_option(OxygenVariableRepository::COLLECTIONS_OPTION_NAME, 'old-variable-collections');
         update_option(OxygenGlobalSettingsRepository::OPTION_NAME, 'old-global-settings');
@@ -1618,7 +1622,7 @@ class OxygenPageImporterTest extends TestCase
         $this->assertSame('old-page-styles', $GLOBALS['__wp_post_meta'][(int) $postId][PageStyleRepository::META_KEY]);
         $this->assertSame('old-selectors', $GLOBALS['__wp_options']['oxygen_oxy_selectors_json_string']);
         $this->assertSame('old-selector-collections', $GLOBALS['__wp_options']['oxygen_oxy_selectors_collections_json_string']);
-        $this->assertSame('old-breakdance-classes', $GLOBALS['__wp_options']['breakdance_classes_json_string']);
+        $this->assertSame('old-breakdance-classes', $GLOBALS['__wp_options']['oxygen_breakdance_classes_json_string']);
         $this->assertSame('old-variables', $GLOBALS['__wp_options'][OxygenVariableRepository::OPTION_NAME]);
         $this->assertSame('old-variable-collections', $GLOBALS['__wp_options'][OxygenVariableRepository::COLLECTIONS_OPTION_NAME]);
         $this->assertSame('old-global-settings', $GLOBALS['__wp_options'][OxygenGlobalSettingsRepository::OPTION_NAME]);
@@ -1678,7 +1682,7 @@ class OxygenPageImporterTest extends TestCase
         ], true);
         update_option('oxygen_oxy_selectors_json_string', 'old-selectors');
         update_option('oxygen_oxy_selectors_collections_json_string', 'old-selector-collections');
-        update_option('breakdance_classes_json_string', 'old-breakdance-classes');
+        update_option('oxygen_breakdance_classes_json_string', 'old-breakdance-classes');
 
         $throwingGlobalStyles = new class extends GlobalStyleRepository {
             public function saveFromPayload(array $payload): array
@@ -1731,7 +1735,7 @@ class OxygenPageImporterTest extends TestCase
         $this->assertSame('previous content', $GLOBALS['__wp_posts'][(int) $postId]->post_content);
         $this->assertSame('old-selectors', $GLOBALS['__wp_options']['oxygen_oxy_selectors_json_string']);
         $this->assertSame('old-selector-collections', $GLOBALS['__wp_options']['oxygen_oxy_selectors_collections_json_string']);
-        $this->assertSame('old-breakdance-classes', $GLOBALS['__wp_options']['breakdance_classes_json_string']);
+        $this->assertSame('old-breakdance-classes', $GLOBALS['__wp_options']['oxygen_breakdance_classes_json_string']);
         $this->assertArrayNotHasKey(GlobalStyleRepository::OPTION_NAME, $GLOBALS['__wp_options']);
     }
 

@@ -240,6 +240,66 @@ class OxygenSchemaValidatorTest extends TestCase
         $this->assertError($invalid['errors'], '$[0].properties.breakpoint_base.custom_css.scroll_margin_top', 'known Oxygen selector property path');
     }
 
+    public function testSelectorValidationUsesStableRawPercentagePathsAndFontWidth(): void
+    {
+        $validator = new OxygenSchemaValidator();
+
+        $valid = $validator->validateSelectors([[
+            'id' => 'selector-1',
+            'name' => 'media-card',
+            'type' => 'class',
+            'collection' => 'Imported HTML',
+            'children' => [],
+            'properties' => [
+                'breakpoint_base' => [
+                    'size' => [
+                        'object_position' => [
+                            'x' => 25,
+                            'y' => 75,
+                        ],
+                    ],
+                    'effects' => [
+                        'transform_origin' => [
+                            'x' => 50,
+                            'y' => 20,
+                        ],
+                    ],
+                    'typography' => [
+                        'font_width' => 85,
+                    ],
+                ],
+            ],
+        ]], ['Imported HTML']);
+
+        $this->assertTrue($valid['valid'], wp_json_encode($valid['errors']));
+
+        $invalid = $validator->validateSelectors([[
+            'id' => 'selector-2',
+            'name' => 'legacy-media-card',
+            'type' => 'class',
+            'collection' => 'Imported HTML',
+            'children' => [],
+            'properties' => [
+                'breakpoint_base' => [
+                    'size' => [
+                        'object_position' => [
+                            'x' => ['number' => 25, 'unit' => '%', 'style' => '25%'],
+                        ],
+                    ],
+                    'effects' => [
+                        'transform_origin' => [
+                            'x' => ['number' => 50, 'unit' => '%', 'style' => '50%'],
+                        ],
+                    ],
+                ],
+            ],
+        ]], ['Imported HTML']);
+
+        $this->assertFalse($invalid['valid']);
+        $this->assertError($invalid['errors'], '$[0].properties.breakpoint_base.size.object_position.x', 'raw percentage number');
+        $this->assertError($invalid['errors'], '$[0].properties.breakpoint_base.effects.transform_origin.x', 'raw percentage number');
+    }
+
     public function testSelectorValidationRejectsUnsupportedBreakpointAndNestedChildShapes(): void
     {
         $result = (new OxygenSchemaValidator())->validateSelectors([[
@@ -510,6 +570,27 @@ class OxygenSchemaValidatorTest extends TestCase
 
         $this->assertFalse($result['valid']);
         $this->assertError($result['errors'], '$.settings.typography.global_typography.typography_presets[0].preset.id', 'non-empty string');
+    }
+
+    public function testGlobalSettingsValidationRejectsLegacyStringTypographyPreset(): void
+    {
+        $result = (new OxygenSchemaValidator())->validateGlobalSettings([
+            'settings' => [
+                'typography' => [
+                    'global_typography' => [
+                        'typography_presets' => [[
+                            'preset' => 'ohc-body',
+                            'custom' => [
+                                'customTypography' => [],
+                            ],
+                        ]],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertError($result['errors'], '$.settings.typography.global_typography.typography_presets[0].preset', 'object with id');
     }
 
     public function testTemplateSettingsValidationRejectsMalformedRuleGroups(): void

@@ -165,6 +165,21 @@ class ElementMapperTest extends TestCase
         $this->assertArrayHasKey('content', $properties);
     }
 
+    public function testBuildPropertiesForUrlImagePersistsStableCustomAltRenderShape(): void
+    {
+        $img = $this->createElement('img', [
+            'src' => 'https://example.test/image.jpg',
+            'alt' => 'Custom hero alt',
+        ]);
+
+        $image = $this->mapper->buildProperties($img)['content']['image'];
+
+        $this->assertSame('url', $image['from']);
+        $this->assertSame('https://example.test/image.jpg', $image['url']);
+        $this->assertSame('custom', $image['alt']);
+        $this->assertSame('custom', $image['alt_when_from_url']);
+        $this->assertSame('Custom hero alt', $image['custom_alt_when_from_url']);
+    }
     public function testBuildPropertiesExposeRenderedSinkPaths(): void
     {
         $doc = new DOMDocument();

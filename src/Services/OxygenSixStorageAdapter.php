@@ -6,6 +6,19 @@ namespace OxyHtmlConverter\Services;
 
 final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 {
+    private const BREAKDANCE_CLASSES_DATA_API_KEY = 'breakdance_classes_json_string';
+    private const BREAKDANCE_CLASSES_OPTION_NAME = 'oxygen_breakdance_classes_json_string';
+    private const COPY_FROM_FRONTEND_OPTION_NAME = 'oxygen_is_copy_from_frontend_enabled';
+    private const STABLE_DOCUMENT_METADATA_POST_META_KEYS = [
+        '_oxygen_futurelayer_meta',
+        '_oxygen_ai_settings',
+    ];
+    private const STABLE_DOCUMENT_METADATA_OPTION_KEYS = [
+        'oxygen_enable_tracking',
+        'oxygen_breakdance_settings_disable_view_tracking_cookies',
+        'oxygen_settings_hide_builder_integration',
+    ];
+
     private OxygenDocumentTree $documentTree;
 
     public function __construct(private readonly OxygenStorageContract $contract, ?OxygenDocumentTree $documentTree = null)
@@ -420,7 +433,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
         if (function_exists('\Breakdance\Data\set_global_option')) {
             \Breakdance\Data\set_global_option('oxy_selectors_collections_json_string', $collections);
             \Breakdance\Data\set_global_option('oxy_selectors_json_string', $selectors);
-            \Breakdance\Data\set_global_option('breakdance_classes_json_string', $breakdanceClassesPayload);
+            \Breakdance\Data\set_global_option(self::BREAKDANCE_CLASSES_DATA_API_KEY, $breakdanceClassesPayload);
             $this->addSelectorRevision($selectors);
             $this->invalidateSelectorCaches();
             $cacheRegenerated = $this->regenerateGlobalSettingsCache();
@@ -435,7 +448,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
         update_option('oxygen_oxy_selectors_collections_json_string', $this->encodeJson($collections));
         update_option('oxygen_oxy_selectors_json_string', $this->encodeJson($selectors));
-        update_option('breakdance_classes_json_string', $breakdanceClassesPayload);
+        update_option(self::BREAKDANCE_CLASSES_OPTION_NAME, $breakdanceClassesPayload);
         $this->addSelectorRevision($selectors);
         $this->invalidateSelectorCaches();
         $cacheRegenerated = $this->regenerateGlobalSettingsCache();
@@ -448,7 +461,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
             'optionNames' => [
                 'oxygen_oxy_selectors_json_string',
                 'oxygen_oxy_selectors_collections_json_string',
-                'breakdance_classes_json_string',
+                self::BREAKDANCE_CLASSES_OPTION_NAME,
             ],
         ]);
     }
@@ -1560,13 +1573,47 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
      */
     private function validateTemplatePostType(string $postType): array
     {
-        if (in_array($postType, ['oxygen_template', 'oxygen_header', 'oxygen_footer', 'oxygen_part'], true)) {
+        if (in_array($postType, ['oxygen_template', 'oxygen_header', 'oxygen_footer'], true)) {
             return [];
+        }
+
+        if ($postType === 'oxygen_part') {
+            if ($this->isCopyFromFrontendEnabled()) {
+                return [];
+            }
+
+            return [
+                'oxygen_part requires Oxygen stable is_copy_from_frontend_enabled to be "yes" before parts can be created.',
+            ];
         }
 
         return [
             sprintf('Unsupported Oxygen template post type "%s".', $postType),
         ];
+    }
+
+    private function isCopyFromFrontendEnabled(): bool
+    {
+        if (function_exists('\Breakdance\Data\get_global_option')) {
+            return \Breakdance\Data\get_global_option('is_copy_from_frontend_enabled') === 'yes';
+        }
+
+        if (!function_exists('get_option')) {
+            return false;
+        }
+
+        $value = get_option(self::COPY_FROM_FRONTEND_OPTION_NAME, '');
+        if ($value === 'yes') {
+            return true;
+        }
+
+        if (!is_string($value) || trim($value) === '') {
+            return false;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return $decoded === 'yes';
     }
 
     /**
@@ -1632,11 +1679,11 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
     private function persistBreakdanceClassesPayload(string $payloadJson): void
     {
         if (function_exists('\Breakdance\Data\set_global_option')) {
-            \Breakdance\Data\set_global_option('breakdance_classes_json_string', $payloadJson);
+            \Breakdance\Data\set_global_option(self::BREAKDANCE_CLASSES_DATA_API_KEY, $payloadJson);
             return;
         }
 
-        update_option('breakdance_classes_json_string', $payloadJson);
+        update_option(self::BREAKDANCE_CLASSES_OPTION_NAME, $payloadJson);
     }
 
     /**
@@ -1770,11 +1817,17 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
             }
         }
 
+        if (str_starts_with($store, 'stable_metadata:')) {
+            $postId = (int) substr($store, strlen('stable_metadata:'));
+
+            return $postId > 0 ? $this->captureStableMetadataStores($postId) : [];
+        }
+
         $optionStores = [
             'selectors' => [
                 'oxygen_oxy_selectors_json_string',
                 'oxygen_oxy_selectors_collections_json_string',
-                'breakdance_classes_json_string',
+                self::BREAKDANCE_CLASSES_OPTION_NAME,
             ],
             'variables' => [
                 'oxygen_variables_json_string',
@@ -1798,6 +1851,24 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
         $entries = [];
         foreach ($optionStores[$store] as $optionName) {
             $entries[] = $this->captureAdapterOptionStore($optionName, $store);
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function captureStableMetadataStores(int $postId): array
+    {
+        $entries = [];
+
+        foreach (self::STABLE_DOCUMENT_METADATA_POST_META_KEYS as $metaKey) {
+            $entries[] = $this->captureAdapterPostMetaStore($postId, $metaKey);
+        }
+
+        foreach (self::STABLE_DOCUMENT_METADATA_OPTION_KEYS as $optionName) {
+            $entries[] = $this->captureAdapterOptionStore($optionName, 'stable_metadata');
         }
 
         return $entries;

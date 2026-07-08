@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 - Live Builder/browser smoke gate for Docker-backed Oxygen imports, Builder save/reopen, editability signals, selector/template/component checks, and failure artifacts.
 - Visual review gate with targeted frontend smoke checks and capture-failure artifacts.
 - Release hygiene checks for docs, fixture metadata, package scripts, and release readiness.
+- Allowlist-driven release build script with Composer no-dev staging, ZIP content verification, and SHA256 output.
+- Fallback CSS measurement script and baseline artifact for publication-readiness performance evidence.
 
 ### Changed
 - Builder script localization now supports feature flag/filter injection.
@@ -30,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - Unsupported forms, dynamic data, WooCommerce, advanced component patterns, and Pro/future scope are reported instead of silently guessed.
 - Tailwind-like utilities are treated as Core source hints or safe fallback CSS; Tailwind runtime preservation, WindPress class mode, config parsing, and cache reset are Pro/advanced scope.
 - Release checklist and DOD now use current M8 commands: PHPUnit, PHPStan, PHPCS, JS, fixture audit, Docker sync, live smoke, visual smoke, `npm run check`, and release verify.
+- Polyfill documentation now reflects the PHP 8.2+ runtime requirement instead of PHP 7.4 compatibility.
 
 ### Fixed
 - Prevented Safe Mode imports from leaving JS-controlled hidden reveal content invisible after stripped runtime code.

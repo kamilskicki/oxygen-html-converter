@@ -1,0 +1,16 @@
+{
+  "pluginSlug": "oxygen-html-converter",
+  "files": [
+    "index.php",
+    "LICENSE",
+    "README.md",
+    "oxygen-html-converter.php",
+    "readme.txt",
+    "uninstall.php"
+  ],
+  "directories": [
+    "assets",
+    "src",
+    "vendor"
+  ]
+}

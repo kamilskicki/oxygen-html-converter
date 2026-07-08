@@ -1,9 +1,10 @@
 <?php
 /**
- * PHP 7.4 polyfills for PHP 8.0+ functions
- * 
- * This file provides backward compatibility for PHP 7.4 environments
- * by implementing functions that were introduced in PHP 8.0.
+ * PHP 8.2+ compatibility guards for PHP 8 string helper functions.
+ *
+ * The plugin now requires PHP 8.2+, so these functions should already be
+ * provided by the runtime. The guarded definitions remain defensive for
+ * isolated test/bootstrap contexts and unexpected partial loads.
  */
 
 if (!function_exists('str_starts_with')) {

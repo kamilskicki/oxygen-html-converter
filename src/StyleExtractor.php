@@ -22,6 +22,7 @@ class StyleExtractor
         'font-family'      => ['typography', 'font_family'],
         'font-size'        => ['typography', 'font_size'],
         'font-weight'      => ['typography', 'font_weight'],
+        'font-stretch'     => ['typography', 'font_width'],
         'font-style'       => ['typography', 'style', 'font_style'],
         'line-height'      => ['typography', 'line_height'],
         'letter-spacing'   => ['typography', 'letter_spacing'],

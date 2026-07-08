@@ -8,6 +8,7 @@
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: oxygen-html-converter
+ * Domain Path: /languages
  * Requires at least: 6.5
  * Requires PHP: 8.2
  */
@@ -70,3 +71,4 @@ add_action('plugins_loaded', function () {
     $plugin = \OxyHtmlConverter\Plugin::getInstance();
     do_action('oxy_html_converter_loaded', $plugin);
 });
+

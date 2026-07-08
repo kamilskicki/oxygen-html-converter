@@ -12,6 +12,9 @@ class OxygenTemplateRepositoryTest extends TestCase
     {
         parent::setUp();
 
+        $GLOBALS['__wp_options'] = [
+            'oxygen_is_copy_from_frontend_enabled' => 'yes',
+        ];
         $GLOBALS['__wp_posts'] = [];
         $GLOBALS['__wp_post_meta'] = [];
         $GLOBALS['__wp_next_post_id'] = 1;

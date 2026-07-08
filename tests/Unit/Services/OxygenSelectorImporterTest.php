@@ -652,11 +652,11 @@ class OxygenSelectorImporterTest extends TestCase
         $this->assertSame(1, $result['saved']);
         $this->assertArrayHasKey('oxygen_oxy_selectors_json_string', $GLOBALS['__wp_options']);
         $this->assertArrayHasKey('oxygen_oxy_selectors_collections_json_string', $GLOBALS['__wp_options']);
-        $this->assertArrayHasKey('breakdance_classes_json_string', $GLOBALS['__wp_options']);
+        $this->assertArrayHasKey('oxygen_breakdance_classes_json_string', $GLOBALS['__wp_options']);
 
         $selectors = json_decode((string) $GLOBALS['__wp_options']['oxygen_oxy_selectors_json_string'], true);
         $collections = json_decode((string) $GLOBALS['__wp_options']['oxygen_oxy_selectors_collections_json_string'], true);
-        $breakdanceClasses = json_decode((string) $GLOBALS['__wp_options']['breakdance_classes_json_string'], true);
+        $breakdanceClasses = json_decode((string) $GLOBALS['__wp_options']['oxygen_breakdance_classes_json_string'], true);
 
         $this->assertSame([[
             'id' => 'selector-1',

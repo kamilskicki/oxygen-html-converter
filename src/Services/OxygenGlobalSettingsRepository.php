@@ -294,7 +294,12 @@ class OxygenGlobalSettingsRepository
     private function buildIncomingSettings(array $payload): array
     {
         $settings = $this->extractExplicitSettings($payload);
-        $tokenSettings = $this->buildSettingsFromTokens($payload);
+        // Oxygen 6.1 stable stores global settings, but Oxygen mode disables the
+        // default global-settings UI/CSS template unless an add-on re-enables it.
+        // Core therefore keeps token output on variables/selectors by default.
+        $tokenSettings = $this->shouldInferDormantGlobalSettingsFromTokens($payload)
+            ? $this->buildSettingsFromTokens($payload)
+            : [];
 
         if ($settings === []) {
             return $tokenSettings;
@@ -334,6 +339,30 @@ class OxygenGlobalSettingsRepository
         }
 
         return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function shouldInferDormantGlobalSettingsFromTokens(array $payload): bool
+    {
+        foreach ([
+            ['inferDormantGlobalSettingsFromTokens'],
+            ['globalSettingsInferFromTokens'],
+            ['options', 'inferDormantGlobalSettingsFromTokens'],
+            ['manifest', 'inferDormantGlobalSettingsFromTokens'],
+            ['importManifest', 'inferDormantGlobalSettingsFromTokens'],
+            ['importPlan', 'inferDormantGlobalSettingsFromTokens'],
+            ['importPlan', 'globalSettings', 'inferFromTokens'],
+            ['importPlan', 'persistence', 'globalSettings', 'inferFromTokens'],
+        ] as $path) {
+            $value = $this->valueAtPath($payload, $path);
+            if ($value === true || $value === 1 || $value === '1' || $value === 'true') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -486,9 +515,7 @@ class OxygenGlobalSettingsRepository
                 return 'preset:' . strtolower(trim((string) $preset['id']));
             }
 
-            if (is_scalar($preset) && trim((string) $preset) !== '') {
-                return 'preset:' . strtolower(trim((string) $preset));
-            }
+
         }
 
         $encoded = json_encode($item);

@@ -15,6 +15,7 @@ final class ElementTypes
     // Container elements
     public const CONTAINER = 'OxygenElements\\Container';
     public const CONTAINER_LINK = 'OxygenElements\\ContainerLink';
+    public const CONTAINER_SHORTCODE = 'OxygenElements\\ContainerShortcode';
 
     // Text elements
     public const TEXT = 'OxygenElements\\Text';
@@ -25,11 +26,23 @@ final class ElementTypes
     public const IMAGE = 'OxygenElements\\Image';
     public const SVG_ICON = 'OxygenElements\\SvgIcon';
     public const HTML5_VIDEO = 'OxygenElements\\Html5Video';
+    public const OEMBED = 'OxygenElements\\oEmbed';
+
+    // Loop and template elements
+    public const DYNAMIC_DATA_LOOP = 'OxygenElements\\DynamicDataLoop';
+    public const POSTS_LOOP = 'OxygenElements\\PostsLoop';
+    public const TEMPLATE_CONTENT_AREA = 'OxygenElements\\TemplateContentArea';
+    public const TERM_LOOP_BUILDER = 'OxygenElements\\TermLoopBuilder';
+
+    // Embed and WordPress integration elements
+    public const SHORTCODE = 'OxygenElements\\Shortcode';
+    public const WP_WIDGET = 'OxygenElements\\WpWidget';
 
     // Code elements
     public const HTML_CODE = 'OxygenElements\\HtmlCode';
     public const CSS_CODE = 'OxygenElements\\CssCode';
     public const JAVASCRIPT_CODE = 'OxygenElements\\JavaScriptCode';
+    public const PHP_CODE = 'OxygenElements\\PhpCode';
 
     // Reusable block component instance
     public const COMPONENT = 'OxygenElements\\Component';
@@ -38,21 +51,57 @@ final class ElementTypes
     public const ESSENTIAL_BUTTON = 'EssentialElements\\Button';
 
     /**
-     * All valid element types
+     * Oxygen 6.1 stable first-party elements from oxygen/subplugins/oxygen-elements/elements.
      */
-    public const ALL_TYPES = [
+    public const FIRST_PARTY_OXYGEN_TYPES = [
+        self::COMPONENT,
         self::CONTAINER,
         self::CONTAINER_LINK,
+        self::CONTAINER_SHORTCODE,
+        self::CSS_CODE,
+        self::DYNAMIC_DATA_LOOP,
+        self::HTML_CODE,
+        self::HTML5_VIDEO,
+        self::IMAGE,
+        self::JAVASCRIPT_CODE,
+        self::OEMBED,
+        self::PHP_CODE,
+        self::POSTS_LOOP,
+        self::RICH_TEXT,
+        self::SHORTCODE,
+        self::SVG_ICON,
+        self::TEMPLATE_CONTENT_AREA,
+        self::TERM_LOOP_BUILDER,
         self::TEXT,
         self::TEXT_LINK,
-        self::RICH_TEXT,
-        self::IMAGE,
-        self::SVG_ICON,
-        self::HTML5_VIDEO,
-        self::HTML_CODE,
-        self::CSS_CODE,
-        self::JAVASCRIPT_CODE,
+        self::WP_WIDGET,
+    ];
+
+    /**
+     * All valid element types this converter may recognize.
+     */
+    public const ALL_TYPES = [
         self::COMPONENT,
+        self::CONTAINER,
+        self::CONTAINER_LINK,
+        self::CONTAINER_SHORTCODE,
+        self::CSS_CODE,
+        self::DYNAMIC_DATA_LOOP,
+        self::HTML_CODE,
+        self::HTML5_VIDEO,
+        self::IMAGE,
+        self::JAVASCRIPT_CODE,
+        self::OEMBED,
+        self::PHP_CODE,
+        self::POSTS_LOOP,
+        self::RICH_TEXT,
+        self::SHORTCODE,
+        self::SVG_ICON,
+        self::TEMPLATE_CONTENT_AREA,
+        self::TERM_LOOP_BUILDER,
+        self::TEXT,
+        self::TEXT_LINK,
+        self::WP_WIDGET,
         self::ESSENTIAL_BUTTON,
     ];
 

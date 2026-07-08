@@ -1,4 +1,4 @@
-# Release Checklist (Core)
+﻿# Release Checklist (Core)
 
 Use this checklist before merging or tagging the Core remediation line.
 
@@ -20,6 +20,10 @@ cd "D:\WordPress\Html to Oxygen\oxygen-html-converter-dev\plugins\core"
    - `..\..\knowledge\KBAI\m8-remediation-summary.md`
 2. Confirm every open GAP has a Core, Pro, future, or unsupported disposition in KBAI or fixture metadata.
 3. Confirm release docs describe Safe Mode/no-code behavior, unsupported form and dynamic-data boundaries, component/template/site-kit scope, and live smoke requirements.
+4. Validate the WordPress.org readme before publication:
+   - Confirm `readme.txt` has contributors, tags, requires/tested/stable tags, license, description, installation, FAQ, screenshots, changelog, and upgrade notice.
+   - Run the official WordPress.org readme validator or parser against `readme.txt`.
+   - Confirm the parsed changelog matches `CHANGELOG.md` for the release being published.
 
 ## Stable Local Gate
 
@@ -115,3 +119,18 @@ Before merge:
 1. Create the git tag for the release line.
 2. Publish the GitHub Release manually with changelog summary and release notes.
 3. Monitor issues, Builder regressions, live smoke failures, and unsupported-boundary reports after release.
+## Build
+
+Build the distributable ZIP from an allowlisted staging directory:
+
+```powershell
+npm run build:zip
+```
+
+Expected:
+
+- `scripts/build-release.php` creates `artifacts/release/oxygen-html-converter-<version>.zip`.
+- staging runs `composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader`.
+- final ZIP contents are verified against `scripts/release-allowlist.json`.
+- dev tooling, tests, docs, scripts, `node_modules`, temp files, and package manifests are excluded.
+- command output includes the ZIP path, entry count, and SHA256 for the exact artifact to install-smoke.

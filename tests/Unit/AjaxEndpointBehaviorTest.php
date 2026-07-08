@@ -220,7 +220,7 @@ class AjaxEndpointBehaviorTest extends TestCase
     {
         unset($GLOBALS['__wp_options']['oxygen_oxy_selectors_json_string']);
         unset($GLOBALS['__wp_options']['oxygen_oxy_selectors_collections_json_string']);
-        unset($GLOBALS['__wp_options']['breakdance_classes_json_string']);
+        unset($GLOBALS['__wp_options']['oxygen_breakdance_classes_json_string']);
 
         $ajax = new Ajax();
         $_POST = [
@@ -254,7 +254,7 @@ class AjaxEndpointBehaviorTest extends TestCase
         $collections = json_decode($GLOBALS['__wp_options']['oxygen_oxy_selectors_collections_json_string'], true);
         $this->assertSame(['Imported HTML'], $collections);
 
-        $breakdanceClasses = json_decode($GLOBALS['__wp_options']['breakdance_classes_json_string'], true);
+        $breakdanceClasses = json_decode($GLOBALS['__wp_options']['oxygen_breakdance_classes_json_string'], true);
         $this->assertIsArray($breakdanceClasses);
         $this->assertSame('.card', $breakdanceClasses[0]['name']);
         $this->assertSame('class', $breakdanceClasses[0]['type']);
@@ -274,7 +274,7 @@ class AjaxEndpointBehaviorTest extends TestCase
             ],
         ]);
         $GLOBALS['__wp_options']['oxygen_oxy_selectors_collections_json_string'] = wp_json_encode(['Imported HTML']);
-        $GLOBALS['__wp_options']['breakdance_classes_json_string'] = wp_json_encode([
+        $GLOBALS['__wp_options']['oxygen_breakdance_classes_json_string'] = wp_json_encode([
             [
                 'name' => '.card',
                 'type' => 'class',
@@ -315,7 +315,7 @@ class AjaxEndpointBehaviorTest extends TestCase
         $collections = json_decode($GLOBALS['__wp_options']['oxygen_oxy_selectors_collections_json_string'], true);
         $this->assertSame(['Marketing Imports', 'Imported HTML'], $collections);
 
-        $breakdanceClasses = json_decode($GLOBALS['__wp_options']['breakdance_classes_json_string'], true);
+        $breakdanceClasses = json_decode($GLOBALS['__wp_options']['oxygen_breakdance_classes_json_string'], true);
         $this->assertIsArray($breakdanceClasses);
         $this->assertSame(['.card', '.badge'], array_column($breakdanceClasses, 'name'));
     }

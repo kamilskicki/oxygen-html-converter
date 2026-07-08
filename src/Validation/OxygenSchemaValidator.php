@@ -227,8 +227,6 @@ final class OxygenSchemaValidator
         'size.max_height' => true,
         'size.min_width' => true,
         'size.min_height' => true,
-        'size.object_position.x' => true,
-        'size.object_position.y' => true,
         'typography.font_size' => true,
         'typography.line_height' => true,
         'typography.letter_spacing' => true,
@@ -255,8 +253,6 @@ final class OxygenSchemaValidator
         'borders.borders.*.width' => true,
         'effects.outline_width' => true,
         'effects.outline_offset' => true,
-        'effects.transform_origin.x' => true,
-        'effects.transform_origin.y' => true,
         'effects.transition.*.duration' => true,
         'effects.transition.*.delay' => true,
         'effects.box_shadow.*.x' => true,
@@ -269,6 +265,14 @@ final class OxygenSchemaValidator
         'effects.backdrop_filter.*.blur_value' => true,
         'effects.backdrop_filter.*.hue_value' => true,
         'effects.backdrop_filter.*.value' => true,
+    ];
+
+    private const SELECTOR_RAW_PERCENTAGE_NUMBER_PATHS = [
+        'size.object_position.x' => true,
+        'size.object_position.y' => true,
+        'typography.font_width' => true,
+        'effects.transform_origin.x' => true,
+        'effects.transform_origin.y' => true,
     ];
 
     /**
@@ -788,13 +792,9 @@ final class OxygenSchemaValidator
      */
     private function validateTypographyPresetReference($preset, string $path): array
     {
-        if (is_string($preset) && trim($preset) !== '') {
-            return $this->result([]);
-        }
-
         if (!is_array($preset)) {
             return $this->result([
-                $this->error($path, 'non-empty string or object with id', $preset, 'Store typography preset as an Oxygen preset reference.'),
+                $this->error($path, 'object with id', $preset, 'Store typography preset as an Oxygen preset reference object.'),
             ]);
         }
 
@@ -1223,6 +1223,11 @@ final class OxygenSchemaValidator
                 $value = get_object_vars($value);
             }
 
+            if ($this->isSelectorRawPercentageNumberPath($nextLogicalPath)) {
+                $errors = array_merge($errors, $this->validateSelectorRawPercentageNumberValue($value, $childPath)['errors']);
+                continue;
+            }
+
             if ($this->isSelectorMeasurementPath($nextLogicalPath)) {
                 $errors = array_merge($errors, $this->validateSelectorMeasurementValue($value, $childPath)['errors']);
                 continue;
@@ -1266,6 +1271,35 @@ final class OxygenSchemaValidator
     }
 
     /**
+     * @param mixed $value
+     * @return array{valid: bool, errors: list<array{path:string,expected:string,actual:string,remediation:string,message:string}>}
+     */
+    private function validateSelectorRawPercentageNumberValue($value, string $path): array
+    {
+        if ((is_int($value) || is_float($value)) && is_finite((float) $value)) {
+            return $this->result([]);
+        }
+
+        return $this->result([
+            $this->error($path, 'raw percentage number', $value, 'Store this stable Oxygen selector percentage path as a raw number; Oxygen appends %.')
+        ]);
+    }
+
+    /**
+     * @param list<string> $path
+     */
+    private function isSelectorRawPercentageNumberPath(array $path): bool
+    {
+        foreach (array_keys(self::SELECTOR_RAW_PERCENTAGE_NUMBER_PATHS) as $allowedPath) {
+            if ($this->selectorPathMatches($path, $allowedPath, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param list<string> $path
      */
     private function isSelectorValuePath(array $path): bool
@@ -1302,7 +1336,7 @@ final class OxygenSchemaValidator
             return true;
         }
 
-        foreach (array_keys(self::SELECTOR_VALUE_PATHS + self::SELECTOR_MEASUREMENT_PATHS) as $allowedPath) {
+        foreach (array_keys(self::SELECTOR_VALUE_PATHS + self::SELECTOR_MEASUREMENT_PATHS + self::SELECTOR_RAW_PERCENTAGE_NUMBER_PATHS) as $allowedPath) {
             if ($this->selectorPathMatches($path, $allowedPath, false)) {
                 return true;
             }

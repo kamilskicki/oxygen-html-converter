@@ -5,6 +5,7 @@ namespace OxyHtmlConverter\Tests\Unit\Services;
 use OxyHtmlConverter\Services\OxygenStorageAdapter;
 use OxyHtmlConverter\Services\OxygenStorageAdapterFactory;
 use OxyHtmlConverter\Services\OxygenStorageContract;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 class OxygenStorageAdapterTest extends TestCase
@@ -100,6 +101,103 @@ class OxygenStorageAdapterTest extends TestCase
         $this->assertArrayNotHasKey('custom_missing_before_import', $GLOBALS['__wp_options']);
     }
 
+    public function testSelectorFallbackWritesStablePhysicalBreakdanceClassOption(): void
+    {
+        $GLOBALS['__wp_options'] = [];
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $result = $adapter->writeSelectors([$this->selectorRecord('card')], ['Imported HTML']);
+
+        $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
+        $this->assertSame([
+            'oxygen_oxy_selectors_json_string',
+            'oxygen_oxy_selectors_collections_json_string',
+            'oxygen_breakdance_classes_json_string',
+        ], $result['optionNames']);
+        $this->assertArrayHasKey('oxygen_breakdance_classes_json_string', $GLOBALS['__wp_options']);
+        $this->assertArrayNotHasKey('breakdance_classes_json_string', $GLOBALS['__wp_options']);
+
+        $classes = json_decode((string) get_option('oxygen_breakdance_classes_json_string'), true);
+        $this->assertSame('.card', $classes[0]['name']);
+    }
+
+    #[RunInSeparateProcess]
+    public function testSelectorWriteUsesStableDataApiLogicalKeyWhenAvailable(): void
+    {
+        $GLOBALS['__wp_options'] = [];
+        $GLOBALS['__breakdance_data_api_writes'] = [];
+
+        eval('namespace Breakdance\\Data; function set_global_option($fieldName, $value) { $GLOBALS["__breakdance_data_api_writes"][] = [$fieldName, $value]; update_option("oxygen_" . $fieldName, $value); }');
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $result = $adapter->writeSelectors([$this->selectorRecord('card')], ['Imported HTML']);
+
+        $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
+        $this->assertSame([
+            'oxy_selectors_collections_json_string',
+            'oxy_selectors_json_string',
+            'breakdance_classes_json_string',
+        ], array_column($GLOBALS['__breakdance_data_api_writes'], 0));
+        $this->assertArrayHasKey('oxygen_breakdance_classes_json_string', $GLOBALS['__wp_options']);
+        $this->assertArrayNotHasKey('breakdance_classes_json_string', $GLOBALS['__wp_options']);
+    }
+
+    public function testSelectorRollbackSnapshotUsesStablePhysicalBreakdanceClassOption(): void
+    {
+        $GLOBALS['__wp_options'] = [];
+        update_option('oxygen_breakdance_classes_json_string', 'old-classes');
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $snapshot = $adapter->captureRollbackSnapshot(['selectors']);
+        $keys = array_column($snapshot['stores'], 'key');
+
+        $this->assertContains('oxygen_breakdance_classes_json_string', $keys);
+        $this->assertNotContains('breakdance_classes_json_string', $keys);
+
+        update_option('oxygen_breakdance_classes_json_string', 'new-classes');
+        $restore = $adapter->restoreRollbackSnapshot($snapshot);
+
+        $this->assertTrue($restore['success'], implode(' ', $restore['errors']));
+        $this->assertSame('old-classes', get_option('oxygen_breakdance_classes_json_string'));
+    }
+
+    public function testStableMetadataSnapshotRestoresFutureLayerAiTrackingAndIntegrationStores(): void
+    {
+        $GLOBALS['__wp_options'] = [];
+        $GLOBALS['__wp_post_meta'] = [];
+        $postId = 74;
+
+        update_post_meta($postId, '_oxygen_futurelayer_meta', 'old-future-layer');
+        update_post_meta($postId, '_oxygen_ai_settings', 'old-ai');
+        update_option('oxygen_enable_tracking', 'yes');
+        update_option('oxygen_breakdance_settings_disable_view_tracking_cookies', 'no');
+        update_option('oxygen_settings_hide_builder_integration', 'no');
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $snapshot = $adapter->captureRollbackSnapshot(['stable_metadata:' . $postId]);
+        $keys = array_column($snapshot['stores'], 'key');
+
+        $this->assertContains('_oxygen_futurelayer_meta', $keys);
+        $this->assertContains('_oxygen_ai_settings', $keys);
+        $this->assertContains('oxygen_enable_tracking', $keys);
+        $this->assertContains('oxygen_breakdance_settings_disable_view_tracking_cookies', $keys);
+        $this->assertContains('oxygen_settings_hide_builder_integration', $keys);
+
+        update_post_meta($postId, '_oxygen_futurelayer_meta', 'new-future-layer');
+        update_post_meta($postId, '_oxygen_ai_settings', 'new-ai');
+        update_option('oxygen_enable_tracking', 'no');
+        update_option('oxygen_breakdance_settings_disable_view_tracking_cookies', 'yes');
+        update_option('oxygen_settings_hide_builder_integration', 'yes');
+
+        $restore = $adapter->restoreRollbackSnapshot($snapshot);
+
+        $this->assertTrue($restore['success'], implode(' ', $restore['errors']));
+        $this->assertSame('old-future-layer', get_post_meta($postId, '_oxygen_futurelayer_meta', true));
+        $this->assertSame('old-ai', get_post_meta($postId, '_oxygen_ai_settings', true));
+        $this->assertSame('yes', get_option('oxygen_enable_tracking'));
+        $this->assertSame('no', get_option('oxygen_breakdance_settings_disable_view_tracking_cookies'));
+        $this->assertSame('no', get_option('oxygen_settings_hide_builder_integration'));
+    }
     public function testFactoryFailsClosedForUnsupportedFixtureVersion(): void
     {
         $tmp = $this->copyFixturesToTempDir();
@@ -309,6 +407,42 @@ class OxygenStorageAdapterTest extends TestCase
         $this->assertStringContainsString('Unsupported Oxygen template post type "page"', implode(' ', $result['errors']));
     }
 
+    public function testCreateOrUpdateDocumentPostRejectsOxygenPartWhenStableCopyOptionIsDisabled(): void
+    {
+        $GLOBALS['__wp_options'] = [];
+        $GLOBALS['__wp_posts'] = [];
+        $GLOBALS['__wp_post_meta'] = [];
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $payload = $this->fixturePayload('template-settings.json');
+        $payload['post_type'] = 'oxygen_part';
+
+        $result = $adapter->createOrUpdateDocumentPost($payload);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(422, $result['status']);
+        $this->assertStringContainsString('oxygen_part requires Oxygen stable is_copy_from_frontend_enabled to be "yes"', implode(' ', $result['errors']));
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testCreateOrUpdateDocumentPostAllowsOxygenPartWhenStableCopyOptionIsEnabled(): void
+    {
+        $GLOBALS['__wp_options'] = [];
+        $GLOBALS['__wp_posts'] = [];
+        $GLOBALS['__wp_post_meta'] = [];
+        $GLOBALS['__wp_next_post_id'] = 1;
+        update_option('oxygen_is_copy_from_frontend_enabled', 'yes');
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $payload = $this->fixturePayload('template-settings.json');
+        $payload['post_type'] = 'oxygen_part';
+
+        $result = $adapter->createOrUpdateDocumentPost($payload);
+
+        $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
+        $this->assertSame('oxygen_part', $result['postType']);
+        $this->assertSame('oxygen_part', $GLOBALS['__wp_posts'][(int) $result['postId']]->post_type);
+    }
     public function testAdapterRejectsMalformedGlobalSettingsAndTemplateRuleContracts(): void
     {
         $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
@@ -454,6 +588,20 @@ class OxygenStorageAdapterTest extends TestCase
         return dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'oxygen6-contracts';
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function selectorRecord(string $name): array
+    {
+        return [
+            'id' => '11111111-1111-5111-8111-111111111111',
+            'name' => $name,
+            'type' => 'class',
+            'collection' => 'Imported HTML',
+            'children' => [],
+            'properties' => new \stdClass(),
+        ];
+    }
     /**
      * @return array<string, mixed>
      */

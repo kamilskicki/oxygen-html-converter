@@ -2,6 +2,7 @@
   "contract": "global-settings",
   "oxygenVersion": "6.1.0",
   "sourceFiles": [
+    "oxygen/plugin/breakdance-oxygen/global-settings.php",
     "oxygen/plugin/global-styles/base.php",
     "oxygen/plugin/global-styles/colors/base.php",
     "oxygen/plugin/global-styles/other/global-css-vars.css.twig",

@@ -11,6 +11,7 @@ class OxygenPageImporter
 {
     public const MANIFEST_META_KEY = '_oxy_html_converter_import_manifest';
     public const ROLLBACK_META_KEY = '_oxy_html_converter_previous_oxygen_data';
+    private const OXYGEN_PART_GATE_OPTION_NAME = 'oxygen_is_copy_from_frontend_enabled';
 
     /**
      * @var array<string, bool>
@@ -45,6 +46,7 @@ class OxygenPageImporter
         'unsupportedItems' => true,
         'unsupported' => true,
         'overwriteGlobalSettings' => true,
+        'enableOxygenPartImports' => true,
     ];
 
     /**
@@ -301,8 +303,11 @@ class OxygenPageImporter
      */
     public function importSiteKit(array $manifest): array
     {
+        $managedPartGate = $this->enableManagedOxygenPartImports($manifest);
         $validation = $this->validateSiteKitManifest($manifest);
         if (!$validation['valid']) {
+            $this->restoreManagedOxygenPartImports($managedPartGate);
+
             return [
                 'success' => false,
                 'status' => 422,
@@ -316,11 +321,15 @@ class OxygenPageImporter
             $tree = $this->extractSiteKitDocumentTree($record);
             $authorization = $this->authorizeImport($this->siteKitPagePayload($record, $indexedRecord['index'], $tree ?? []));
             if (empty($authorization['success'])) {
+                $this->restoreManagedOxygenPartImports($managedPartGate);
+
                 return $authorization;
             }
         }
 
         if (!$this->currentUserCan('edit_pages')) {
+            $this->restoreManagedOxygenPartImports($managedPartGate);
+
             return [
                 'success' => false,
                 'status' => 403,
@@ -337,7 +346,7 @@ class OxygenPageImporter
             'global_styles',
             'brand_library',
         ]);
-        $rollbackBaseline = [];
+        $rollbackBaseline = is_array($managedPartGate['snapshot'] ?? null) ? [$managedPartGate['snapshot']] : [];
         $objects = $this->emptySiteKitObjectReport();
         $firstPageId = 0;
         $selectorPersistence = ['saved' => 0, 'total' => 0, 'collections' => []];
@@ -663,6 +672,50 @@ class OxygenPageImporter
             'success' => true,
             'status' => 200,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     * @return array{enabled: bool, snapshot: array<string, mixed>|null}
+     */
+    private function enableManagedOxygenPartImports(array $manifest): array
+    {
+        $records = is_array($manifest['parts'] ?? null) ? $manifest['parts'] : [];
+        $requested = $manifest['enableOxygenPartImports'] ?? false;
+        $enabled = $requested === true || $requested === 1 || $requested === '1' || $requested === 'true';
+
+        if (!$enabled || $records === []) {
+            return [
+                'enabled' => false,
+                'snapshot' => null,
+            ];
+        }
+
+        // Oxygen 6.1 stable registers oxygen_part only when the design-library
+        // get_global_option('is_copy_from_frontend_enabled') flag is yes.
+        // Site-kits can opt in to managing that prerequisite with rollback.
+        $snapshot = $this->captureOptionStore('oxygen_part_gate', self::OXYGEN_PART_GATE_OPTION_NAME);
+        if (function_exists('update_option')) {
+            update_option(self::OXYGEN_PART_GATE_OPTION_NAME, 'yes');
+        }
+
+        return [
+            'enabled' => true,
+            'snapshot' => $snapshot,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $state
+     */
+    private function restoreManagedOxygenPartImports(array $state): void
+    {
+        $snapshot = is_array($state['snapshot'] ?? null) ? $state['snapshot'] : null;
+        if ($snapshot === null) {
+            return;
+        }
+
+        $this->restoreSnapshotEntry($snapshot, 'old');
     }
 
     /**
@@ -2967,7 +3020,7 @@ class OxygenPageImporter
         foreach ([
             'oxygen_selectors' => 'oxygen_oxy_selectors_json_string',
             'oxygen_selector_collections' => 'oxygen_oxy_selectors_collections_json_string',
-            'breakdance_classes' => 'breakdance_classes_json_string',
+            'breakdance_classes' => 'oxygen_breakdance_classes_json_string',
             'oxygen_variables' => OxygenVariableRepository::OPTION_NAME,
             'oxygen_variable_collections' => OxygenVariableRepository::COLLECTIONS_OPTION_NAME,
             'oxygen_global_settings' => OxygenGlobalSettingsRepository::OPTION_NAME,

@@ -95,6 +95,10 @@ class OxygenValueNormalizer
             return $value;
         }
 
+        if ($this->isRawPercentageNumberPath($path)) {
+            return $this->normalizeRawPercentageNumber($value);
+        }
+
         if (($path[0] ?? '') === 'typography' && ($path[1] ?? '') === 'line_height') {
             return $this->normalizeLineHeight((string) $value);
         }
@@ -321,6 +325,56 @@ class OxygenValueNormalizer
     }
 
     /**
+     * @param list<string> $path
+     */
+    private function isRawPercentageNumberPath(array $path): bool
+    {
+        $path = $this->withoutBreakpointSegments($path);
+        $root = $path[0] ?? '';
+        $section = $path[1] ?? '';
+        $leaf = (string) end($path);
+
+        return ($root === 'typography' && $section === 'font_width')
+            || ($root === 'size' && $section === 'object_position' && in_array($leaf, ['x', 'y'], true))
+            || ($root === 'effects' && $section === 'transform_origin' && in_array($leaf, ['x', 'y'], true));
+    }
+
+    /**
+     * @param mixed $value
+     * @return int|float|null
+     */
+    private function normalizeRawPercentageNumber($value)
+    {
+        if (is_int($value) || is_float($value)) {
+            return is_finite((float) $value) ? $this->normalizeNumber($value) : null;
+        }
+
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+        if ($value === '' || $this->containsUnsafeSyntax($value)) {
+            return null;
+        }
+
+        if (str_ends_with($value, '%')) {
+            $value = trim(substr($value, 0, -1));
+        }
+
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        $number = (float) $value;
+        if (!is_finite($number)) {
+            return null;
+        }
+
+        return $this->normalizeNumber($number);
+    }
+
+    /**
      * @return array{number:int|float|null, unit:string, style:string}|null
      */
     private function normalizeLineHeight(string $value): ?array
@@ -376,7 +430,7 @@ class OxygenValueNormalizer
                 'max_height',
                 'min_width',
                 'min_height',
-            ], true) || $section === 'object_position';
+            ], true);
         }
 
         if ($root === 'spacing') {
@@ -414,10 +468,6 @@ class OxygenValueNormalizer
         }
 
         if (in_array($section, ['outline_width', 'outline_offset'], true)) {
-            return true;
-        }
-
-        if ($section === 'transform_origin') {
             return true;
         }
 
@@ -762,6 +812,14 @@ class OxygenValueNormalizer
         }
 
         return strtolower(preg_replace('/\s+/', '', 'hsl' . (isset($parts[3]) ? 'a' : '') . '(' . implode(',', $parts) . ')') ?? '');
+    }
+
+    /**
+     * @return int|float
+     */
+    private function normalizeNumber(float $number)
+    {
+        return $number == (int) $number ? (int) $number : $number;
     }
 
     private function isBalancedFunctionValue(string $value): bool

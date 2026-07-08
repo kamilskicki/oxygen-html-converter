@@ -33,8 +33,21 @@
                 }
               }
             },
+            "size": {
+              "object_position": {
+                "x": 25,
+                "y": 75
+              }
+            },
             "typography": {
-              "color": "#111827FF"
+              "color": "#111827FF",
+              "font_width": 85
+            },
+            "effects": {
+              "transform_origin": {
+                "x": 50,
+                "y": 20
+              }
             }
           }
         },

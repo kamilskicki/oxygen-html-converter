@@ -278,6 +278,7 @@ class StyleExtractorTest extends TestCase
             'overflow-wrap' => 'break-word',
             'text-wrap' => 'balance',
             'text-overflow' => 'ellipsis',
+            'font-stretch' => '85%',
         ];
 
         $properties = $this->extractor->toOxygenProperties($styles);
@@ -285,6 +286,20 @@ class StyleExtractorTest extends TestCase
         $this->assertEquals('break-word', $properties['typography']['overflow_wrap']);
         $this->assertEquals('balance', $properties['typography']['text_wrap']);
         $this->assertEquals('ellipsis', $properties['typography']['text_overflow']);
+        $this->assertSame(85, $properties['typography']['font_width']);
+    }
+
+    public function testStablePercentageControlsPersistRawNumbers(): void
+    {
+        $properties = $this->extractor->toOxygenProperties([
+            'object-position' => '25% 75%',
+            'transform-origin' => '50% 20%',
+        ]);
+
+        $this->assertSame(25, $properties['size']['object_position']['x']);
+        $this->assertSame(75, $properties['size']['object_position']['y']);
+        $this->assertSame(50, $properties['effects']['transform_origin']['x']);
+        $this->assertSame(20, $properties['effects']['transform_origin']['y']);
     }
 
     public function testNewLayoutProperties(): void

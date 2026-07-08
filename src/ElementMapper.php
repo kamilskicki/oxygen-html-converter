@@ -525,6 +525,7 @@ class ElementMapper
         ];
 
         if ($alt) {
+            $properties['content']['image']['alt'] = 'custom';
             $properties['content']['image']['alt_when_from_url'] = 'custom';
             $properties['content']['image']['custom_alt_when_from_url'] = $alt;
         }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Oxygen HTML Converter icon placeholder</title>
+  <desc id="desc">A placeholder icon source for WordPress.org publication assets.</desc>
+  <rect width="256" height="256" rx="48" fill="#102a43"/>
+  <path d="M64 78h128v100H64z" fill="#f7fafc"/>
+  <path d="M84 104l-22 24 22 24" fill="none" stroke="#1f8a70" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M172 104l22 24-22 24" fill="none" stroke="#1f8a70" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M143 91l-30 74" fill="none" stroke="#334e68" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="128" cy="204" r="13" fill="#f0b429"/>
+</svg>

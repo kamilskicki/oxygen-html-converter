@@ -110,6 +110,18 @@ class OxygenValueNormalizerTest extends TestCase
         );
     }
 
+    public function testNormalizesStableRawPercentageNumberPaths(): void
+    {
+        $this->assertSame(25, $this->normalizer->normalizeForPath(['size', 'object_position', 'x'], '25%', 'object-position'));
+        $this->assertSame(75, $this->normalizer->normalizeForPath(['size', 'object_position', 'y'], '75%', 'object-position'));
+        $this->assertSame(50, $this->normalizer->normalizeForPath(['effects', 'transform_origin', 'x'], '50%', 'transform-origin'));
+        $this->assertSame(20, $this->normalizer->normalizeForPath(['effects', 'transform_origin', 'y'], '20%', 'transform-origin'));
+        $this->assertSame(85, $this->normalizer->normalizeForPath(['typography', 'font_width'], '85%', 'font-stretch'));
+
+        $this->assertNull($this->normalizer->normalizeForPath(['size', 'object_position', 'x'], 'left', 'object-position'));
+        $this->assertNull($this->normalizer->normalizeForPath(['typography', 'font_width'], 'condensed', 'font-stretch'));
+    }
+
     public function testRejectsInvalidKeywordValuesForEnumeratedPaths(): void
     {
         $this->assertNull($this->normalizer->normalizeForPath(['layout', 'display'], 'definitelybogus', 'display'));

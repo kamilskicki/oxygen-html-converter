@@ -38,6 +38,9 @@ class OxygenGlobalSettingsRepositoryTest extends TestCase
         ]));
 
         $result = (new OxygenGlobalSettingsRepository())->saveFromPayload([
+            'options' => [
+                'inferDormantGlobalSettingsFromTokens' => true,
+            ],
             'oxygenGlobalSettings' => [
                 'settings' => [
                     'typography' => [
@@ -105,6 +108,9 @@ class OxygenGlobalSettingsRepositoryTest extends TestCase
             ]);
 
         $result = (new OxygenGlobalSettingsRepository($adapter))->saveFromPayload([
+            'options' => [
+                'inferDormantGlobalSettingsFromTokens' => true,
+            ],
             'oxygenGlobalSettings' => [
                 'settings' => [
                     'typography' => [
@@ -130,6 +136,9 @@ class OxygenGlobalSettingsRepositoryTest extends TestCase
     public function testSaveFromPayloadInfersExpandedGlobalSettingsFromDesignDocumentTokens(): void
     {
         $result = (new OxygenGlobalSettingsRepository())->saveFromPayload([
+            'options' => [
+                'inferDormantGlobalSettingsFromTokens' => true,
+            ],
             'designDocument' => [
                 'tokens' => [
                     'colors' => [
@@ -213,6 +222,30 @@ class OxygenGlobalSettingsRepositoryTest extends TestCase
         $this->assertSame([], $settings['settings']['code']['scripts']);
     }
 
+    public function testSaveFromPayloadKeepsTokenOnlyGlobalSettingsDormantByDefault(): void
+    {
+        $result = (new OxygenGlobalSettingsRepository())->saveFromPayload([
+            'designDocument' => [
+                'tokens' => [
+                    'colors' => [[
+                        'value' => '#731B19',
+                        'uses' => 3,
+                        'suggestedName' => 'color-primary',
+                    ]],
+                    'fonts' => [[
+                        'value' => 'Inter',
+                        'uses' => 2,
+                        'suggestedName' => 'font-inter',
+                    ]],
+                ],
+            ],
+        ]);
+
+        $this->assertFalse($result['saved']);
+        $this->assertSame('no_global_settings_or_tokens', $result['skippedReason']);
+        $this->assertArrayNotHasKey(OxygenGlobalSettingsRepository::OPTION_NAME, $GLOBALS['__wp_options']);
+    }
+
     public function testSaveFromPayloadPreservesExistingSettingsUnlessOverwriteIsApproved(): void
     {
         update_option(OxygenGlobalSettingsRepository::OPTION_NAME, wp_json_encode([
@@ -250,6 +283,9 @@ class OxygenGlobalSettingsRepositoryTest extends TestCase
         ]));
 
         $payload = [
+            'options' => [
+                'inferDormantGlobalSettingsFromTokens' => true,
+            ],
             'designDocument' => [
                 'tokens' => [
                     'colors' => [
