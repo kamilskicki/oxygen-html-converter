@@ -73,10 +73,9 @@ Yes. Core exposes hooks including `oxy_html_converter_convert_options`, `oxy_htm
 
 == Screenshots ==
 
-1. Admin converter screen for pasting HTML, previewing the conversion audit, and generating Oxygen output.
-2. Conversion audit showing supported, unsupported, deferred, and fallback items before import.
-3. Builder import modal for inserting converted HTML into an Oxygen document.
-4. Imported page reopened in Oxygen Builder with editable native elements.
+1. screenshot-1.png - Main converter UI for pasting HTML and choosing conversion options.
+2. screenshot-2.png - Options and preview audit after loading sample HTML.
+3. screenshot-3.png - Import output after conversion, including generated Oxygen JSON and audit details.
 
 == Changelog ==
 

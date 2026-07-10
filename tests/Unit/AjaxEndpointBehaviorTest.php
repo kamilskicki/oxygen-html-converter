@@ -3,6 +3,7 @@
 namespace OxyHtmlConverter\Tests\Unit;
 
 use OxyHtmlConverter\Ajax;
+use OxyHtmlConverter\ElementTypes;
 use PHPUnit\Framework\TestCase;
 
 class AjaxEndpointBehaviorTest extends TestCase
@@ -22,7 +23,12 @@ class AjaxEndpointBehaviorTest extends TestCase
         $GLOBALS['__wp_options'] = [];
         $GLOBALS['__wp_next_post_id'] = 1;
         $GLOBALS['__wp_cleaned_post_cache'] = [];
-        unset($GLOBALS['__wp_current_user_can_last_capability']);
+        unset(
+            $GLOBALS['__wp_current_user_can_last_capability'],
+            $GLOBALS['__wp_apply_unslash'],
+            $GLOBALS['__wp_track_unslash_calls'],
+            $GLOBALS['__wp_unslash_calls']
+        );
     }
 
     public function testPreviewSafeModeRemovesScriptElementsFromStats(): void
@@ -427,6 +433,52 @@ class AjaxEndpointBehaviorTest extends TestCase
         $manifest = json_decode(stripslashes((string) $GLOBALS['__wp_post_meta'][1]['_oxy_html_converter_import_manifest']), true);
         $this->assertSame('site-kit', $manifest['kind']);
         $this->assertSame($response['data']['rollbackId'], $manifest['rollbackId']);
+    }
+
+    public function testImportPageEndpointUnslashesPayloadExactlyOnce(): void
+    {
+        $escapedPayload = "Quote: \"yes\"; path: C:\\imports\\site; unicode: Zażółć 🚀";
+        $pageImporter = new class extends \OxyHtmlConverter\Services\OxygenPageImporter {
+            /** @var array<string, mixed> */
+            public array $receivedPayload = [];
+
+            public function import(array $payload): array
+            {
+                $this->receivedPayload = $payload;
+
+                return [
+                    'success' => true,
+                    'status' => 200,
+                    'postId' => 123,
+                ];
+            }
+        };
+        $ajax = new Ajax(null, null, null, null, null, null, null, null, $pageImporter);
+        $json = wp_json_encode([
+            'sourceHash' => $escapedPayload,
+            'element' => [
+                'id' => 1,
+                'data' => ['type' => ElementTypes::CONTAINER],
+                'children' => [],
+            ],
+            'importPlan' => [
+                'status' => 'ready',
+                'canImport' => true,
+            ],
+        ]);
+        $_POST = [
+            'nonce' => 'n',
+            'importPayload' => wp_slash($json),
+        ];
+        $GLOBALS['__wp_apply_unslash'] = true;
+        $GLOBALS['__wp_track_unslash_calls'] = true;
+        $GLOBALS['__wp_unslash_calls'] = 0;
+
+        $ajax->handleImportPage();
+
+        $this->assertTrue($GLOBALS['__wp_send_json_last']['success']);
+        $this->assertSame(1, $GLOBALS['__wp_unslash_calls']);
+        $this->assertSame($escapedPayload, $pageImporter->receivedPayload['sourceHash']);
     }
 
     public function testImportPageEndpointRejectsBlockedImportPlan(): void

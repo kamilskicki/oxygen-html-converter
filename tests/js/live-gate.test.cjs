@@ -144,6 +144,37 @@ module.exports = async function runLiveGateTests() {
   );
 
   assert.equal(
+    liveGate.isCanceledNavigationRequestFailure(
+      "GET http://oxyconvo6.localhost/wp-content/plugins/oxygen-html-converter/assets/js/lib/builder-editability.js?ver=0.9.0-beta (net::ERR_ABORTED)"
+    ),
+    true
+  );
+
+  {
+    const blocking = [];
+    const ambient = [];
+    liveGate.classifyObservation(
+      "GET http://oxyconvo6.localhost/wp-content/plugins/oxygen-html-converter/assets/js/lib/builder-editability.js?ver=0.9.0-beta (net::ERR_ABORTED)",
+      blocking,
+      ambient
+    );
+    assert.deepEqual(blocking, []);
+    assert.equal(ambient.length, 1);
+  }
+
+  {
+    const blocking = [];
+    const ambient = [];
+    liveGate.classifyObservation(
+      "POST http://oxyconvo6.localhost/wp-content/plugins/oxygen-html-converter/assets/js/converter.js (net::ERR_FAILED)",
+      blocking,
+      ambient
+    );
+    assert.equal(blocking.length, 1);
+    assert.deepEqual(ambient, []);
+  }
+
+  assert.equal(
     liveGate.isBuilderSaveResponsePayloadSuccessful(""),
     true
   );

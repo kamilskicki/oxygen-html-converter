@@ -33,8 +33,12 @@
     "test": "phpunit --fail-on-phpunit-deprecation --testsuite Unit",
     "test:legacy": "phpunit --configuration phpunit.legacy.xml",
     "test:contracts": "phpunit tests/Unit/Compatibility/InstalledBuilderContractsTest.php",
+    "benchmark:conversion": "php scripts/benchmark-conversion.php",
     "lint:phpcs": "phpcs --runtime-set ignore_warnings_on_exit 1 --standard=phpcs.xml.dist",
     "lint:phpstan": "phpstan analyse --configuration=phpstan.neon.dist",
+    "validate:readme": "php scripts/validate-readme.php",
+    "i18n:make-pot": "wp i18n make-pot . languages/oxygen-html-converter.pot --domain=oxygen-html-converter --exclude=node_modules,vendor,tests,tests/live,artifacts,.git,.worktrees",
+    "i18n:make-pot:docker": "docker run --rm -v %cd%:/app -w /app wordpress:cli wp i18n make-pot . languages/oxygen-html-converter.pot --domain=oxygen-html-converter --exclude=node_modules,vendor,tests,tests/live,artifacts,.git,.worktrees --allow-root",
     "check": [
       "@test",
       "@lint:phpcs",

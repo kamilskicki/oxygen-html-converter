@@ -431,7 +431,7 @@ class OxygenStorageAdapterTest extends TestCase
         $GLOBALS['__wp_posts'] = [];
         $GLOBALS['__wp_post_meta'] = [];
         $GLOBALS['__wp_next_post_id'] = 1;
-        update_option('oxygen_is_copy_from_frontend_enabled', 'yes');
+        update_option('oxygen_is_copy_from_frontend_enabled', wp_json_encode('yes'));
 
         $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
         $payload = $this->fixturePayload('template-settings.json');

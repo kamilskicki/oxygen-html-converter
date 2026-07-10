@@ -113,7 +113,11 @@ class Ajax
             return [
                 'success' => false,
                 'status' => 400,
-                'message' => $label . ' is required.',
+                'message' => sprintf(
+                /* translators: %s: payload label. */
+                __('%s is required.', 'oxygen-html-converter'),
+                $label
+            ),
             ];
         }
 
@@ -121,7 +125,12 @@ class Ajax
             return [
                 'success' => false,
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => $label . ' is too large. Maximum ' . $this->formatBytes($maxBytes) . ' allowed.',
+                'message' => sprintf(
+                /* translators: 1: payload label, 2: maximum size. */
+                __('%1$s is too large. Maximum %2$s allowed.', 'oxygen-html-converter'),
+                $label,
+                $this->formatBytes($maxBytes)
+            ),
             ];
         }
 
@@ -132,14 +141,23 @@ class Ajax
                 return [
                     'success' => false,
                     'status' => self::JSON_LIMIT_STATUS,
-                    'message' => $label . ' exceeds maximum JSON depth of ' . $maxDepth . '.',
+                    'message' => sprintf(
+                        /* translators: 1: payload label, 2: maximum JSON depth. */
+                        __('%1$s exceeds maximum JSON depth of %2$d.', 'oxygen-html-converter'),
+                        $label,
+                        $maxDepth
+                    ),
                 ];
             }
 
             return [
                 'success' => false,
                 'status' => 400,
-                'message' => 'Invalid ' . strtolower($label) . ' JSON.',
+                'message' => sprintf(
+                /* translators: %s: payload label. */
+                __('Invalid %s JSON.', 'oxygen-html-converter'),
+                strtolower($label)
+            ),
             ];
         }
 
@@ -147,7 +165,11 @@ class Ajax
             return [
                 'success' => false,
                 'status' => 400,
-                'message' => 'Invalid ' . strtolower($label) . ' shape.',
+                'message' => sprintf(
+                /* translators: %s: payload label. */
+                __('Invalid %s shape.', 'oxygen-html-converter'),
+                strtolower($label)
+            ),
             ];
         }
 
@@ -160,13 +182,19 @@ class Ajax
     /**
      * @return array{status: int, message: string}|null
      */
-    private function validateSelectorPayloadLimits(array $payload, string $label = 'Selector payload'): ?array
+    private function validateSelectorPayloadLimits(array $payload, string $label = ''): ?array
     {
+        $label = $label !== '' ? $label : __('Selector payload', 'oxygen-html-converter');
         $selectors = is_array($payload['selectors'] ?? null) ? $payload['selectors'] : [];
         if (count($selectors) > self::SELECTOR_MAX_RECORDS) {
             return [
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => $label . ' contains too many selectors. Maximum ' . self::SELECTOR_MAX_RECORDS . ' allowed.',
+                'message' => sprintf(
+                    /* translators: 1: payload label, 2: maximum selector count. */
+                    __('%1$s contains too many selectors. Maximum %2$d allowed.', 'oxygen-html-converter'),
+                    $label,
+                    self::SELECTOR_MAX_RECORDS
+                ),
             ];
         }
 
@@ -174,7 +202,12 @@ class Ajax
         if (count($collections) > self::SELECTOR_MAX_COLLECTIONS) {
             return [
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => $label . ' contains too many collections. Maximum ' . self::SELECTOR_MAX_COLLECTIONS . ' allowed.',
+                'message' => sprintf(
+                    /* translators: 1: payload label, 2: maximum collection count. */
+                    __('%1$s contains too many collections. Maximum %2$d allowed.', 'oxygen-html-converter'),
+                    $label,
+                    self::SELECTOR_MAX_COLLECTIONS
+                ),
             ];
         }
 
@@ -188,7 +221,13 @@ class Ajax
                 if (is_string($selector[$field] ?? null) && strlen((string) $selector[$field]) > self::SELECTOR_MAX_STRING_BYTES) {
                     return [
                         'status' => self::JSON_LIMIT_STATUS,
-                        'message' => $label . ' selector ' . $field . ' is too long at index ' . (int) $index . '.',
+                        'message' => sprintf(
+                            /* translators: 1: payload label, 2: selector field name, 3: selector index. */
+                            __('%1$s selector %2$s is too long at index %3$d.', 'oxygen-html-converter'),
+                            $label,
+                            $field,
+                            (int) $index
+                        ),
                     ];
                 }
             }
@@ -199,7 +238,8 @@ class Ajax
                     self::SELECTOR_MAX_PROPERTY_ITEMS - $propertiesItemCount,
                     self::SELECTOR_MAX_PROPERTY_VALUE_BYTES,
                     self::SELECTOR_MAX_PROPERTY_KEY_BYTES,
-                    $label . ' selector properties'
+                    /* translators: %s: payload label. */
+                    sprintf(__('%s selector properties', 'oxygen-html-converter'), $label)
                 );
                 if ($shapeError !== null) {
                     return $shapeError;
@@ -209,8 +249,12 @@ class Ajax
                 if ($propertiesItemCount > self::SELECTOR_MAX_PROPERTY_ITEMS) {
                     return [
                         'status' => self::JSON_LIMIT_STATUS,
-                        'message' => $label . ' selector properties contain too many nested items. Maximum '
-                            . self::SELECTOR_MAX_PROPERTY_ITEMS . ' allowed.',
+                        'message' => sprintf(
+                            /* translators: 1: payload label, 2: maximum nested property count. */
+                            __('%1$s selector properties contain too many nested items. Maximum %2$d allowed.', 'oxygen-html-converter'),
+                            $label,
+                            self::SELECTOR_MAX_PROPERTY_ITEMS
+                        ),
                     ];
                 }
             }
@@ -227,7 +271,8 @@ class Ajax
         $cssPayloads = $this->extractImportCssPayloads($payload);
         if (isset($payload['siteKitManifest']) && is_array($payload['siteKitManifest'])) {
             foreach ($this->extractImportCssPayloads($payload['siteKitManifest']) as $label => $css) {
-                $cssPayloads['Site-kit ' . lcfirst($label)] = $css;
+                /* translators: %s: CSS payload label. */
+                $cssPayloads[sprintf(__('Site-kit %s', 'oxygen-html-converter'), lcfirst($label))] = $css;
             }
         }
 
@@ -235,7 +280,12 @@ class Ajax
             if (strlen($css) > self::IMPORT_CSS_MAX_BYTES) {
                 return [
                     'status' => self::JSON_LIMIT_STATUS,
-                    'message' => $label . ' is too large. Maximum ' . $this->formatBytes(self::IMPORT_CSS_MAX_BYTES) . ' allowed.',
+                    'message' => sprintf(
+                    /* translators: 1: payload label, 2: maximum size. */
+                    __('%1$s is too large. Maximum %2$s allowed.', 'oxygen-html-converter'),
+                    $label,
+                    $this->formatBytes(self::IMPORT_CSS_MAX_BYTES)
+                ),
                 ];
             }
         }
@@ -245,21 +295,21 @@ class Ajax
             self::IMPORT_MAX_TOTAL_ITEMS,
             self::IMPORT_CSS_MAX_BYTES,
             256,
-            'Import payload'
+            __('Import payload', 'oxygen-html-converter')
         );
         if ($shapeError !== null) {
             return $shapeError;
         }
 
         if (is_array($payload['selectorPayload'] ?? null)) {
-            $selectorError = $this->validateSelectorPayloadLimits($payload['selectorPayload'], 'Import selector payload');
+            $selectorError = $this->validateSelectorPayloadLimits($payload['selectorPayload'], __('Import selector payload', 'oxygen-html-converter'));
             if ($selectorError !== null) {
                 return $selectorError;
             }
         }
 
         foreach ($this->siteKitSelectorPayloadsForLimits($payload) as $selectorPayload) {
-            $selectorError = $this->validateSelectorPayloadLimits($selectorPayload, 'Site-kit selector payload');
+            $selectorError = $this->validateSelectorPayloadLimits($selectorPayload, __('Site-kit selector payload', 'oxygen-html-converter'));
             if ($selectorError !== null) {
                 return $selectorError;
             }
@@ -293,10 +343,10 @@ class Ajax
         $cssPayloads = [];
 
         foreach ([
-            'globalCss' => 'Global CSS payload',
-            'fallbackCss' => 'Fallback CSS payload',
-            'pageCss' => 'Page CSS payload',
-            'pageScopedCss' => 'Page scoped CSS payload',
+            'globalCss' => __('Global CSS payload', 'oxygen-html-converter'),
+            'fallbackCss' => __('Fallback CSS payload', 'oxygen-html-converter'),
+            'pageCss' => __('Page CSS payload', 'oxygen-html-converter'),
+            'pageScopedCss' => __('Page scoped CSS payload', 'oxygen-html-converter'),
         ] as $field => $label) {
             if (is_string($payload[$field] ?? null)) {
                 $cssPayloads[$label] = (string) $payload[$field];
@@ -305,9 +355,9 @@ class Ajax
 
         $routing = is_array($payload['styleRouting'] ?? null) ? $payload['styleRouting'] : [];
         foreach ([
-            'globalCss' => 'Global routed CSS payload',
-            'pageCss' => 'Page routed CSS payload',
-            'pageScopedCss' => 'Page scoped routed CSS payload',
+            'globalCss' => __('Global routed CSS payload', 'oxygen-html-converter'),
+            'pageCss' => __('Page routed CSS payload', 'oxygen-html-converter'),
+            'pageScopedCss' => __('Page scoped routed CSS payload', 'oxygen-html-converter'),
         ] as $field => $label) {
             if (is_string($routing[$field] ?? null)) {
                 $cssPayloads[$label] = (string) $routing[$field];
@@ -347,7 +397,11 @@ class Ajax
         if ($depth > self::IMPORT_TREE_MAX_DEPTH) {
             return [
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => 'Import document tree exceeds maximum depth of ' . self::IMPORT_TREE_MAX_DEPTH . '.',
+                'message' => sprintf(
+                    /* translators: %d: maximum tree depth. */
+                    __('Import document tree exceeds maximum depth of %d.', 'oxygen-html-converter'),
+                    self::IMPORT_TREE_MAX_DEPTH
+                ),
             ];
         }
 
@@ -355,7 +409,11 @@ class Ajax
         if ($nodeCount > self::IMPORT_TREE_MAX_NODES) {
             return [
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => 'Import document tree contains too many nodes. Maximum ' . self::IMPORT_TREE_MAX_NODES . ' allowed.',
+                'message' => sprintf(
+                    /* translators: %d: maximum node count. */
+                    __('Import document tree contains too many nodes. Maximum %d allowed.', 'oxygen-html-converter'),
+                    self::IMPORT_TREE_MAX_NODES
+                ),
             ];
         }
 
@@ -363,8 +421,11 @@ class Ajax
         if (count($children) > self::IMPORT_TREE_MAX_CHILDREN) {
             return [
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => 'Import document tree node contains too many children. Maximum '
-                    . self::IMPORT_TREE_MAX_CHILDREN . ' allowed.',
+                'message' => sprintf(
+                    /* translators: %d: maximum child node count. */
+                    __('Import document tree node contains too many children. Maximum %d allowed.', 'oxygen-html-converter'),
+                    self::IMPORT_TREE_MAX_CHILDREN
+                ),
             ];
         }
 
@@ -392,7 +453,7 @@ class Ajax
             self::BRAND_MAX_TOTAL_ITEMS,
             self::BRAND_MAX_STRING_BYTES,
             256,
-            'Brand library payload'
+            __('Brand library payload', 'oxygen-html-converter')
         );
         if ($shapeError !== null) {
             return $shapeError;
@@ -405,8 +466,11 @@ class Ajax
         if ($colorCount > self::BRAND_MAX_COLOR_TOKENS) {
             return [
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => 'Brand library payload contains too many color tokens. Maximum '
-                    . self::BRAND_MAX_COLOR_TOKENS . ' allowed.',
+                'message' => sprintf(
+                    /* translators: %d: maximum color token count. */
+                    __('Brand library payload contains too many color tokens. Maximum %d allowed.', 'oxygen-html-converter'),
+                    self::BRAND_MAX_COLOR_TOKENS
+                ),
             ];
         }
 
@@ -417,8 +481,11 @@ class Ajax
         if ($typographyCount > self::BRAND_MAX_TYPOGRAPHY_TOKENS) {
             return [
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => 'Brand library payload contains too many typography tokens. Maximum '
-                    . self::BRAND_MAX_TYPOGRAPHY_TOKENS . ' allowed.',
+                'message' => sprintf(
+                    /* translators: %d: maximum typography token count. */
+                    __('Brand library payload contains too many typography tokens. Maximum %d allowed.', 'oxygen-html-converter'),
+                    self::BRAND_MAX_TYPOGRAPHY_TOKENS
+                ),
             ];
         }
 
@@ -429,8 +496,11 @@ class Ajax
         if ($componentCount > self::BRAND_MAX_COMPONENTS) {
             return [
                 'status' => self::JSON_LIMIT_STATUS,
-                'message' => 'Brand library payload contains too many components. Maximum '
-                    . self::BRAND_MAX_COMPONENTS . ' allowed.',
+                'message' => sprintf(
+                    /* translators: %d: maximum component count. */
+                    __('Brand library payload contains too many components. Maximum %d allowed.', 'oxygen-html-converter'),
+                    self::BRAND_MAX_COMPONENTS
+                ),
             ];
         }
 
@@ -465,21 +535,36 @@ class Ajax
                 if ($itemCount > $maxItems) {
                     return [
                         'status' => self::JSON_LIMIT_STATUS,
-                        'message' => $label . ' contains too many nested items. Maximum ' . $maxItems . ' allowed.',
+                        'message' => sprintf(
+                            /* translators: 1: payload label, 2: maximum nested item count. */
+                            __('%1$s contains too many nested items. Maximum %2$d allowed.', 'oxygen-html-converter'),
+                            $label,
+                            $maxItems
+                        ),
                     ];
                 }
 
                 if (is_string($key) && strlen($key) > $maxKeyBytes) {
                     return [
                         'status' => self::JSON_LIMIT_STATUS,
-                        'message' => $label . ' contains a key longer than ' . $maxKeyBytes . ' bytes.',
+                        'message' => sprintf(
+                            /* translators: 1: payload label, 2: maximum key length in bytes. */
+                            __('%1$s contains a key longer than %2$d bytes.', 'oxygen-html-converter'),
+                            $label,
+                            $maxKeyBytes
+                        ),
                     ];
                 }
 
                 if (is_string($child) && strlen($child) > $maxStringBytes) {
                     return [
                         'status' => self::JSON_LIMIT_STATUS,
-                        'message' => $label . ' contains a string longer than ' . $this->formatBytes($maxStringBytes) . '.',
+                        'message' => sprintf(
+                            /* translators: 1: payload label, 2: maximum string size. */
+                            __('%1$s contains a string longer than %2$s.', 'oxygen-html-converter'),
+                            $label,
+                            $this->formatBytes($maxStringBytes)
+                        ),
                     ];
                 }
 
@@ -606,13 +691,13 @@ class Ajax
     {
         // Verify nonce
         if (!check_ajax_referer('oxy_html_converter', 'nonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed'], 403);
+            wp_send_json_error(['message' => __('Security check failed', 'oxygen-html-converter')], 403);
             return;
         }
 
         // Check permissions
         if (!current_user_can($this->getRequiredCapability())) {
-            wp_send_json_error(['message' => 'Permission denied'], 403);
+            wp_send_json_error(['message' => __('Permission denied', 'oxygen-html-converter')], 403);
             return;
         }
 
@@ -620,14 +705,14 @@ class Ajax
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw HTML must remain intact for conversion.
         $html = isset($_POST['html']) ? wp_unslash($_POST['html']) : '';
         if (empty($html)) {
-            wp_send_json_error(['message' => 'No HTML provided'], 400);
+            wp_send_json_error(['message' => __('No HTML provided', 'oxygen-html-converter')], 400);
             return;
         }
 
         // Size limit for single conversion (1MB)
         if (strlen($html) > 1048576) {
             wp_send_json_error([
-                'message' => 'HTML content too large. Maximum 1MB allowed for single conversion.',
+                'message' => __('HTML content too large. Maximum 1MB allowed for single conversion.', 'oxygen-html-converter'),
             ], 400);
             return;
         }
@@ -640,7 +725,7 @@ class Ajax
         }
         if (!$this->currentUserCanUseExecutableCode($options)) {
             wp_send_json_error([
-                'message' => 'Executable code fallback requires unfiltered HTML permission.',
+                'message' => __('Executable code fallback requires unfiltered HTML permission.', 'oxygen-html-converter'),
             ], 403);
             return;
         }
@@ -660,7 +745,7 @@ class Ajax
                 error_log('Oxygen HTML Converter Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
             wp_send_json_error([
-                'message' => $this->getClientErrorMessage('Conversion failed', $e),
+                'message' => $this->getClientErrorMessage(__('Conversion failed', 'oxygen-html-converter'), $e),
             ], 500);
         }
     }
@@ -687,13 +772,13 @@ class Ajax
     {
         // Verify nonce
         if (!check_ajax_referer('oxy_html_converter', 'nonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed'], 403);
+            wp_send_json_error(['message' => __('Security check failed', 'oxygen-html-converter')], 403);
             return;
         }
 
         // Check permissions
         if (!current_user_can($this->getRequiredCapability())) {
-            wp_send_json_error(['message' => 'Permission denied'], 403);
+            wp_send_json_error(['message' => __('Permission denied', 'oxygen-html-converter')], 403);
             return;
         }
 
@@ -701,14 +786,18 @@ class Ajax
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw HTML arrays must remain intact for conversion.
         $rawBatch = isset($_POST['batch']) ? wp_unslash($_POST['batch']) : [];
         if (empty($rawBatch) || !is_array($rawBatch)) {
-            wp_send_json_error(['message' => 'No HTML batch provided'], 400);
+            wp_send_json_error(['message' => __('No HTML batch provided', 'oxygen-html-converter')], 400);
             return;
         }
 
         // Safety limits
         if (count($rawBatch) > self::MAX_BATCH_ITEMS) {
             wp_send_json_error([
-                'message' => 'Batch too large. Maximum ' . self::MAX_BATCH_ITEMS . ' items allowed.',
+                'message' => sprintf(
+                    /* translators: %d: maximum batch item count. */
+                    __('Batch too large. Maximum %d items allowed.', 'oxygen-html-converter'),
+                    self::MAX_BATCH_ITEMS
+                ),
             ], 400);
             return;
         }
@@ -735,7 +824,11 @@ class Ajax
             // Check total batch size
             if ($totalSize + $itemSize > self::MAX_BATCH_SIZE) {
                 wp_send_json_error([
-                    'message' => 'Batch total size exceeds limit. Maximum ' . (self::MAX_BATCH_SIZE / 1048576) . 'MB allowed.',
+                    'message' => sprintf(
+                        /* translators: %d: maximum batch size in megabytes. */
+                        __('Batch total size exceeds limit. Maximum %dMB allowed.', 'oxygen-html-converter'),
+                        self::MAX_BATCH_SIZE / 1048576
+                    ),
                     'processedItems' => count($batch),
                 ], 400);
                 return;
@@ -755,7 +848,7 @@ class Ajax
         }
         if (!$this->currentUserCanUseExecutableCode($options)) {
             wp_send_json_error([
-                'message' => 'Executable code fallback requires unfiltered HTML permission.',
+                'message' => __('Executable code fallback requires unfiltered HTML permission.', 'oxygen-html-converter'),
             ], 403);
             return;
         }
@@ -766,7 +859,7 @@ class Ajax
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_batch_exception', $e);
             wp_send_json_error([
-                'message' => $this->getClientErrorMessage('Batch conversion failed', $e),
+                'message' => $this->getClientErrorMessage(__('Batch conversion failed', 'oxygen-html-converter'), $e),
             ], 500);
         }
     }
@@ -777,12 +870,12 @@ class Ajax
     public function handleSaveSelectors(): void
     {
         if (!check_ajax_referer('oxy_html_converter', 'nonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed'], 403);
+            wp_send_json_error(['message' => __('Security check failed', 'oxygen-html-converter')], 403);
             return;
         }
 
         if (!$this->currentUserCanMutateGlobalDesign()) {
-            wp_send_json_error(['message' => 'Permission denied'], 403);
+            wp_send_json_error(['message' => __('Permission denied', 'oxygen-html-converter')], 403);
             return;
         }
 
@@ -790,7 +883,7 @@ class Ajax
         $rawPayload = isset($_POST['selectorPayload']) ? wp_unslash($_POST['selectorPayload']) : '';
         $decodedPayload = $this->decodeBoundedJsonPayload(
             $rawPayload,
-            'Selector payload',
+            __('Selector payload', 'oxygen-html-converter'),
             self::SELECTOR_JSON_MAX_BYTES,
             self::SELECTOR_JSON_MAX_DEPTH
         );
@@ -811,7 +904,7 @@ class Ajax
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_save_selectors_exception', $e);
             wp_send_json_error([
-                'message' => $this->getClientErrorMessage('Failed to save selectors', $e),
+                'message' => $this->getClientErrorMessage(__('Failed to save selectors', 'oxygen-html-converter'), $e),
             ], 500);
         }
     }
@@ -822,12 +915,12 @@ class Ajax
     public function handleImportPage(): void
     {
         if (!check_ajax_referer('oxy_html_converter', 'nonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed'], 403);
+            wp_send_json_error(['message' => __('Security check failed', 'oxygen-html-converter')], 403);
             return;
         }
 
         if (!current_user_can($this->getRequiredCapability())) {
-            wp_send_json_error(['message' => 'Permission denied'], 403);
+            wp_send_json_error(['message' => __('Permission denied', 'oxygen-html-converter')], 403);
             return;
         }
 
@@ -835,7 +928,7 @@ class Ajax
         $rawPayload = isset($_POST['importPayload']) ? wp_unslash($_POST['importPayload']) : '';
         $decodedPayload = $this->decodeBoundedJsonPayload(
             $rawPayload,
-            'Import payload',
+            __('Import payload', 'oxygen-html-converter'),
             self::IMPORT_JSON_MAX_BYTES,
             self::IMPORT_JSON_MAX_DEPTH
         );
@@ -853,14 +946,14 @@ class Ajax
 
         if ($this->importPayloadContainsExecutableCode($payload) && !$this->currentUserCanUseExecutableImport($payload)) {
             wp_send_json_error([
-                'message' => 'Executable code import requires explicit approval and unfiltered HTML permission.',
+                'message' => __('Executable code import requires explicit approval and unfiltered HTML permission.', 'oxygen-html-converter'),
             ], 403);
             return;
         }
 
         if ($this->importPayloadMutatesGlobalDesign($payload) && !$this->currentUserCanMutateGlobalDesign()) {
             wp_send_json_error([
-                'message' => 'Permission denied for global design import mutations.',
+                'message' => __('Permission denied for global design import mutations.', 'oxygen-html-converter'),
             ], 403);
             return;
         }
@@ -877,13 +970,13 @@ class Ajax
             }
 
             wp_send_json_error([
-                'message' => $result['message'] ?? 'Page import failed.',
+                'message' => $result['message'] ?? __('Page import failed.', 'oxygen-html-converter'),
                 'errors' => $result['errors'] ?? [],
             ], (int) ($result['status'] ?? 500));
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_import_page_exception', $e);
             wp_send_json_error([
-                'message' => $this->getClientErrorMessage('Page import failed', $e),
+                'message' => $this->getClientErrorMessage(__('Page import failed', 'oxygen-html-converter'), $e),
             ], 500);
         }
     }
@@ -1007,12 +1100,12 @@ class Ajax
     public function handleRollbackImport(): void
     {
         if (!check_ajax_referer('oxy_html_converter', 'nonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed'], 403);
+            wp_send_json_error(['message' => __('Security check failed', 'oxygen-html-converter')], 403);
             return;
         }
 
         if (!current_user_can($this->getRequiredCapability())) {
-            wp_send_json_error(['message' => 'Permission denied'], 403);
+            wp_send_json_error(['message' => __('Permission denied', 'oxygen-html-converter')], 403);
             return;
         }
 
@@ -1028,13 +1121,13 @@ class Ajax
             }
 
             wp_send_json_error([
-                'message' => $result['message'] ?? 'Rollback failed.',
+                'message' => $result['message'] ?? __('Rollback failed.', 'oxygen-html-converter'),
                 'errors' => $result['errors'] ?? [],
             ], (int) ($result['status'] ?? 500));
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_rollback_import_exception', $e);
             wp_send_json_error([
-                'message' => $this->getClientErrorMessage('Rollback failed', $e),
+                'message' => $this->getClientErrorMessage(__('Rollback failed', 'oxygen-html-converter'), $e),
             ], 500);
         }
     }
@@ -1045,12 +1138,12 @@ class Ajax
     public function handleSaveBrandLibrary(): void
     {
         if (!check_ajax_referer('oxy_html_converter', 'nonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed'], 403);
+            wp_send_json_error(['message' => __('Security check failed', 'oxygen-html-converter')], 403);
             return;
         }
 
         if (!$this->currentUserCanMutateGlobalDesign()) {
-            wp_send_json_error(['message' => 'Permission denied'], 403);
+            wp_send_json_error(['message' => __('Permission denied', 'oxygen-html-converter')], 403);
             return;
         }
 
@@ -1058,7 +1151,7 @@ class Ajax
         $rawPayload = isset($_POST['brandPayload']) ? wp_unslash($_POST['brandPayload']) : '';
         $decodedPayload = $this->decodeBoundedJsonPayload(
             $rawPayload,
-            'Brand library payload',
+            __('Brand library payload', 'oxygen-html-converter'),
             self::BRAND_JSON_MAX_BYTES,
             self::BRAND_JSON_MAX_DEPTH
         );
@@ -1079,7 +1172,7 @@ class Ajax
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_save_brand_library_exception', $e);
             wp_send_json_error([
-                'message' => $this->getClientErrorMessage('Failed to save brand library', $e),
+                'message' => $this->getClientErrorMessage(__('Failed to save brand library', 'oxygen-html-converter'), $e),
             ], 500);
         }
     }
@@ -1091,13 +1184,13 @@ class Ajax
     {
         // Verify nonce
         if (!check_ajax_referer('oxy_html_converter', 'nonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed'], 403);
+            wp_send_json_error(['message' => __('Security check failed', 'oxygen-html-converter')], 403);
             return;
         }
 
         // Check permissions
         if (!current_user_can($this->getRequiredCapability())) {
-            wp_send_json_error(['message' => 'Permission denied'], 403);
+            wp_send_json_error(['message' => __('Permission denied', 'oxygen-html-converter')], 403);
             return;
         }
 
@@ -1105,14 +1198,14 @@ class Ajax
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw HTML must remain intact for conversion.
         $html = isset($_POST['html']) ? wp_unslash($_POST['html']) : '';
         if (empty($html)) {
-            wp_send_json_error(['message' => 'No HTML provided'], 400);
+            wp_send_json_error(['message' => __('No HTML provided', 'oxygen-html-converter')], 400);
             return;
         }
 
         // Size limit for preview (1MB)
         if (strlen($html) > 1048576) {
             wp_send_json_error([
-                'message' => 'HTML content too large. Maximum 1MB allowed.',
+                'message' => __('HTML content too large. Maximum 1MB allowed.', 'oxygen-html-converter'),
             ], 400);
             return;
         }
@@ -1124,7 +1217,7 @@ class Ajax
         }
         if (!$this->currentUserCanUseExecutableCode($options)) {
             wp_send_json_error([
-                'message' => 'Executable code fallback requires unfiltered HTML permission.',
+                'message' => __('Executable code fallback requires unfiltered HTML permission.', 'oxygen-html-converter'),
             ], 403);
             return;
         }
@@ -1144,7 +1237,7 @@ class Ajax
                 error_log('Oxygen HTML Converter Preview Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
             wp_send_json_error([
-                'message' => $this->getClientErrorMessage('Preview failed', $e),
+                'message' => $this->getClientErrorMessage(__('Preview failed', 'oxygen-html-converter'), $e),
             ], 500);
         }
     }

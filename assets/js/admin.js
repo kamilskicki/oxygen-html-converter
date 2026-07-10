@@ -32,6 +32,7 @@
   const $jsonStatus = $(".oxy-json-status");
   const $errorResult = $("#oxy-error-result");
   const $errorContent = $("#oxy-error-content");
+  const $resultAnnouncement = $("#oxy-result-announcement");
 
   const $reportSummary = $("#oxy-report-summary");
   const $auditPreserved = $("#oxy-audit-preserved");
@@ -124,7 +125,15 @@
     return String((responseData && responseData.message) || strings.requestFailed || "Request failed.");
   }
 
-  function showError(responseData) {
+  function announceResult($panel, message, moveFocus) {
+    $resultAnnouncement.text(String(message || ""));
+
+    if (moveFocus && $panel.length && $panel[0]) {
+      $panel[0].focus();
+    }
+  }
+
+  function showError(responseData, moveFocus) {
     $errorContent.text(formatError(responseData || {}));
     setPanelHidden($errorResult, false);
     setPanelHidden($previewResult, true);
@@ -133,6 +142,12 @@
     if (responseData?.audit) {
       renderAudit(responseData.audit);
     }
+
+    announceResult(
+      $errorResult,
+      strings.resultError || "The request needs attention.",
+      !!moveFocus
+    );
   }
 
   function renderPreview(responseData) {
@@ -213,7 +228,7 @@
     renderAudit(data.audit);
   }
 
-  function runRequest(action, $button, onSuccess) {
+  function runRequest(action, $button, onSuccess, moveFocus) {
     const html = String($htmlInput.val() || "").trim();
     if (!html) {
       showError({
@@ -221,7 +236,7 @@
           action === "oxy_html_convert_preview"
             ? strings.emptyPreview || "Paste HTML before previewing."
             : strings.emptyConvert || "Paste HTML before converting.",
-      });
+      }, moveFocus);
       return;
     }
 
@@ -235,10 +250,17 @@
 
         if (response.success) {
           onSuccess(response.data || {});
+          announceResult(
+            action === "oxy_html_convert_preview" ? $previewResult : $jsonResult,
+            action === "oxy_html_convert_preview"
+              ? strings.previewReady || "Preview results ready."
+              : strings.conversionReady || "Conversion results ready.",
+            !!moveFocus
+          );
           return;
         }
 
-        showError(response.data || { message: "Request failed." });
+        showError(response.data || { message: "Request failed." }, moveFocus);
       })
       .catch(function (xhr) {
         hideLoading($button);
@@ -248,17 +270,18 @@
               (strings.requestFailed || "Request failed:") +
               " " +
               (xhr.responseJSON?.data?.message || "Unknown error"),
-          }
+          },
+          moveFocus
         );
       });
   }
 
-  function previewHtml() {
-    runRequest("oxy_html_convert_preview", $previewBtn, renderPreview);
+  function previewHtml(moveFocus) {
+    runRequest("oxy_html_convert_preview", $previewBtn, renderPreview, !!moveFocus);
   }
 
-  function convertHtml() {
-    runRequest("oxy_html_convert", $convertBtn, renderConversion);
+  function convertHtml(moveFocus) {
+    runRequest("oxy_html_convert", $convertBtn, renderConversion, !!moveFocus);
   }
 
   function copyToClipboard() {
@@ -336,8 +359,12 @@
     $htmlInput.val(example).trigger("input").trigger("focus");
   }
 
-  $previewBtn.on("click", previewHtml);
-  $convertBtn.on("click", convertHtml);
+  $previewBtn.on("click", function (event) {
+    previewHtml(!!event && event.detail === 0);
+  });
+  $convertBtn.on("click", function (event) {
+    convertHtml(!!event && event.detail === 0);
+  });
   $copyBtn.on("click", copyToClipboard);
   $loadExampleBtn.on("click", loadSampleHtml);
 
@@ -362,7 +389,7 @@
   $htmlInput.on("keydown", function (event) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
-      convertHtml();
+      convertHtml(true);
     }
   });
 })(jQuery);

@@ -272,6 +272,18 @@ if (!function_exists('esc_url')) {
 if (!function_exists('wp_unslash')) {
     function wp_unslash($value)
     {
+        if (!empty($GLOBALS['__wp_track_unslash_calls'])) {
+            $GLOBALS['__wp_unslash_calls'] = (int) ($GLOBALS['__wp_unslash_calls'] ?? 0) + 1;
+        }
+
+        if (!empty($GLOBALS['__wp_apply_unslash'])) {
+            if (is_array($value)) {
+                return array_map('wp_unslash', $value);
+            }
+
+            return is_string($value) ? stripslashes($value) : $value;
+        }
+
         return $value;
     }
 }
@@ -599,7 +611,18 @@ if (!function_exists('get_post_meta')) {
             return $single ? '' : [];
         }
 
-        return $single ? $meta[(string) $key] : [$meta[(string) $key]];
+        $value = $meta[(string) $key];
+        if (
+            is_string($value)
+            && (
+                (string) $key === '_oxy_html_converter_import_manifest'
+                || !empty($GLOBALS['__wp_get_post_meta_returns_unslashed'])
+            )
+        ) {
+            $value = stripslashes($value);
+        }
+
+        return $single ? $value : [$value];
     }
 }
 

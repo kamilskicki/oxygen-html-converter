@@ -97,6 +97,7 @@ declare(strict_types=1);
                     <button type="button" id="oxy-convert-btn" class="button button-primary"><?php echo esc_html__('Convert', 'oxygen-html-converter'); ?></button>
                     <button type="button" id="oxy-copy-btn" class="button" disabled><?php echo esc_html__('Copy JSON', 'oxygen-html-converter'); ?></button>
                 </div>
+                <div id="oxy-result-announcement" class="screen-reader-text" role="status" aria-live="polite" aria-atomic="true"></div>
             </section>
 
             <section class="oxy-card oxy-step-card">
@@ -108,7 +109,7 @@ declare(strict_types=1);
                     </div>
                 </div>
 
-                <div id="oxy-preview-result" class="oxy-preview-box" hidden>
+                <div id="oxy-preview-result" class="oxy-preview-box" tabindex="-1" hidden>
                     <h3><?php echo esc_html__('Preview summary', 'oxygen-html-converter'); ?></h3>
                     <div id="oxy-preview-content"></div>
                 </div>
@@ -148,7 +149,7 @@ declare(strict_types=1);
                     </div>
                 </div>
 
-                <div id="oxy-json-result" class="oxy-json-box" hidden>
+                <div id="oxy-json-result" class="oxy-json-box" tabindex="-1" hidden>
                     <h3><?php echo esc_html__('Oxygen JSON', 'oxygen-html-converter'); ?> <span class="oxy-json-status"></span></h3>
                     <div id="oxy-report-summary" class="oxy-report-summary" hidden>
                         <div class="oxy-stat-grid">
@@ -169,7 +170,7 @@ declare(strict_types=1);
                     <textarea id="oxy-json-output" readonly></textarea>
                 </div>
 
-                <div id="oxy-error-result" class="oxy-error-box" hidden>
+                <div id="oxy-error-result" class="oxy-error-box" tabindex="-1" hidden>
                     <h3><?php echo esc_html__('Action required', 'oxygen-html-converter'); ?></h3>
                     <div id="oxy-error-content"></div>
                 </div>

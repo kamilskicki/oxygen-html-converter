@@ -8,6 +8,15 @@ try {
     $root = release_repo_root();
     $runLiveGate = in_array('--with-live', $argv, true)
         || in_array(strtolower((string) getenv('OXY_HTML_CONVERTER_RELEASE_LIVE')), ['1', 'true', 'yes', 'on'], true);
+    $processOptions = [];
+    foreach ($argv as $argument) {
+        if (preg_match('/^--timeout=(.+)$/', $argument, $matches) === 1) {
+            $processOptions['timeoutSeconds'] = $matches[1];
+        }
+        if (preg_match('/^--output-cap=(.+)$/', $argument, $matches) === 1) {
+            $processOptions['outputLimitBytes'] = $matches[1];
+        }
+    }
 
     $checks = [
         ['php', 'scripts/check_release_hygiene.php'],
@@ -23,7 +32,7 @@ try {
     $checks[] = ['php', 'scripts/build_zip.php'];
 
     foreach ($checks as $command) {
-        $result = release_run_command($command, $root);
+        $result = release_run_command($command, $root, $processOptions);
         release_require_success($result);
     }
 

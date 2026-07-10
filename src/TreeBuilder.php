@@ -218,7 +218,7 @@ class TreeBuilder
         if (!$normalized->isSuccess()) {
             return [
                 'success' => false,
-                'error' => 'Failed to parse HTML',
+                'error' => __('Failed to parse HTML', 'oxygen-html-converter'),
                 'errors' => $normalized->errors(),
             ];
         }
@@ -263,7 +263,7 @@ class TreeBuilder
         if (!$mappingResult->hasRootElement()) {
             return [
                 'success' => false,
-                'error' => 'No convertible content found in HTML',
+                'error' => __('No convertible content found in HTML', 'oxygen-html-converter'),
                 'stats' => $this->report->toArray(),
                 'headLinkElements' => [],
                 'headScriptElements' => [],
@@ -275,7 +275,7 @@ class TreeBuilder
         if ($rootElement === null) {
             return [
                 'success' => false,
-                'error' => 'No convertible content found in HTML',
+                'error' => __('No convertible content found in HTML', 'oxygen-html-converter'),
                 'stats' => $this->report->toArray(),
                 'headLinkElements' => [],
                 'headScriptElements' => [],

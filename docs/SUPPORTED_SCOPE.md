@@ -54,6 +54,33 @@ Core should provide:
 | menus | Core for explicit site-kit menu manifests / Future for inferred menus | Static nav markup may be imported as editable containers/links. Explicit site-kit `menus` records can create/select WordPress menus and locations. Inferring menus from arbitrary HTML remains deferred. |
 | unsafe executable preservation | Unsupported by default | Scripts, event handlers, dangerous URLs, and raw embeds require Safe Mode policy and explicit opt-in paths. |
 
+### Tailwind/WindPress Service Boundary Review (CQ-05)
+
+This review covers every service in src/Services with a direct Tailwind or WindPress reference. core-appropriate means the current responsibility fits Core's native mapping, safe fallback, reporting, or disabled extension-surface contract. flag means the service contains WindPress runtime, class-mode, cache, or Tailwind runtime/config behavior reserved for Pro by docs/OPEN_CORE.md; the flag applies to that branch even when the service also contains valid Core behavior.
+
+| Service | Verdict | Boundary rationale |
+| --- | --- | --- |
+| BatchConvertRequestHandler | core-appropriate | Aggregates Tailwind class counts only; it does not select or invoke an optional runtime. |
+| ClassStrategyService | flag | Native Tailwind-to-Oxygen mapping belongs in Core, but processWindPressMode() preserves classes for a WindPress-specific runtime path. |
+| ConversionAuditBuilder | core-appropriate | Reports Tailwind class counts as conversion evidence without implementing an integration. |
+| DesignDocumentBuilder | flag | Tailwind counting is Core-safe, but recommending WindPress and emitting WindPress-specific guidance is Pro integration behavior. |
+| DocumentCssExtractor | flag | Runtime-independent fallback CSS is Core-safe, but shouldUseWindPressFallback() changes extraction for WindPress class mode. |
+| EnvironmentService | flag | General environment checks are Core-safe, but WindPress activation detection and automatic/class-mode selection implement a Pro-reserved integration decision. |
+| GridDetector | core-appropriate | Detects Tailwind-style grid hints and maps them to native Oxygen grid properties. |
+| HeadAssetExtractor | flag | Rewriting and preserving tailwind.config scripts supports Tailwind runtime preservation/config handling, which is outside Core Safe Mode. |
+| ImportPlanBuilder | flag | Declares a windpress_runtime destination and a required WindPress plugin dependency. |
+| NativeCssMaterializer | flag | Native CSS materialization is Core-safe, but bypassing consumption/materialization in WindPress mode is a Pro-specific branch. |
+| NativeNodeMapper | flag | Tailwind recognition for native nodes is Core-safe, but WindPress mode changes which classes become Oxygen selector references. |
+| OxygenPageImporter | flag | The general importer belongs in Core, but directly constructing and invoking WindPressCacheResetService couples Core imports to Pro-reserved cache tooling. |
+| PageStyleRepository | flag | Generic page-style persistence is Core-safe, but hard-coded WindPress runtime ownership and dependency notices are integration-specific. |
+| PreviewRequestHandler | core-appropriate | Exposes the Tailwind class count already produced by Core conversion reporting. |
+| StyleRoutingService | flag | Generic CSS routing is Core-safe, but its WindPress mode, safety bucket, runtime detection, and plugin dependency metadata implement a Pro path. |
+| TailwindCssFallbackGenerator | core-appropriate | Produces bounded, materialized CSS with no default runtime dependency; consumers of its optional WindPress destination remain separately flagged. |
+| TailwindDetector | core-appropriate | Recognizes utility-style source hints for native mapping and reporting. |
+| TailwindPropertyMapper | core-appropriate | Conservatively maps a supported utility subset into native Oxygen properties and leaves unsupported utilities for explicit fallback/reporting. |
+| UiConfigProvider | core-appropriate | Exposes the documented Core/Pro extension boundary with native mapping enabled and all runtime/WindPress flags disabled by default. |
+| WindPressCacheResetService | flag | Detects WindPress internals, deletes its cache file, flushes its object cache, and is explicitly assigned to Pro in docs/OPEN_CORE.md. |
+
 ## Advanced Component Scope Matrix
 
 Core currently supports verified editable component properties for text, link URL, image source/alt, and icon fields. Advanced component operations beyond that verified contract are explicitly scoped as follows:

@@ -654,12 +654,25 @@ function classifyObservation(text, blocking, ambient) {
     return;
   }
 
+  if (isCanceledNavigationRequestFailure(text)) {
+    ambient.push(text);
+    return;
+  }
+
   if (isPluginSignal(text) || isConvertedAssetRuntimeError(text)) {
     blocking.push(text);
     return;
   }
 
   ambient.push(text);
+}
+
+function isCanceledNavigationRequestFailure(text) {
+  const normalized = String(text || "");
+  return (
+    /\bGET\b/i.test(normalized) &&
+    /(?:net::ERR_ABORTED|NS_BINDING_ABORTED|Request canceled|request cancelled)/i.test(normalized)
+  );
 }
 
 async function login(page, baseUrl, username, password) {
@@ -2570,6 +2583,8 @@ module.exports = {
   normalizeFixturePath,
   buildSlug,
   isConvertedAssetRuntimeError,
+  classifyObservation,
+  isCanceledNavigationRequestFailure,
   isBuilderReadySnapshot,
   resolveBuilderEditabilityHelperFromWindow,
   isBuilderSaveRequestDetails,

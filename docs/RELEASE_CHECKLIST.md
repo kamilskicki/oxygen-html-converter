@@ -62,7 +62,7 @@ http://oxyconvo6.localhost
 oxyconvo6-wordpress-1
 ```
 
-Note: older PRD text and some historical notes say `oxyconvo.localhost`. In this workspace, the maintained and verified M8 target is `http://oxyconvo6.localhost` with Docker container `oxyconvo6-wordpress-1`; use that target unless the environment is deliberately reconfigured.
+Note: in this workspace, the maintained and verified M8 target is `http://oxyconvo6.localhost` with Docker container `oxyconvo6-wordpress-1`; use that target unless the environment is deliberately reconfigured.
 
 Confirm the run covers:
 

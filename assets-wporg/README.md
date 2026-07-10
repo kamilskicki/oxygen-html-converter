@@ -1,6 +1,6 @@
 # WordPress.org Asset Sources
 
-This directory contains editable SVG placeholders for the WordPress.org plugin directory artwork. Replace these placeholders with final branded artwork before publication.
+This directory contains editable SVG sources and generated PNG exports for the WordPress.org plugin directory artwork.
 
 ## Required PNG Exports
 
@@ -26,8 +26,11 @@ inkscape assets-wporg/banner.svg --export-type=png --export-filename=assets-wpor
 
 Review the generated PNGs at their target dimensions before copying them into the WordPress.org SVN `assets/` directory.
 
+## Licensing
+
+All artwork in this directory is original project artwork and is GPL-compatible for distribution with the Oxygen HTML Converter plugin.
+
 ## Publication Notes
 
-- Use final branded art, not these placeholders, for public submission.
 - Keep exported PNG filenames exactly as WordPress.org expects.
 - Keep screenshot captions in `readme.txt` synchronized with the final screenshot files.

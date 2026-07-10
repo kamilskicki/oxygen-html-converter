@@ -50,6 +50,10 @@ class AdminPageTest extends TestCase
         $this->assertArrayHasKey('oxy-html-converter-options', $GLOBALS['__wp_enqueued_scripts']);
         $this->assertArrayHasKey('oxy-html-converter-admin', $GLOBALS['__wp_localized_scripts']);
         $this->assertArrayHasKey('ui', $GLOBALS['__wp_localized_scripts']['oxy-html-converter-admin']['l10n']);
+        $strings = $GLOBALS['__wp_localized_scripts']['oxy-html-converter-admin']['l10n']['strings'];
+        $this->assertArrayHasKey('previewReady', $strings);
+        $this->assertArrayHasKey('conversionReady', $strings);
+        $this->assertArrayHasKey('resultError', $strings);
     }
 
     public function testRenderPageIncludesThreeStepWorkflowAndAudit(): void
@@ -64,6 +68,9 @@ class AdminPageTest extends TestCase
         $this->assertStringContainsString('Load sample HTML', $output);
         $this->assertStringContainsString('Import output', $output);
         $this->assertStringContainsString('Strict native', $output);
+        $this->assertStringContainsString('id="oxy-result-announcement"', $output);
+        $this->assertStringContainsString('aria-live="polite"', $output);
+        $this->assertSame(3, substr_count($output, 'tabindex="-1"'));
     }
 
     public function testRenderPageHidesWindPressClassModesUntilIntegrationFlagIsEnabled(): void

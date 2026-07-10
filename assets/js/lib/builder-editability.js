@@ -62,20 +62,26 @@
       rootWindow?.Breakdance?.stores?.documentStore ||
       rootWindow?.parent?.Breakdance?.stores?.documentStore ||
       null;
+    const uiStore =
+      runtime?.uiStore ||
+      rootWindow?.Breakdance?.stores?.uiStore ||
+      rootWindow?.parent?.Breakdance?.stores?.uiStore ||
+      null;
     const store =
       runtime?.store ||
       rootDocument?.querySelector?.(".v-application")?.__vue__?.$store ||
       rootDocument?.querySelector?.(".v-application")?.__vue_app__?.config?.globalProperties?.$store ||
       null;
     const tree =
-      runtime?.tree ||
       documentStore?.document?.tree ||
+      runtime?.tree ||
       getStoreTreeCandidate(store);
 
     return {
       rootWindow,
       rootDocument,
       documentStore,
+      uiStore,
       store,
       tree,
     };
@@ -132,6 +138,27 @@
     const clone = JSON.parse(JSON.stringify(node));
     writePropertyPath(clone?.data?.properties || {}, propertyPath, nextText);
     return clone;
+  }
+
+  function cloneTreeWithUpdatedText(tree, nodeId, propertyPath, nextText) {
+    const clone = JSON.parse(JSON.stringify(tree));
+    const node = findNodeById(clone, nodeId);
+    if (!node) {
+      return null;
+    }
+
+    writePropertyPath(node?.data?.properties || {}, propertyPath, nextText);
+    return clone;
+  }
+
+  function markUnsavedChanges(runtime) {
+    try {
+      if (typeof runtime.uiStore?.setUnsavedChangesPresent === "function") {
+        runtime.uiStore.setUnsavedChangesPresent(true);
+      }
+    } catch (error) {
+      // The mutation itself is still valid; save-button state is best effort.
+    }
   }
 
   function invokeDocumentStoreMethod(documentStore, methodName, variants, verifier) {
@@ -358,6 +385,37 @@
           );
         },
       },
+      {
+        name: "documentStore.setDocument",
+        invoke() {
+          const currentDocument = documentStore.document;
+          if (!currentDocument || typeof currentDocument !== "object") {
+            return false;
+          }
+
+          const nextTree = cloneTreeWithUpdatedText(
+            currentDocument.tree || runtime.tree,
+            nativeMatch.id,
+            nativeMatch.path,
+            nextText
+          );
+          if (!nextTree) {
+            return false;
+          }
+
+          const nextDocument = {
+            ...currentDocument,
+            tree: nextTree,
+          };
+
+          return invokeDocumentStoreMethod(
+            documentStore,
+            "setDocument",
+            [[nextDocument]],
+            didPersistMutation
+          );
+        },
+      },
     ];
 
     for (const candidate of candidateCalls) {
@@ -373,6 +431,7 @@
       }
 
       if (didPersistMutation()) {
+        markUnsavedChanges(runtime);
         return candidate.name;
       }
     }

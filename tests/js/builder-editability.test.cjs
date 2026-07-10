@@ -178,6 +178,51 @@ module.exports = async function runBuilderEditabilityTests() {
   }
 
   {
+    const tree = createRuntimeTree("Stable Document Gate");
+    const calls = [];
+    const unsaved = [];
+    const runtime = {
+      documentStore: {
+        document: {
+          documentMeta: {
+            id: 42,
+          },
+          tree,
+        },
+        setDocument(nextDocument) {
+          calls.push(nextDocument);
+          this.document = nextDocument;
+        },
+      },
+      uiStore: {
+        setUnsavedChangesPresent(value) {
+          unsaved.push(value);
+        },
+      },
+    };
+
+    const result = builderEditability.mutateNativeTextNode(
+      {
+        targetText: "Stable Document Gate",
+        nextText: "Stable Document Gate Edited",
+        allowDirectMutation: false,
+      },
+      runtime
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.mutationStrategy, "documentStore.setDocument");
+    assert.equal(result.updatedText, "Stable Document Gate Edited");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].documentMeta.id, 42);
+    assert.equal(
+      calls[0].tree.children[0].data.properties.content.content.text,
+      "Stable Document Gate Edited"
+    );
+    assert.deepEqual(unsaved, [true]);
+  }
+
+  {
     const tree = createRuntimeTree("Fallback Gate");
     const result = builderEditability.mutateNativeTextNode(
       {

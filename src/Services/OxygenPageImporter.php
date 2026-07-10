@@ -468,6 +468,7 @@ class OxygenPageImporter
             if ($firstPageId > 0) {
                 $this->persistManifest($firstPageId, $report);
             }
+            $this->restoreManagedOxygenPartImports($managedPartGate);
         } catch (\Throwable $e) {
             $siteConfigurationRestore = $siteConfigurationRollback !== []
                 ? (new SiteConfigurationImporter())->restore($siteConfigurationRollback)
@@ -691,13 +692,10 @@ class OxygenPageImporter
             ];
         }
 
-        // Oxygen 6.1 stable registers oxygen_part only when the design-library
-        // get_global_option('is_copy_from_frontend_enabled') flag is yes.
-        // Site-kits can opt in to managing that prerequisite with rollback.
+        // Oxygen 6.1 stable reads this through Breakdance\Data\get_global_option,
+        // which expects a JSON-encoded value at the physical oxygen_ option key.
         $snapshot = $this->captureOptionStore('oxygen_part_gate', self::OXYGEN_PART_GATE_OPTION_NAME);
-        if (function_exists('update_option')) {
-            update_option(self::OXYGEN_PART_GATE_OPTION_NAME, 'yes');
-        }
+        $this->setOxygenPartGateOption('yes');
 
         return [
             'enabled' => true,
@@ -715,7 +713,43 @@ class OxygenPageImporter
             return;
         }
 
-        $this->restoreSnapshotEntry($snapshot, 'old');
+        $exists = (bool) ($snapshot['oldExists'] ?? false);
+        if ($exists) {
+            $this->setOxygenPartGateOption($snapshot['oldValue'] ?? null, true);
+            return;
+        }
+
+        $this->deleteOxygenPartGateOption();
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function setOxygenPartGateOption($value, bool $valueIsRawOptionValue = false): void
+    {
+        if (function_exists('\Breakdance\Data\set_global_option') && !$valueIsRawOptionValue) {
+            \Breakdance\Data\set_global_option('is_copy_from_frontend_enabled', $value);
+            return;
+        }
+
+        if (!function_exists('update_option')) {
+            return;
+        }
+
+        $optionValue = $valueIsRawOptionValue ? $value : $this->encodeJson($value);
+        update_option(self::OXYGEN_PART_GATE_OPTION_NAME, $optionValue);
+    }
+
+    private function deleteOxygenPartGateOption(): void
+    {
+        if (function_exists('\Breakdance\Data\delete_global_option')) {
+            \Breakdance\Data\delete_global_option('is_copy_from_frontend_enabled');
+            return;
+        }
+
+        if (function_exists('delete_option')) {
+            delete_option(self::OXYGEN_PART_GATE_OPTION_NAME);
+        }
     }
 
     /**
@@ -3499,7 +3533,7 @@ class OxygenPageImporter
         }
 
         $rawManifest = get_post_meta($postId, self::MANIFEST_META_KEY, true);
-        $rawManifest = is_string($rawManifest) ? stripslashes($rawManifest) : '';
+        $rawManifest = is_string($rawManifest) ? $rawManifest : '';
         $manifest = $rawManifest !== '' ? json_decode($rawManifest, true) : null;
 
         return is_array($manifest) ? $manifest : [];
@@ -3541,7 +3575,7 @@ class OxygenPageImporter
         }
 
         $rawManifest = get_post_meta($postId, self::MANIFEST_META_KEY, true);
-        $rawManifest = is_string($rawManifest) ? stripslashes($rawManifest) : '';
+        $rawManifest = is_string($rawManifest) ? $rawManifest : '';
         $manifest = $rawManifest !== '' ? json_decode($rawManifest, true) : null;
 
         if (!is_array($manifest)) {

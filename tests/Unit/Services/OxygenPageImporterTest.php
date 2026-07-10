@@ -35,7 +35,8 @@ class OxygenPageImporterTest extends TestCase
         unset(
             $GLOBALS['__wp_current_user_can_last_capability'],
             $GLOBALS['__wp_current_user_can_last_args'],
-            $GLOBALS['__wp_update_nav_menu_item_result']
+            $GLOBALS['__wp_update_nav_menu_item_result'],
+            $GLOBALS['__wp_get_post_meta_returns_unslashed']
         );
     }
 
@@ -1217,6 +1218,19 @@ class OxygenPageImporterTest extends TestCase
         $this->assertArrayHasKey('adapterSnapshot', $storedManifest['rollback']['snapshot']);
     }
 
+    public function testImportSiteKitManifestTemporarilyEnablesOxygenPartGateWithJsonEncodedOption(): void
+    {
+        $GLOBALS['__wp_options']['oxygen_is_copy_from_frontend_enabled'] = '';
+        $manifest = $this->loadSiteKitManifestFixture();
+        $this->assertTrue($manifest['enableOxygenPartImports']);
+
+        $result = (new OxygenPageImporter())->importSiteKit($manifest);
+
+        $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
+        $this->assertSame('oxygen_part', $GLOBALS['__wp_posts'][6]->post_type);
+        $this->assertSame('', $GLOBALS['__wp_options']['oxygen_is_copy_from_frontend_enabled']);
+    }
+
     public function testImportSiteKitManifestRejectsUnknownSectionsBeforeWrite(): void
     {
         $manifest = $this->loadSiteKitManifestFixture();
@@ -1544,6 +1558,64 @@ class OxygenPageImporterTest extends TestCase
         $manifest = json_decode(stripslashes((string) $GLOBALS['__wp_post_meta'][(int) $postId][OxygenPageImporter::MANIFEST_META_KEY]), true);
         $this->assertFalse($manifest['rollback']['available']);
         $this->assertArrayHasKey('restoredAt', $manifest['rollback']);
+    }
+
+    public function testManifestSaveLoadAndRollbackPreserveEscapedPayloadBytes(): void
+    {
+        $postId = wp_insert_post([
+            'post_type' => 'page',
+            'post_status' => 'draft',
+            'post_title' => 'Existing',
+            'post_name' => 'escaped-manifest',
+            'post_content' => '',
+        ], true);
+        $this->assertIsInt($postId);
+        update_post_meta($postId, '_oxygen_data', 'previous-oxygen-payload');
+
+        $escapedPayload = "Quote: \"yes\"; path: C:\\imports\\site; unicode: Zażółć 🚀";
+        $GLOBALS['__wp_get_post_meta_returns_unslashed'] = true;
+
+        $importer = new OxygenPageImporter();
+        $import = $importer->import([
+            'title' => 'Existing Updated',
+            'slug' => 'escaped-manifest',
+            'replaceExisting' => true,
+            'sourceHash' => $escapedPayload,
+            'element' => [
+                'id' => 1,
+                'data' => ['type' => ElementTypes::CONTAINER],
+                'children' => [],
+            ],
+            'importPlan' => [
+                'status' => 'ready',
+                'canImport' => true,
+                'nativeCoverage' => ['percent' => 100],
+            ],
+        ]);
+
+        $this->assertTrue($import['success'], implode(' ', $import['errors'] ?? []));
+
+        $loadManifest = new \ReflectionMethod(OxygenPageImporter::class, 'loadManifest');
+        $loadManifest->setAccessible(true);
+        $manifest = $loadManifest->invoke($importer, (int) $postId);
+
+        $this->assertIsArray($manifest);
+        $this->assertSame($escapedPayload, $manifest['sourceHash']);
+
+        $manifest['rollback']['snapshot'] = [];
+        $persistManifest = new \ReflectionMethod(OxygenPageImporter::class, 'persistManifest');
+        $persistManifest->setAccessible(true);
+        $persistManifest->invoke($importer, (int) $postId, $manifest);
+
+        $rollback = $importer->rollback((int) $postId);
+
+        $this->assertTrue($rollback['success'], implode(' ', $rollback['errors'] ?? []));
+        $this->assertSame('previous-oxygen-payload', get_post_meta((int) $postId, '_oxygen_data', true));
+
+        $rolledBackManifest = $loadManifest->invoke($importer, (int) $postId);
+        $this->assertSame($escapedPayload, $rolledBackManifest['sourceHash']);
+        $this->assertFalse($rolledBackManifest['rollback']['available']);
+        $this->assertArrayHasKey('restoredAt', $rolledBackManifest['rollback']);
     }
 
     public function testRollbackRestoresSnapshotAcrossImportSideEffects(): void

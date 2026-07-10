@@ -1,0 +1,755 @@
+# Copyright (C) 2026 Kamil Skicki
+# This file is distributed under the GPL v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Oxygen HTML Converter 0.9.0-beta\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/oxygen-html-converter\n"
+"POT-Creation-Date: 2026-07-08 03:38+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Codex PowerShell POT extractor\n"
+"X-Domain: oxygen-html-converter\n"
+
+#: src/Ajax.php:550
+msgid "%1$s contains a key longer than %2$d bytes."
+msgstr ""
+
+#: src/Ajax.php:562
+msgid "%1$s contains a string longer than %2$s."
+msgstr ""
+
+#: src/Ajax.php:207
+msgid "%1$s contains too many collections. Maximum %2$d allowed."
+msgstr ""
+
+#: src/Ajax.php:538
+msgid "%1$s contains too many nested items. Maximum %2$d allowed."
+msgstr ""
+
+#: src/Ajax.php:194
+msgid "%1$s contains too many selectors. Maximum %2$d allowed."
+msgstr ""
+
+#: src/Ajax.php:146
+msgid "%1$s exceeds maximum JSON depth of %2$d."
+msgstr ""
+
+#: src/Ajax.php:130
+#: src/Ajax.php:283
+msgid "%1$s is too large. Maximum %2$s allowed."
+msgstr ""
+
+#: src/Ajax.php:226
+msgid "%1$s selector %2$s is too long at index %3$d."
+msgstr ""
+
+#: src/Ajax.php:253
+msgid "%1$s selector properties contain too many nested items. Maximum %2$d allowed."
+msgstr ""
+
+#: src/Ajax.php:118
+msgid "%s is required."
+msgstr ""
+
+#: src/Ajax.php:241
+msgid "%s selector properties"
+msgstr ""
+
+#: src/Views/admin-page.php:173
+msgid "Action required"
+msgstr ""
+
+#: src/Views/admin-page.php:229
+msgid "All required Essential button contract checks passed."
+msgstr ""
+
+#: src/Views/admin-page.php:87
+msgid "Allow executable code fallback after review"
+msgstr ""
+
+#: src/Views/admin-page.php:106
+msgid "Analysis"
+msgstr ""
+
+#: src/Views/admin-page.php:200
+msgid "Auto-detect"
+msgstr ""
+
+#: src/Views/admin-page.php:193
+msgid "Auto-detect (WindPress if available)"
+msgstr ""
+
+#: src/Views/admin-page.php:62
+msgid "Balanced (recommended)"
+msgstr ""
+
+#: src/Ajax.php:860
+msgid "Batch conversion failed"
+msgstr ""
+
+#: src/Services/BatchConvertRequestHandler.php:127
+msgid "Batch conversion failed."
+msgstr ""
+
+#: src/Ajax.php:796
+msgid "Batch too large. Maximum %d items allowed."
+msgstr ""
+
+#: src/Ajax.php:827
+msgid "Batch total size exceeds limit. Maximum %dMB allowed."
+msgstr ""
+
+#: src/Ajax.php:454
+#: src/Ajax.php:1152
+msgid "Brand library payload"
+msgstr ""
+
+#: src/Ajax.php:469
+msgid "Brand library payload contains too many color tokens. Maximum %d allowed."
+msgstr ""
+
+#: src/Ajax.php:499
+msgid "Brand library payload contains too many components. Maximum %d allowed."
+msgstr ""
+
+#: src/Ajax.php:484
+msgid "Brand library payload contains too many typography tokens. Maximum %d allowed."
+msgstr ""
+
+#: src/Views/admin-page.php:214
+msgid "Breakdance Elements for Oxygen"
+msgstr ""
+
+#: src/Views/admin-page.php:240
+msgid "Builder-safe editability and save/reopen integrity are the release bar"
+msgstr ""
+
+#: src/Views/admin-page.php:198
+msgid "Button mapping mode"
+msgstr ""
+
+#: src/Plugin.php:266
+msgid "Cancel"
+msgstr ""
+
+#: src/Views/admin-page.php:189
+msgid "Class handling mode"
+msgstr ""
+
+#: src/Views/admin-page.php:239
+msgid "Common interactions such as nav toggles, anchor scroll, reveal-on-scroll, and counters"
+msgstr ""
+
+#: src/Services/AdminPageViewDataBuilder.php:32
+msgid "Compatible"
+msgstr ""
+
+#: src/Views/admin-page.php:212
+msgid "Configured button mode"
+msgstr ""
+
+#: src/Views/admin-page.php:210
+msgid "Contract health"
+msgstr ""
+
+#: src/Views/admin-page.php:220
+msgid "Contract issues"
+msgstr ""
+
+#: src/AdminPage.php:195
+#: src/Views/admin-page.php:118
+msgid "Conversion audit"
+msgstr ""
+
+#: src/Ajax.php:746
+msgid "Conversion failed"
+msgstr ""
+
+#: src/Plugin.php:262
+msgid "Conversion failed."
+msgstr ""
+
+#: src/Views/admin-page.php:60
+msgid "Conversion preset"
+msgstr ""
+
+#: src/AdminPage.php:188
+#: src/Views/admin-page.php:97
+msgid "Convert"
+msgstr ""
+
+#: oxygen-html-converter.php:4
+msgid "Convert HTML to native Oxygen Builder elements. Paste entire HTML pages and edit them natively in Oxygen 6."
+msgstr ""
+
+#: src/Services/BatchConvertRequestHandler.php:68
+msgid "Converted output failed builder validation."
+msgstr ""
+
+#: src/Services/ConvertPayloadBuilder.php:63
+msgid "Converted output failed builder validation. Try Safe Mode or a different preset."
+msgstr ""
+
+#: src/Views/admin-page.php:168
+msgid "Converted Oxygen JSON"
+msgstr ""
+
+#: src/Plugin.php:259
+msgid "Converting HTML…"
+msgstr ""
+
+#: src/AdminPage.php:190
+msgid "Copied"
+msgstr ""
+
+#: src/AdminPage.php:189
+#: src/Views/admin-page.php:98
+msgid "Copy JSON"
+msgstr ""
+
+#: src/Views/admin-page.php:147
+msgid "Copy the builder-safe JSON into Oxygen, or use the builder import flow directly from inside the editor with Ctrl+Shift+H."
+msgstr ""
+
+#: src/Views/admin-page.php:66
+msgid "Custom"
+msgstr ""
+
+#: src/Views/admin-page.php:157
+msgid "Custom classes"
+msgstr ""
+
+#: src/Views/admin-page.php:214
+msgid "Detected"
+msgstr ""
+
+#: src/Plugin.php:268
+msgid "Direct insertion is unavailable. Converted JSON was copied to the clipboard."
+msgstr ""
+
+#: src/Views/admin-page.php:213
+msgid "Effective button mapping"
+msgstr ""
+
+#: src/Views/admin-page.php:155
+msgid "Elements"
+msgstr ""
+
+#: src/Views/admin-page.php:215
+msgid "Essential button contract"
+msgstr ""
+
+#: src/Ajax.php:726
+#: src/Ajax.php:849
+#: src/Ajax.php:1218
+msgid "Executable code fallback requires unfiltered HTML permission."
+msgstr ""
+
+#: src/Ajax.php:947
+msgid "Executable code import requires explicit approval and unfiltered HTML permission."
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:183
+msgid "Failed to create import draft."
+msgstr ""
+
+#: src/TreeBuilder.php:221
+msgid "Failed to parse HTML"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:238
+msgid "Failed to persist Oxygen document tree."
+msgstr ""
+
+#: src/Ajax.php:1173
+msgid "Failed to save brand library"
+msgstr ""
+
+#: src/Ajax.php:905
+msgid "Failed to save selectors"
+msgstr ""
+
+#: src/Ajax.php:345
+msgid "Fallback CSS payload"
+msgstr ""
+
+#: src/Views/admin-page.php:35
+msgid "First import?"
+msgstr ""
+
+#: src/Views/admin-page.php:202
+msgid "Force Essential button"
+msgstr ""
+
+#: src/Views/admin-page.php:201
+msgid "Force Oxygen button"
+msgstr ""
+
+#: src/Views/admin-page.php:194
+msgid "Force WindPress mode"
+msgstr ""
+
+#: src/Ajax.php:344
+msgid "Global CSS payload"
+msgstr ""
+
+#: src/Ajax.php:356
+msgid "Global routed CSS payload"
+msgstr ""
+
+#: src/Ajax.php:713
+msgid "HTML content too large. Maximum 1MB allowed for single conversion."
+msgstr ""
+
+#: src/Ajax.php:1206
+msgid "HTML content too large. Maximum 1MB allowed."
+msgstr ""
+
+#: src/Plugin.php:260
+msgid "HTML converted and pasted."
+msgstr ""
+
+#: src/Plugin.php:261
+msgid "HTML converted. Review the result and paste it into Oxygen."
+msgstr ""
+
+#: src/AdminPage.php:94
+#: src/AdminPage.php:95
+msgid "HTML Converter"
+msgstr ""
+
+#: src/Views/admin-page.php:55
+msgid "HTML input"
+msgstr ""
+
+#: src/Ajax.php:412
+msgid "Import document tree contains too many nodes. Maximum %d allowed."
+msgstr ""
+
+#: src/Ajax.php:400
+msgid "Import document tree exceeds maximum depth of %d."
+msgstr ""
+
+#: src/Ajax.php:424
+msgid "Import document tree node contains too many children. Maximum %d allowed."
+msgstr ""
+
+#: src/Plugin.php:269
+msgid "Import error:"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:271
+msgid "Import failed after partial persistence and rollback was attempted."
+msgstr ""
+
+#: src/Plugin.php:264
+msgid "Import HTML"
+msgstr ""
+
+#: src/Plugin.php:265
+msgid "Import into Builder"
+msgstr ""
+
+#: src/AdminPage.php:199
+#: src/Views/admin-page.php:146
+msgid "Import output"
+msgstr ""
+
+#: src/Ajax.php:296
+#: src/Ajax.php:929
+msgid "Import payload"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:137
+msgid "Import plan is blocked. Resolve blockers before creating a page."
+msgstr ""
+
+#: src/Ajax.php:303
+msgid "Import selector payload"
+msgstr ""
+
+#: src/Views/admin-page.php:181
+msgid "Import settings"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:1414
+msgid "Imported Oxygen Page"
+msgstr ""
+
+#: src/Views/admin-page.php:75
+msgid "Include extracted CSS as a code element"
+msgstr ""
+
+#: src/Services/AdminPageViewDataBuilder.php:35
+msgid "Incompatible"
+msgstr ""
+
+#: src/Views/admin-page.php:238
+msgid "Inline styles and utility-first CSS markup"
+msgstr ""
+
+#: src/Views/admin-page.php:50
+msgid "Input"
+msgstr ""
+
+#: src/Ajax.php:158
+msgid "Invalid %s JSON."
+msgstr ""
+
+#: src/Ajax.php:170
+msgid "Invalid %s shape."
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:520
+msgid "Invalid post ID for rollback."
+msgstr ""
+
+#: src/Views/admin-page.php:39
+msgid "Load sample HTML"
+msgstr ""
+
+#: src/Views/admin-page.php:135
+msgid "Manual follow-up"
+msgstr ""
+
+#: src/Views/admin-page.php:79
+msgid "Map inline and supported class styles into Oxygen design properties"
+msgstr ""
+
+#: src/Views/admin-page.php:65
+msgid "Max fidelity"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:157
+msgid "Missing Oxygen document tree or element payload."
+msgstr ""
+
+#: src/Views/admin-page.php:191
+msgid "Native Oxygen mode"
+msgstr ""
+
+#: src/Views/admin-page.php:124
+#: src/Views/admin-page.php:128
+#: src/Views/admin-page.php:132
+#: src/Views/admin-page.php:136
+msgid "No audit data yet."
+msgstr ""
+
+#: src/TreeBuilder.php:266
+#: src/TreeBuilder.php:278
+msgid "No convertible content found in HTML"
+msgstr ""
+
+#: src/Ajax.php:787
+msgid "No HTML batch provided"
+msgstr ""
+
+#: src/Ajax.php:706
+#: src/Ajax.php:1199
+msgid "No HTML provided"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:597
+msgid "No rollback payload is available for this post."
+msgstr ""
+
+#: src/Services/AdminPageViewDataBuilder.php:27
+msgid "Not checked"
+msgstr ""
+
+#: src/Views/admin-page.php:214
+msgid "Not detected"
+msgstr ""
+
+#: src/Views/admin-page.php:164
+msgid "Optimizations"
+msgstr ""
+
+#: src/AdminPage.php:194
+msgid "Output is outdated"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:167
+msgid "Oxygen document tree failed storage validation."
+msgstr ""
+
+#: src/AdminPage.php:102
+#: src/AdminPage.php:103
+#: src/Views/admin-page.php:21
+#: oxygen-html-converter.php:3
+msgid "Oxygen HTML Converter"
+msgstr ""
+
+#: oxygen-html-converter.php:70
+msgid "Oxygen HTML Converter requires Oxygen Builder 6 to be active."
+msgstr ""
+
+#: src/Views/admin-page.php:152
+msgid "Oxygen JSON"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:148
+msgid "Oxygen storage adapter is unavailable."
+msgstr ""
+
+#: src/Ajax.php:346
+msgid "Page CSS payload"
+msgstr ""
+
+#: src/Ajax.php:977
+msgid "Page import failed"
+msgstr ""
+
+#: src/Ajax.php:971
+msgid "Page import failed."
+msgstr ""
+
+#: src/Ajax.php:357
+msgid "Page routed CSS payload"
+msgstr ""
+
+#: src/Ajax.php:347
+msgid "Page scoped CSS payload"
+msgstr ""
+
+#: src/Ajax.php:358
+msgid "Page scoped routed CSS payload"
+msgstr ""
+
+#: src/Views/admin-page.php:51
+msgid "Paste full sections, landing pages, or builder-safe fragments. Preview first if the source includes scripts, utility classes, or extracted CSS."
+msgstr ""
+
+#: src/AdminPage.php:192
+msgid "Paste HTML before converting."
+msgstr ""
+
+#: src/Plugin.php:263
+msgid "Paste HTML before importing."
+msgstr ""
+
+#: src/AdminPage.php:191
+msgid "Paste HTML before previewing."
+msgstr ""
+
+#: src/Views/admin-page.php:23
+msgid "Paste supported HTML, inspect the conversion audit, and import builder-safe Oxygen output without manual JSON surgery."
+msgstr ""
+
+#: src/Views/admin-page.php:56
+msgid "Paste your HTML here…"
+msgstr ""
+
+#: src/Ajax.php:698
+#: src/Ajax.php:779
+#: src/Ajax.php:876
+#: src/Ajax.php:921
+#: src/Ajax.php:1106
+#: src/Ajax.php:1144
+#: src/Ajax.php:1191
+msgid "Permission denied"
+msgstr ""
+
+#: src/Ajax.php:954
+msgid "Permission denied for global design import mutations."
+msgstr ""
+
+#: src/Views/admin-page.php:123
+msgid "Preserved"
+msgstr ""
+
+#: src/AdminPage.php:187
+#: src/Views/admin-page.php:96
+msgid "Preview"
+msgstr ""
+
+#: src/Ajax.php:1238
+msgid "Preview failed"
+msgstr ""
+
+#: src/AdminPage.php:198
+#: src/Views/admin-page.php:112
+msgid "Preview summary"
+msgstr ""
+
+#: src/Views/admin-page.php:28
+msgid "Readme"
+msgstr ""
+
+#: src/Views/admin-page.php:29
+msgid "Release checklist"
+msgstr ""
+
+#: src/AdminPage.php:193
+msgid "Request failed:"
+msgstr ""
+
+#: src/Ajax.php:1128
+msgid "Rollback failed"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:549
+msgid "Rollback failed and was reverted to the pre-rollback state."
+msgstr ""
+
+#: src/Ajax.php:1122
+msgid "Rollback failed."
+msgstr ""
+
+#: src/AdminPage.php:196
+msgid "Run preview or convert to inspect the conversion audit."
+msgstr ""
+
+#: src/Views/admin-page.php:119
+msgid "Run preview or convert to populate the audit."
+msgstr ""
+
+#: src/Views/admin-page.php:63
+msgid "Safe import"
+msgstr ""
+
+#: src/Views/admin-page.php:83
+msgid "Safe mode: remove scripts, event handlers, and external head assets"
+msgstr ""
+
+#: src/Plugin.php:267
+msgid "Safe mode: strip scripts, event handlers, and external head assets"
+msgstr ""
+
+#: src/AdminPage.php:197
+msgid "Sample HTML loaded."
+msgstr ""
+
+#: src/Views/admin-page.php:205
+msgid "Save settings"
+msgstr ""
+
+#: src/Ajax.php:692
+#: src/Ajax.php:773
+#: src/Ajax.php:871
+#: src/Ajax.php:916
+#: src/Ajax.php:1101
+#: src/Ajax.php:1139
+#: src/Ajax.php:1185
+msgid "Security check failed"
+msgstr ""
+
+#: src/Ajax.php:187
+#: src/Ajax.php:884
+msgid "Selector payload"
+msgstr ""
+
+#: src/Views/admin-page.php:40
+msgid "Shortcut: Ctrl/Cmd + Enter to convert"
+msgstr ""
+
+#: src/Views/admin-page.php:237
+msgid "Single-page marketing and landing-page HTML"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:442
+msgid "Site configuration import failed validation."
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:563
+msgid "Site configuration rollback failed."
+msgstr ""
+
+#: src/Ajax.php:273
+msgid "Site-kit %s"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:482
+msgid "Site-kit import failed after partial persistence and rollback was attempted."
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:314
+msgid "Site-kit manifest failed validation."
+msgstr ""
+
+#: src/Ajax.php:310
+msgid "Site-kit selector payload"
+msgstr ""
+
+#: src/Views/admin-page.php:36
+msgid "Start with the sample hero snippet, run Preview, then Convert. Use Safe Mode when you want the most defensive import path."
+msgstr ""
+
+#: src/Views/admin-page.php:64
+msgid "Strict native"
+msgstr ""
+
+#: src/Services/BatchConvertRequestHandler.php:84
+msgid "Strict native import blocked fallback code or unsupported constructs."
+msgstr ""
+
+#: src/Services/ConvertPayloadBuilder.php:79
+msgid "Strict native import blocked fallback code or unsupported constructs. Review the import plan before importing."
+msgstr ""
+
+#: src/Views/admin-page.php:91
+msgid "Strict native: block import when fallback CSS, HTML, or scripts are required"
+msgstr ""
+
+#: src/Views/admin-page.php:131
+msgid "Stripped"
+msgstr ""
+
+#: src/Views/admin-page.php:27
+#: src/Views/admin-page.php:235
+msgid "Supported scope"
+msgstr ""
+
+#: src/Views/admin-page.php:156
+msgid "Tailwind"
+msgstr ""
+
+#: src/Views/admin-page.php:127
+msgid "Transformed"
+msgstr ""
+
+#: src/Views/admin-page.php:107
+msgid "Use Preview and Convert to inspect the builder impact before importing. The audit below highlights preserved assets, transformations, stripped constructs, and follow-up work."
+msgstr ""
+
+#: src/Views/admin-page.php:20
+msgid "v1.0 hardening workflow"
+msgstr ""
+
+#: src/Views/admin-page.php:160
+msgid "Warnings"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:1451
+msgid "WordPress did not return a valid post ID."
+msgstr ""
+
+#: src/Views/admin-page.php:71
+msgid "Wrap output in a container element"
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:649
+msgid "You are not allowed to create or import pages."
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:336
+msgid "You are not allowed to import a site kit."
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:658
+msgid "You are not allowed to publish imported pages."
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:529
+msgid "You are not allowed to rollback this page."
+msgstr ""
+
+#: src/Services/OxygenPageImporter.php:667
+msgid "You are not allowed to update the target page."
+msgstr ""
+
+#: src/AdminPage.php:207
+msgid "You do not have permission to access this page."
+msgstr ""
+

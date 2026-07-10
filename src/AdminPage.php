@@ -197,6 +197,9 @@ class AdminPage
                 'sampleLoaded' => __('Sample HTML loaded.', 'oxygen-html-converter'),
                 'stepsPreview' => __('Preview summary', 'oxygen-html-converter'),
                 'stepsOutput' => __('Import output', 'oxygen-html-converter'),
+                'previewReady' => __('Preview results ready.', 'oxygen-html-converter'),
+                'conversionReady' => __('Conversion results ready.', 'oxygen-html-converter'),
+                'resultError' => __('The request needs attention.', 'oxygen-html-converter'),
             ],
         ]);
     }

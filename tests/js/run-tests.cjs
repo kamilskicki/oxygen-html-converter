@@ -9,6 +9,7 @@ const tests = [
   ["converter", require("./converter.test.cjs")],
   ["admin-request-client", require("./admin-request-client.test.cjs")],
   ["admin-renderers", require("./admin-renderers.test.cjs")],
+  ["admin-focus", require("./admin-focus.test.cjs")],
   ["builder-paste", require("./builder-paste.test.cjs")],
   ["maximus-matrix", require("./maximus-matrix.test.cjs")],
 ];

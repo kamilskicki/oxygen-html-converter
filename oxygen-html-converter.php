@@ -47,6 +47,12 @@ spl_autoload_register(function ($class) {
 
 // Initialize plugin
 add_action('plugins_loaded', function () {
+    load_plugin_textdomain(
+        'oxygen-html-converter',
+        false,
+        dirname(plugin_basename(__FILE__)) . '/languages'
+    );
+
     do_action('oxy_html_converter_before_boot');
 
     // Check if Oxygen Builder is active.
