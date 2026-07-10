@@ -22,9 +22,7 @@ try {
     ensure_directory($packageDir);
 
     try {
-        prepare_composer_runtime_vendor($root, $packageDir);
         copy_allowlisted_runtime($root, $packageDir, $allowlist);
-        remove_unlisted_composer_files($packageDir, $allowlist);
 
         $relativeFiles = collect_package_files($packageDir);
         verify_package_contents($relativeFiles, $allowlist);
@@ -106,30 +104,6 @@ function normalize_allowlist_entries(mixed $entries): array
     return $values;
 }
 
-function prepare_composer_runtime_vendor(string $root, string $packageDir): void
-{
-    foreach (['composer.json', 'composer.lock'] as $file) {
-        $source = $root . '/' . $file;
-        if (is_file($source)) {
-            copy_file($source, $packageDir . '/' . $file);
-        }
-    }
-
-    $result = release_run_command([
-        'composer',
-        'install',
-        '--no-dev',
-        '--no-interaction',
-        '--prefer-dist',
-        '--optimize-autoloader',
-    ], $packageDir);
-    release_require_success($result);
-
-    if (!is_file($packageDir . '/vendor/autoload.php')) {
-        throw new RuntimeException('Composer install did not create vendor/autoload.php in staging.');
-    }
-}
-
 /**
  * @param array{pluginSlug:string, files:list<string>, directories:list<string>} $allowlist
  */
@@ -145,34 +119,12 @@ function copy_allowlisted_runtime(string $root, string $packageDir, array $allow
     }
 
     foreach ($allowlist['directories'] as $directory) {
-        if ($directory === 'vendor') {
-            continue;
-        }
-
         $source = $root . '/' . $directory;
         if (!is_dir($source)) {
             throw new RuntimeException('Allowlisted release directory is missing: ' . $directory);
         }
 
         copy_directory($source, $packageDir . '/' . $directory);
-    }
-}
-
-/**
- * @param array{pluginSlug:string, files:list<string>, directories:list<string>} $allowlist
- */
-function remove_unlisted_composer_files(string $packageDir, array $allowlist): void
-{
-    $allowedFiles = array_flip($allowlist['files']);
-    foreach (['composer.json', 'composer.lock'] as $file) {
-        if (isset($allowedFiles[$file])) {
-            continue;
-        }
-
-        $path = $packageDir . '/' . $file;
-        if (is_file($path) && !unlink($path)) {
-            throw new RuntimeException('Failed to remove staging-only Composer file: ' . $file);
-        }
     }
 }
 

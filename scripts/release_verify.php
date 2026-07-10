@@ -29,7 +29,7 @@ try {
         $checks[] = ['npm', 'run', 'test:live'];
     }
 
-    $checks[] = ['php', 'scripts/build_zip.php'];
+    $checks[] = ['php', 'scripts/build-release.php'];
 
     foreach ($checks as $command) {
         $result = release_run_command($command, $root, $processOptions);

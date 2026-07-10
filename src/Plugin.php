@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OxyHtmlConverter;
 
 use OxyHtmlConverter\Services\GlobalStyleRepository;
+use OxyHtmlConverter\Services\OxygenPageImporter;
 use OxyHtmlConverter\Services\PageStyleRepository;
 use OxyHtmlConverter\Services\UiConfigProvider;
 
@@ -72,6 +73,7 @@ class Plugin
         add_action('admin_enqueue_scripts', [$this, 'enqueueGlobalStyles'], 20);
         add_action('wp_footer', [$this, 'printPageScopedStyles'], 9999);
         add_action('admin_footer', [$this, 'printPageScopedStyles'], 9999);
+        add_action('admin_notices', [$this, 'printCacheRefreshNotice']);
     }
 
     public function enqueueGlobalStyles(string $hook = ''): void
@@ -123,6 +125,26 @@ class Plugin
         $css = str_replace('</style', '<\/style', $css);
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Generated CSS is not HTML; closing style tags are neutralized above.
         echo "\n<style id=\"oxy-html-converter-page-styles-inline-css\">\n" . $css . "\n</style>\n";
+    }
+
+    public function printCacheRefreshNotice(): void
+    {
+        if (!function_exists('get_option')) {
+            return;
+        }
+
+        $notice = get_option(OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION, []);
+        if (!is_array($notice) || !is_string($notice['message'] ?? null) || trim($notice['message']) === '') {
+            return;
+        }
+
+        if (function_exists('delete_option')) {
+            delete_option(OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION);
+        }
+
+        echo '<div class="notice notice-warning is-dismissible"><p>'
+            . esc_html($notice['message'])
+            . '</p></div>';
     }
 
     public function shouldEnqueueGlobalStyles(string $hook = ''): bool

@@ -3,6 +3,7 @@
 namespace OxyHtmlConverter\Tests\Unit;
 
 use OxyHtmlConverter\Plugin;
+use OxyHtmlConverter\Services\OxygenPageImporter;
 use PHPUnit\Framework\TestCase;
 
 class PluginTest extends TestCase
@@ -154,6 +155,24 @@ class PluginTest extends TestCase
 
         $this->assertStringContainsString('oxy-html-converter-page-styles-inline-css', $output);
         $this->assertStringContainsString('.text-6xl', $output);
+    }
+
+    public function testPrintCacheRefreshNoticeEscapesAndConsumesStoredWarning(): void
+    {
+        update_option(OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION, [
+            'postId' => 42,
+            'message' => 'Cache failed at uploads/oxygen <script>alert(1)</script>',
+        ]);
+
+        $plugin = Plugin::getInstance();
+        ob_start();
+        $plugin->printCacheRefreshNotice();
+        $output = (string) ob_get_clean();
+
+        $this->assertStringContainsString('notice-warning', $output);
+        $this->assertStringContainsString('uploads/oxygen', $output);
+        $this->assertStringNotContainsString('<script>', $output);
+        $this->assertArrayNotHasKey(OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION, $GLOBALS['__wp_options']);
     }
 
     public function testUiConfigDocsUrlsTargetCurrentRepositoryPaths(): void

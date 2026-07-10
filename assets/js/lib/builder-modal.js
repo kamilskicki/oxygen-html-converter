@@ -74,6 +74,9 @@
       lastFocusedElement = parentDoc.activeElement;
       modalState.overlay.style.display = "block";
       modalState.error.textContent = "";
+      if (modalState.status) {
+        modalState.status.textContent = "";
+      }
       focusFirstField();
     }
 
@@ -85,6 +88,7 @@
           dialog: parentDoc.querySelector("#oxy-html-import-modal .oxy-html-modal-content"),
           input: parentDoc.querySelector("#oxy-html-import-input"),
           error: parentDoc.querySelector("#oxy-html-import-error"),
+          status: parentDoc.querySelector("#oxy-html-import-status"),
           submit: parentDoc.querySelector("#oxy-html-import-submit"),
           cancel: parentDoc.querySelector("#oxy-html-import-cancel"),
           close: parentDoc.querySelector("#oxy-html-import-close"),
@@ -119,6 +123,7 @@
             </div>
           </div>
         </div>
+        <div id="oxy-html-import-status" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;"></div>
       `;
 
       parentDoc.body.appendChild(container);
@@ -129,6 +134,7 @@
         dialog: container.querySelector(".oxy-html-modal-content"),
         input: container.querySelector("#oxy-html-import-input"),
         error: container.querySelector("#oxy-html-import-error"),
+        status: container.querySelector("#oxy-html-import-status"),
         submit: container.querySelector("#oxy-html-import-submit"),
         cancel: container.querySelector("#oxy-html-import-cancel"),
         close: container.querySelector("#oxy-html-import-close"),
@@ -155,14 +161,24 @@
         modalState.submit.disabled = true;
         modalState.submit.textContent = strings.converting || "Converting HTML…";
         modalState.error.textContent = "";
+        if (modalState.status) {
+          modalState.status.textContent = strings.importing || "Importing HTML…";
+        }
 
         try {
           await config.onSubmit({
             html: html,
             safeMode: modalState.safeMode.checked,
           });
+          if (modalState.status) {
+            modalState.status.textContent =
+              strings.importComplete || "HTML import completed.";
+          }
           close();
         } catch (error) {
+          if (modalState.status) {
+            modalState.status.textContent = "";
+          }
           const followUp = error?.payload?.audit?.followUp || [];
           const detail = followUp.length ? " " + followUp.join(" ") : "";
           modalState.error.textContent =
@@ -183,12 +199,15 @@
 
         if (event.key === "Escape") {
           event.preventDefault();
+          if (typeof event.stopPropagation === "function") {
+            event.stopPropagation();
+          }
           close();
           return;
         }
 
         trapFocus(event);
-      });
+      }, true);
 
       return modalState;
     }

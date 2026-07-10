@@ -872,7 +872,10 @@ class OxygenPageImporterTest extends TestCase
         add_filter('oxy_html_converter_skip_cli_cache_refresh', static fn (): bool => false);
         add_filter(
             'oxy_html_converter_cache_generator',
-            static fn (): string => self::class . '::throwingRenderCacheGenerator'
+            static fn (): callable => static function (int $postId): void {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal test exception, not rendered.
+                throw new \RuntimeException('Cache generator failed for post ' . $postId . '.');
+            }
         );
 
         $result = (new OxygenPageImporter())->import([
@@ -896,6 +899,10 @@ class OxygenPageImporterTest extends TestCase
         $this->assertSame(1, $result['postId']);
         $this->assertArrayHasKey('_oxygen_data', $GLOBALS['__wp_post_meta'][1]);
         $this->assertContains(1, $GLOBALS['__wp_cleaned_post_cache']);
+        $this->assertArrayHasKey(OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION, $GLOBALS['__wp_options']);
+        $notice = $GLOBALS['__wp_options'][OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION];
+        $this->assertSame(1, $notice['postId']);
+        $this->assertStringContainsString('uploads/oxygen', $notice['message']);
     }
 
     public function testImportRejectsInvalidDocumentTreeBeforeWritingPost(): void
@@ -925,12 +932,6 @@ class OxygenPageImporterTest extends TestCase
         $this->assertStringContainsString('root.id must be an integer', implode(' ', $result['errors']));
         $this->assertSame([], $GLOBALS['__wp_posts']);
         $this->assertSame([], $GLOBALS['__wp_post_meta']);
-    }
-
-    public static function throwingRenderCacheGenerator(int $postId): void
-    {
-        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal test exception, not rendered.
-        throw new \RuntimeException('Cache generator failed for post ' . $postId . '.');
     }
 
     public function testImportRejectsBlockedImportPlanBeforeWritingPost(): void
@@ -1616,6 +1617,78 @@ class OxygenPageImporterTest extends TestCase
         $this->assertSame($escapedPayload, $rolledBackManifest['sourceHash']);
         $this->assertFalse($rolledBackManifest['rollback']['available']);
         $this->assertArrayHasKey('restoredAt', $rolledBackManifest['rollback']);
+    }
+
+    public function testImportCorruptionRollbackRestoresByteIdenticalValidOxygenJson(): void
+    {
+        $postId = wp_insert_post([
+            'post_type' => 'page',
+            'post_status' => 'draft',
+            'post_title' => 'Rollback JSON Round Trip',
+            'post_name' => 'rollback-json-round-trip',
+            'post_content' => '',
+        ], true);
+        $this->assertIsInt($postId);
+
+        $originalTree = [
+            'root' => [
+                'id' => 0,
+                'data' => ['type' => 'root', 'properties' => []],
+                'children' => [[
+                    'id' => 1,
+                    'data' => [
+                        'type' => ElementTypes::TEXT,
+                        'properties' => [
+                            'content' => [
+                                'content' => [
+                                    'text' => 'Original "quoted" path C:\\imports\\page',
+                                ],
+                            ],
+                        ],
+                    ],
+                    'children' => [],
+                ]],
+            ],
+            '_nextNodeId' => 2,
+            'exportedLookupTable' => [],
+            'status' => 'exported',
+        ];
+        $originalOxygenData = wp_json_encode([
+            'tree_json_string' => wp_json_encode($originalTree),
+        ]);
+        $this->assertIsString($originalOxygenData);
+
+        update_post_meta($postId, '_oxygen_data', wp_slash($originalOxygenData));
+        $GLOBALS['__wp_get_post_meta_returns_unslashed'] = true;
+
+        $importer = new OxygenPageImporter();
+        $import = $importer->import([
+            'title' => 'Temporarily Imported',
+            'slug' => 'rollback-json-round-trip',
+            'replaceExisting' => true,
+            'element' => [
+                'id' => 1,
+                'data' => ['type' => ElementTypes::CONTAINER],
+                'children' => [],
+            ],
+            'importPlan' => [
+                'status' => 'ready',
+                'canImport' => true,
+                'nativeCoverage' => ['percent' => 100],
+            ],
+        ]);
+
+        $this->assertTrue($import['success'], implode(' ', $import['errors'] ?? []));
+        update_post_meta($postId, '_oxygen_data', '{corrupted');
+
+        $rollback = $importer->rollback($postId);
+
+        $this->assertTrue($rollback['success'], implode(' ', $rollback['errors'] ?? []));
+        $restored = get_post_meta($postId, '_oxygen_data', true);
+        $this->assertSame($originalOxygenData, $restored);
+        $decoded = json_decode($restored, true);
+        $this->assertIsArray($decoded);
+        $this->assertSame($originalTree, json_decode((string) $decoded['tree_json_string'], true));
     }
 
     public function testRollbackRestoresSnapshotAcrossImportSideEffects(): void

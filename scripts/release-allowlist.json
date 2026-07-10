@@ -10,7 +10,6 @@
   ],
   "directories": [
     "assets",
-    "src",
-    "vendor"
+    "src"
   ]
 }

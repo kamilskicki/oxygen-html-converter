@@ -177,6 +177,22 @@ class PageStyleRepositoryTest extends TestCase
                 'data' => ['type' => 'OxygenElements\\CssCode'],
                 'children' => [],
             ],
+            'element' => [
+                'id' => 0,
+                'data' => ['type' => 'root'],
+                'children' => [],
+            ],
+            'documentTree' => [
+                'root' => [
+                    'id' => 0,
+                    'data' => ['type' => 'root'],
+                    'children' => [[
+                        'id' => 1,
+                        'data' => ['type' => 'OxygenElements\\CssCode'],
+                        'children' => [],
+                    ]],
+                ],
+            ],
             'styleRouting' => [
                 'pageCss' => '.hero { color: red; }',
                 'pageScopedCss' => '.text-6xl { font-size: 3.75rem !important; }',
@@ -208,6 +224,45 @@ class PageStyleRepositoryTest extends TestCase
         $this->assertStringNotContainsString('.hero', $repository->getCssForPost(12));
         $this->assertStringContainsString('.text-6xl', $repository->getCssForPost(12));
         $this->assertSame(['runtime_plugin_dependency'], $result['owners']);
+    }
+
+    public function testSaveForPostPersistsFallbackPageCssWhenDetachedCssElementIsNotInFinalTree(): void
+    {
+        $repository = new PageStyleRepository();
+        $css = '.fallback-card + .badge { color: #ff0000; }';
+
+        $result = $repository->saveForPost(12, [
+            'cssElement' => [
+                'data' => ['type' => 'OxygenElements\\CssCode'],
+                'children' => [],
+            ],
+            'documentTree' => [
+                'root' => [
+                    'id' => 0,
+                    'data' => ['type' => 'root'],
+                    'children' => [[
+                        'id' => 1,
+                        'data' => ['type' => 'OxygenElements\\Div'],
+                        'children' => [],
+                    ]],
+                ],
+            ],
+            'styleRouting' => [
+                'pageCss' => $css,
+                'routes' => [[
+                    'type' => 'source_style',
+                    'destination' => 'page_css',
+                    'owner' => 'page',
+                    'cascadeOrder' => 20,
+                    'exportBehavior' => 'export_with_page_manifest',
+                    'rollbackStore' => 'page_styles',
+                ]],
+            ],
+        ]);
+
+        $this->assertTrue($result['saved']);
+        $this->assertSame(43, $result['bytes']);
+        $this->assertSame($css, $repository->getCssForPost(12));
     }
 
     public function testSaveForPostPersistsComponentHostBridgeOwnerMetadata(): void

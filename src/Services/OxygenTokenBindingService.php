@@ -827,7 +827,7 @@ class OxygenTokenBindingService
         $changed = false;
 
         foreach ($this->rawReplacementValues($reference) as $rawValue) {
-            $pattern = sprintf($patternTemplate, preg_quote($rawValue, '/'));
+            $pattern = str_replace('%s', preg_quote($rawValue, '/'), $patternTemplate);
             $next = preg_replace($pattern, $replacement, $updated);
             if (is_string($next) && $next !== $updated) {
                 $updated = $next;

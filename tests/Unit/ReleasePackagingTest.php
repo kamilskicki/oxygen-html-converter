@@ -8,6 +8,43 @@ require_once dirname(__DIR__, 2) . '/scripts/release_common.php';
 
 class ReleasePackagingTest extends TestCase
 {
+    public function testReleaseVerifierUsesTheAllowlistedReleaseBuilder(): void
+    {
+        $verifier = (string) file_get_contents(dirname(__DIR__, 2) . '/scripts/release_verify.php');
+
+        $this->assertStringContainsString("['php', 'scripts/build-release.php']", $verifier);
+        $this->assertStringNotContainsString("['php', 'scripts/build_zip.php']", $verifier);
+    }
+
+    public function testReleaseAllowlistExcludesVendorAndDevelopmentTrees(): void
+    {
+        $allowlistPath = dirname(__DIR__, 2) . '/scripts/release-allowlist.json';
+        $allowlist = json_decode((string) file_get_contents($allowlistPath), true);
+
+        $this->assertIsArray($allowlist);
+
+        $files = is_array($allowlist['files'] ?? null) ? $allowlist['files'] : [];
+        $directories = is_array($allowlist['directories'] ?? null) ? $allowlist['directories'] : [];
+        $entries = array_merge($files, $directories);
+
+        foreach ($entries as $entry) {
+            $normalized = trim(str_replace('\\', '/', (string) $entry), '/');
+
+            $this->assertFalse(
+                $normalized === 'vendor' || str_starts_with($normalized, 'vendor/'),
+                'The production release allowlist must not permit the unused Composer vendor tree.'
+            );
+            $this->assertFalse(
+                $normalized === 'tests' || str_starts_with($normalized, 'tests/'),
+                'The production release allowlist must not permit test files.'
+            );
+            $this->assertFalse(
+                $normalized === 'node_modules' || str_starts_with($normalized, 'node_modules/'),
+                'The production release allowlist must not permit Node dependencies.'
+            );
+        }
+    }
+
     public function testDistignoreExcludesLocalAuditAndScreenshotArtifacts(): void
     {
         $patterns = release_distignore_patterns();

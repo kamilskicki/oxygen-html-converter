@@ -63,3 +63,31 @@ Console/runtime notes:
 - No page errors were recorded during the admin flow.
 - Only the expected WordPress jQuery Migrate console messages appeared.
 - One Gravatar request was aborted during page load; it did not affect the plugin workflow.
+
+## Builder Modal (UX-03 / PRD/09)
+
+Date: 2026-07-10  
+Environment: `http://oxyconvo6.localhost/?oxygen=builder&id=2109`  
+Builder document: existing imported page `Fixture native-no-code-01-text`  
+Browser/viewport: Playwright Chromium, 1440 x 1000  
+Invocation: keyboard shortcut `Ctrl+Shift+H`; the test import was not saved.
+
+Post-fix keyboard-only verdicts:
+
+- **PASS - Tab order within modal.** Opening the modal places focus in the HTML textarea. Forward order is HTML textarea -> Safe mode -> Cancel -> Import into Builder -> Close -> HTML textarea, with no focus escape into the Builder.
+- **PASS - Focus trap.** Pressing Tab on the last DOM-order control (`Import into Builder`) moves focus to the first (`Close`). The focused JS regression also verifies reverse wrapping from Close to Import with Shift+Tab.
+- **PASS - Escape and focus restoration.** Escape closes the overlay and restores focus to the exact Builder control that held focus before `Ctrl+Shift+H` (the Desktop viewport control in this run).
+- **PASS - Dialog semantics.** The modal exposes `role="dialog"`, `aria-modal="true"`, and `aria-labelledby="oxy-html-import-title"`; the referenced heading is `Import HTML`.
+- **PASS - Async result announcements.** Conversion errors are written to the existing `aria-live="polite"` error region. Import progress/completion use a persistent `role="status"`, `aria-live="polite"`, `aria-atomic="true"` region; successful completion announced `HTML import completed.` after the visible modal closed.
+
+Failures found and corrected:
+
+- **Initial FAIL - Escape/focus restoration.** Oxygen consumed Escape before the modal's bubble-phase document listener. The modal key handler now runs in capture phase, prevents the default action, stops propagation for Escape, closes the modal, and restores the saved invoker focus.
+- **Initial FAIL - Async success announcement.** Success was conveyed only by a visual toast without live-region semantics. The modal now owns a visually hidden persistent status region and updates it for import progress and successful completion.
+
+Evidence:
+
+- `artifacts/ux-modal/final-modal-open.png` - open modal used for the keyboard-order and dialog-semantics checks.
+- `artifacts/ux-modal/final-modal-async-error.png` - visible async error associated with the polite error live region.
+- `artifacts/ux-modal/final-modal-async-success.png` - successful unsaved Builder insertion and visual success toast; the parallel status region carried the screen-reader announcement.
+- `artifacts/ux-modal/initial-modal-open.png`, `initial-modal-async-error.png`, and `initial-modal-async-success.png` - pre-fix evidence from the same Builder page.

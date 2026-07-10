@@ -71,6 +71,10 @@ Uninstall removes plugin-owned options under the `oxy_html_converter_*` prefix. 
 
 Yes. Core exposes hooks including `oxy_html_converter_convert_options`, `oxy_html_converter_tree_builder`, `oxy_html_converter_conversion_result`, `oxy_html_converter_convert_response`, `oxy_html_converter_preview_response`, `oxy_html_converter_required_capability`, and `oxy_html_converter_feature_flags`.
 
+= What permissions does Oxygen cache generation require? =
+
+The PHP/WordPress runtime user must be able to create and replace files under `wp-content/uploads/oxygen`, including its `css` and cache subdirectories. Keep ownership aligned with the web/PHP user and use normal writable directory/file modes for your hosting setup; do not use world-writable `777` permissions. If cache regeneration fails, the converter keeps the imported content, writes the failure to the PHP error log, and shows an admin warning. Correct ownership/permissions and then regenerate Oxygen caches. See `docs/OPERATIONS.md` for checks and container guidance.
+
 == Screenshots ==
 
 1. screenshot-1.png - Main converter UI for pasting HTML and choosing conversion options.

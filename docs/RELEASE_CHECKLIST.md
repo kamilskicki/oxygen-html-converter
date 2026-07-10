@@ -94,16 +94,29 @@ Run before publishing a ZIP:
 
 ```powershell
 npm run build:zip
-npm run install:zip
-npm run test:live:artifact
+npm run install:zip -- --zip=artifacts/release/oxygen-html-converter-0.9.0-beta.zip --base-url=http://oxyconvo6.localhost
+npm run test:live:artifact -- --base-url=http://oxyconvo6.localhost --output-dir=artifacts/release-smoke/rel05-live-gate
 npm run test:visual
 ```
+
+Always pass the exact ZIP path to `install:zip`; its unqualified fallback selects
+the newest matching artifact by modification time and is not sufficient hash
+proof. Record the ZIP SHA256 before installation and confirm the installed file
+manifest matches the ZIP manifest.
+
+`install:zip` reports the development-copy `backupPath`. Keep that backup until
+the artifact gate finishes. In a failure-safe cleanup step, move the installed
+release copy to the run's evidence directory, restore the reported development
+copy to the canonical plugin path, normalize ownership/modes, compare the
+pre/post path-and-content manifest hashes, and confirm the plugin is active and
+loaded. Do this cleanup on both pass and failure paths.
 
 Confirm:
 
 - the ZIP excludes `.distignore` entries
 - the ZIP installs and activates through wp-admin on the maintained Oxygen stack
 - artifact live smoke passes against the installed ZIP, not the working tree copy
+- the original development plugin copy is restored byte-for-byte after the smoke
 
 ## Merge Gate
 
@@ -130,7 +143,22 @@ npm run build:zip
 Expected:
 
 - `scripts/build-release.php` creates `artifacts/release/oxygen-html-converter-<version>.zip`.
-- staging runs `composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader`.
 - final ZIP contents are verified against `scripts/release-allowlist.json`.
-- dev tooling, tests, docs, scripts, `node_modules`, temp files, and package manifests are excluded.
+- dev tooling, tests, docs, scripts, `vendor`, `node_modules`, temp files, and package manifests are excluded.
 - command output includes the ZIP path, entry count, and SHA256 for the exact artifact to install-smoke.
+
+### Composer vendor decision (WP-07 / REL-03 close-out)
+
+The 2026-07-10 release audit found 12 generated files under `vendor/`: Composer's
+autoload entry point plus loader and installed-package metadata. Core has no
+production Composer package dependencies (`composer.lock` has an empty
+`packages` list), and `oxygen-html-converter.php` registers the production
+`OxyHtmlConverter\\` to `src/` autoloader directly. No production path loads
+`vendor/autoload.php`; only the development test bootstrap uses it.
+
+Those 12 files were therefore unused runtime output, not required production
+libraries. The release builder no longer runs Composer in staging, `vendor` is
+not release-allowlisted, and PRD/09 Future Audit Protocol rule 9 remains
+unchanged. If a future release adds a genuine production Composer dependency,
+that release must make a new protocol decision before adding any `vendor/`
+entry to the artifact.

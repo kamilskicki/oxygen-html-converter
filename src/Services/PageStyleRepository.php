@@ -317,17 +317,13 @@ class PageStyleRepository
      */
     private function payloadContainsVisibleCssCodeFallback(array $payload): bool
     {
-        if (isset($payload['cssElement']) && is_array($payload['cssElement'])) {
-            return true;
-        }
-
-        foreach (['element', 'documentTree'] as $field) {
-            if (isset($payload[$field]) && is_array($payload[$field]) && $this->nodeContainsCssCode($payload[$field])) {
-                return true;
+        foreach (['documentTree', 'element'] as $field) {
+            if (isset($payload[$field]) && is_array($payload[$field])) {
+                return $this->nodeContainsCssCode($payload[$field]);
             }
         }
 
-        return false;
+        return isset($payload['cssElement']) && is_array($payload['cssElement']);
     }
 
     /**

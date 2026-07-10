@@ -3,6 +3,28 @@ const assert = require("node:assert/strict");
 const fixtureBaseline = require("../live/run-fixture-baseline.cjs");
 
 module.exports = async function runFixtureBaselineTests() {
+  const parityArgs = fixtureBaseline.buildParityDockerArgs(
+    {
+      container: "wordpress-test",
+      dockerPhpUser: "www-data:www-data",
+      remoteArtifactsDir: "/tmp/parity output",
+    },
+    "/var/www/html/Import Tests/fixture.html",
+    "fixture-slug",
+    "Fixture title"
+  );
+
+  assert.deepEqual(parityArgs.slice(0, 4), [
+    "exec",
+    "--user",
+    "www-data:www-data",
+    "wordpress-test",
+  ]);
+  assert.equal(parityArgs[4], "php");
+  assert.equal(parityArgs[5], "/var/www/html/fixture-page-parity.php");
+  assert.ok(parityArgs.includes("--page-slug=fixture-slug"));
+  assert.ok(parityArgs.includes("--page-title=Fixture title"));
+
   const fixtureIndex = {
     failures: [],
     stableHtmlFixtures: [

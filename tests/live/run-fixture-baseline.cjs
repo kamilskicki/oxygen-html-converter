@@ -7,6 +7,8 @@ const DEFAULT_FIXTURE_DIR = process.env.OXY_HTML_CONVERTER_FIXTURE_DIR || "/var/
 const DEFAULT_REMOTE_ARTIFACTS = process.env.OXY_HTML_CONVERTER_REMOTE_ARTIFACTS || "/tmp/oxy-parity-suite";
 const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "artifacts", "fixture-baseline");
 const DEFAULT_SLUG_PREFIX = process.env.OXY_HTML_CONVERTER_BASELINE_SLUG_PREFIX || "perf-";
+const DEFAULT_DOCKER_PHP_USER =
+  process.env.OXY_HTML_CONVERTER_DOCKER_PHP_USER || "www-data:www-data";
 
 function resolveDefaultLocalFixtureDir() {
   const candidates = [
@@ -36,6 +38,7 @@ function parseArgs(argv) {
     includeNested: false,
     fixture: null,
     slugPrefix: DEFAULT_SLUG_PREFIX,
+    dockerPhpUser: DEFAULT_DOCKER_PHP_USER,
   };
 
   for (const arg of argv) {
@@ -69,6 +72,8 @@ function parseArgs(argv) {
       options.fixture = normalizeFixturePath(value);
     } else if (rawKey === "slug-prefix") {
       options.slugPrefix = value;
+    } else if (rawKey === "docker-php-user") {
+      options.dockerPhpUser = value;
     }
   }
 
@@ -191,22 +196,47 @@ function buildSlug(baseName, slugPrefix = DEFAULT_SLUG_PREFIX) {
     .slice(0, 60);
 }
 
-function loadReport(options, fixturePath) {
-  const relativeFixture = relativeFixturePath(options, fixturePath);
-  const fixtureName = fixtureNameForSlug(relativeFixture);
-  const slug = buildSlug(fixtureName, options.slugPrefix);
-  const title = `Fixture ${fixtureName}`;
-
-  const output = runDocker([
+function prepareRemoteArtifactsDir(options) {
+  runDocker([
     "exec",
     options.container,
     "sh",
     "-lc",
     [
       `mkdir -p ${shellQuote(options.remoteArtifactsDir)}`,
-      `php /var/www/html/fixture-page-parity.php ${shellQuote(fixturePath)} ${shellQuote(options.remoteArtifactsDir)} --keep-post --replace-post --page-slug=${slug} --page-title=${shellQuote(title)}`,
+      `chown -R ${shellQuote(options.dockerPhpUser)} ${shellQuote(options.remoteArtifactsDir)}`,
+      `chmod 775 ${shellQuote(options.remoteArtifactsDir)}`,
     ].join(" && "),
   ]);
+}
+
+function buildParityDockerArgs(options, fixturePath, slug, title) {
+  return [
+    "exec",
+    "--user",
+    options.dockerPhpUser,
+    options.container,
+    "php",
+    "/var/www/html/fixture-page-parity.php",
+    fixturePath,
+    options.remoteArtifactsDir,
+    "--keep-post",
+    "--replace-post",
+    `--page-slug=${slug}`,
+    `--page-title=${title}`,
+  ];
+}
+
+function loadReport(options, fixturePath) {
+  const relativeFixture = relativeFixturePath(options, fixturePath);
+  const fixtureName = fixtureNameForSlug(relativeFixture);
+  const slug = buildSlug(fixtureName, options.slugPrefix);
+  const title = `Fixture ${fixtureName}`;
+
+  prepareRemoteArtifactsDir(options);
+  const output = runDocker(
+    buildParityDockerArgs(options, fixturePath, slug, title)
+  );
 
   const result = JSON.parse(output);
   const reportJson = runDocker([
@@ -856,6 +886,7 @@ if (require.main === module) {
   main();
 } else {
   module.exports = {
+    buildParityDockerArgs,
     buildFixtureIndexFailures,
     summarizeEntry,
   };

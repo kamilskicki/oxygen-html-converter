@@ -10,6 +10,7 @@ Recommended reading order:
 4. [Release Checklist](RELEASE_CHECKLIST.md)
 5. [Release Notes Draft: 0.9.0-beta](RELEASE_NOTES_0.9.0_BETA.md)
 6. [Roadmap](../ROADMAP.md)
+7. [Operations and cache permissions](OPERATIONS.md)
 
 ## What Each Document Covers
 
@@ -24,3 +25,6 @@ Recommended reading order:
   - release hygiene and packaging steps
 - `RELEASE_NOTES_0.9.0_BETA.md`
   - draft public release summary for the current beta line
+- `OPERATIONS.md`
+  - Oxygen uploads/cache ownership and write-permission requirements
+  - recovery steps when converter-triggered cache regeneration fails

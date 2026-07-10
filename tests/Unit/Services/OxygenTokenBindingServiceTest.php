@@ -173,4 +173,53 @@ class OxygenTokenBindingServiceTest extends TestCase
         $this->assertStringContainsString('/* #fff Inter 1 */', $result['extractedCss']);
         $this->assertSame(0, $result['tokenUsage']['orphanCount']);
     }
+
+    public function testResidualCssWithPercentageDoesNotBreakMeasurementTokenBinding(): void
+    {
+        $result = [
+            'success' => true,
+            'element' => [
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\Container',
+                    'properties' => [],
+                ],
+                'children' => [],
+            ],
+            'cssElement' => null,
+            'headLinkElements' => [],
+            'headScriptElements' => [],
+            'iconScriptElements' => [],
+            'selectorPayload' => [
+                'selectors' => [],
+                'collections' => [],
+            ],
+            'extractedCss' => '.fallback-card { width:50%; }',
+            'globalCss' => '',
+            'pageScopedCss' => '',
+            'stats' => [
+                'elements' => 1,
+                'tailwindClasses' => 0,
+                'customClasses' => 0,
+                'warnings' => [],
+                'errors' => [],
+                'info' => [],
+            ],
+        ];
+
+        $result = (new OxygenTokenBindingService())->applyToConversionResult($result, [
+            'designDocument' => [
+                'tokens' => [
+                    'measurements' => [[
+                        'value' => '50%',
+                        'uses' => 1,
+                        'suggestedName' => 'measure-50-percent',
+                    ]],
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('width:var(--ohc-measure-50-percent)', $result['extractedCss']);
+        $this->assertSame(1, $result['tokenUsage']['bound']);
+    }
 }

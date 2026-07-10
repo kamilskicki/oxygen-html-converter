@@ -11,6 +11,7 @@ class OxygenPageImporter
 {
     public const MANIFEST_META_KEY = '_oxy_html_converter_import_manifest';
     public const ROLLBACK_META_KEY = '_oxy_html_converter_previous_oxygen_data';
+    public const CACHE_REFRESH_NOTICE_OPTION = 'oxy_html_converter_cache_refresh_notice';
     private const OXYGEN_PART_GATE_OPTION_NAME = 'oxygen_is_copy_from_frontend_enabled';
 
     /**
@@ -600,7 +601,7 @@ class OxygenPageImporter
         }
 
         $metaKey = $this->getOxygenDataMetaKey();
-        update_post_meta($postId, $metaKey, $previousMeta);
+        update_post_meta($postId, $metaKey, wp_slash($previousMeta));
         delete_post_meta($postId, self::ROLLBACK_META_KEY);
         $this->markManifestRolledBack($postId);
         $this->refreshRenderCache($postId);
@@ -3345,7 +3346,7 @@ class OxygenPageImporter
                     return true;
                 }
 
-                update_post_meta($postId, $key, $value);
+                update_post_meta($postId, $key, wp_slash($value));
                 return $this->postMetaExists($postId, $key)
                     && get_post_meta($postId, $key, true) === $value;
             }
@@ -3616,16 +3617,33 @@ class OxygenPageImporter
             return;
         }
 
-        $cacheGenerator = function_exists('apply_filters')
-            ? (string) apply_filters('oxy_html_converter_cache_generator', '\Breakdance\Render\generateCacheForPost')
-            : '\Breakdance\Render\generateCacheForPost';
-        if (is_callable($cacheGenerator)) {
-            try {
+        try {
+            $cacheGenerator = function_exists('apply_filters')
+                ? apply_filters('oxy_html_converter_cache_generator', '\Breakdance\Render\generateCacheForPost')
+                : '\Breakdance\Render\generateCacheForPost';
+            if (is_callable($cacheGenerator)) {
                 $cacheGenerator($postId);
-            } catch (\Throwable $e) {
-                if (function_exists('error_log')) {
-                    error_log('Oxygen HTML Converter cache refresh failed for post ' . $postId . ': ' . $e->getMessage());
-                }
+            }
+        } catch (\Throwable $e) {
+            $message = sprintf(
+                __(
+                    'Oxygen cache regeneration failed for post #%1$d. The imported content was saved, but cached CSS may be stale. Make sure wp-content/uploads/oxygen and its cache directories are writable by the PHP/WordPress user, then regenerate Oxygen caches. Details: %2$s',
+                    'oxygen-html-converter'
+                ),
+                $postId,
+                $e->getMessage()
+            );
+
+            if (function_exists('error_log')) {
+                error_log('Oxygen HTML Converter cache refresh failed for post ' . $postId . ': ' . $e->getMessage());
+            }
+
+            if (function_exists('update_option')) {
+                update_option(self::CACHE_REFRESH_NOTICE_OPTION, [
+                    'postId' => $postId,
+                    'message' => $message,
+                    'recordedAt' => gmdate('c'),
+                ]);
             }
         }
     }

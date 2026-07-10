@@ -7,6 +7,7 @@ const tests = [
   ["live-gate", require("./live-gate.test.cjs")],
   ["fixture-baseline", require("./fixture-baseline.test.cjs")],
   ["converter", require("./converter.test.cjs")],
+  ["builder-modal", require("./builder-modal.test.cjs")],
   ["admin-request-client", require("./admin-request-client.test.cjs")],
   ["admin-renderers", require("./admin-renderers.test.cjs")],
   ["admin-focus", require("./admin-focus.test.cjs")],
