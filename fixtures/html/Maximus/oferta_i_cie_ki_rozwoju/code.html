@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Oferta i Ścieżka - MAXIMUS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Serif:ital,wght@0,400;0,700;0,900;1,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#fecf93",
+                        "surface-container-low": "#fdf1ec",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#ece0db",
+                        "error-container": "#ffdad6",
+                        "surface": "#fff8f5",
+                        "paper-bright": "#FCF9F4",
+                        "on-tertiary-container": "#7cadc8",
+                        "surface-bright": "#fff8f5",
+                        "paper-soft": "#E8DED0",
+                        "on-tertiary-fixed": "#001e2b",
+                        "tertiary-fixed": "#c1e8ff",
+                        "primary-container": "#731b19",
+                        "tertiary-fixed-dim": "#9ccde9",
+                        "tertiary-container": "#004158",
+                        "surface-tint": "#a13d37",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#352f2c",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#410003",
+                        "brass-accent": "#9A7440",
+                        "on-primary-fixed-variant": "#822622",
+                        "on-background": "#201a17",
+                        "secondary-fixed": "#ffddb4",
+                        "tertiary": "#002a3a",
+                        "secondary-fixed-dim": "#ecbf84",
+                        "surface-dim": "#e3d8d2",
+                        "secondary": "#7a5827",
+                        "ink-black": "#17120F",
+                        "on-secondary-container": "#795726",
+                        "surface-variant": "#ece0db",
+                        "surface-container-high": "#f2e6e0",
+                        "on-tertiary": "#ffffff",
+                        "primary": "#540306",
+                        "oxblood-deep": "#4D0907",
+                        "ink-soft": "#544B45",
+                        "copper-highlight": "#BE8656",
+                        "on-secondary-fixed": "#291800",
+                        "outline": "#89716f",
+                        "background": "#fff8f5",
+                        "on-secondary-fixed-variant": "#604111",
+                        "inverse-primary": "#ffb3ac",
+                        "on-tertiary-fixed-variant": "#144c63",
+                        "primary-fixed": "#ffdad6",
+                        "on-surface-variant": "#564240",
+                        "inverse-on-surface": "#faeee9",
+                        "outline-variant": "#ddc0bd",
+                        "ivory-base": "#F3EDE4",
+                        "error": "#ba1a1a",
+                        "on-surface": "#201a17",
+                        "oxblood-primary": "#731B19",
+                        "on-error": "#ffffff",
+                        "on-primary-container": "#fd8279",
+                        "primary-fixed-dim": "#ffb3ac",
+                        "surface-container": "#f7ece6"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "section-gap": "120px",
+                        "unit": "8px",
+                        "component-padding": "16px",
+                        "gutter-grid": "24px",
+                        "margin-page": "64px"
+                    },
+                    fontFamily: {
+                        "hero-serif": ["Noto Serif", "serif"],
+                        "wordmark-aux": ["Noto Serif", "serif"],
+                        "body-main": ["Inter", "sans-serif"],
+                        "section-headline": ["Noto Serif", "serif"],
+                        "metadata-label": ["Inter", "sans-serif"]
+                    },
+                    fontSize: {
+                        "hero-serif": ["64px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "400" }],
+                        "wordmark-aux": ["14px", { lineHeight: "1", letterSpacing: "0.2em", fontWeight: "500" }],
+                        "body-main": ["16px", { lineHeight: "1.6", fontWeight: "400" }],
+                        "section-headline": ["32px", { lineHeight: "1.2", fontWeight: "400" }],
+                        "metadata-label": ["12px", { lineHeight: "1.4", letterSpacing: "0.1em", fontWeight: "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-ivory-base text-on-surface antialiased font-body-main selection:bg-oxblood-primary selection:text-white flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-[#fdfcfb] dark:bg-stone-950 font-serif tracking-tight uppercase text-xs md:text-sm font-medium docked full-width top-0 border-b z-50 border-stone-200 dark:border-stone-800 flat no shadows sticky">
+<div class="flex justify-between items-center w-full px-8 py-6 max-w-screen-2xl mx-auto">
+<a class="font-serif text-3xl font-black tracking-tighter text-[#731B19] dark:text-red-600 hover:opacity-80 transition-opacity duration-300" href="/">MAXIMUS</a>
+<nav class="hidden md:flex gap-8 items-center">
+<a class="text-stone-500 dark:text-stone-400 hover:text-[#731B19] transition-colors hover:opacity-80 transition-opacity duration-300" href="#">Transformacja</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-[#731B19] transition-colors hover:opacity-80 transition-opacity duration-300" href="#">System Rodzinny</a>
+<a class="text-[#731B19] dark:text-red-500 border-b-2 border-[#731B19] dark:border-red-600 pb-1 hover:opacity-80 transition-opacity duration-300 Active: scale-95 transition-transform duration-200" href="#">AutyzmUP</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-[#731B19] transition-colors hover:opacity-80 transition-opacity duration-300" href="#">Dziedzictwo</a>
+</nav>
+<div class="hidden md:flex gap-4 items-center">
+<a class="text-stone-500 dark:text-stone-400 hover:text-[#731B19] transition-colors font-metadata-label text-metadata-label hover:opacity-80 transition-opacity duration-300" href="#">Diagnoza</a>
+<a class="bg-ink-black text-on-primary px-6 py-3 font-metadata-label text-metadata-label uppercase tracking-widest hover:opacity-80 transition-opacity duration-300" href="#">Umów konsultację</a>
+</div>
+<button class="md:hidden text-[#731B19]">
+<span class="material-symbols-outlined text-3xl">menu</span>
+</button>
+</div>
+</header>
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="px-8 md:px-margin-page py-section-gap max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-gutter-grid items-center">
+<div class="md:col-span-8 md:col-start-3 text-center">
+<span class="block font-metadata-label text-metadata-label text-brass-accent uppercase tracking-[0.2em] mb-6">Metodologia</span>
+<h1 class="font-hero-serif text-hero-serif text-ink-black mb-8">Twoja ścieżka w Maximus.<br/>Od diagnozy do wyniku.</h1>
+<p class="font-body-main text-body-main text-ink-soft max-w-2xl mx-auto mb-12 text-lg">Nie musisz wybierać z katalogu. Nasz zespół dobierze program, który pasuje do Twojego celu i etapu życia.</p>
+<div class="flex justify-center gap-4">
+<a class="bg-oxblood-primary text-on-primary px-8 py-4 font-metadata-label text-metadata-label uppercase tracking-widest hover:opacity-90 transition-opacity flex items-center gap-2" href="#diagnoza">
+                        Rozpocznij od diagnozy
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-stone-100 dark:bg-stone-900 font-serif text-[10px] tracking-[0.2em] uppercase w-full border-t mt-auto border-stone-300 dark:border-stone-700 flat no shadows">
+<div class="flex flex-col md:flex-row justify-between items-center px-12 py-16 w-full max-w-screen-2xl mx-auto gap-8">
+<a class="font-serif text-xl font-bold text-stone-800 dark:text-stone-200" href="/">MAXIMUS</a>
+<nav class="flex flex-wrap justify-center gap-6">
+<a class="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors Link fade on hover" href="#">Dziedzictwo</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors Link fade on hover" href="#">Diagnoza</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors Link fade on hover" href="#">System Rodzinny</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors Link fade on hover" href="#">Polityka Prywatności</a>
+</nav>
+<div class="text-[#731B19] dark:text-red-600 text-center md:text-right text-[10px] text-stone-500 dark:text-stone-400">
+                © 2024 MAXIMUS PHYSICAL CULTURE CLUB. WSZELKIE PRAWA ZASTRZEŻONE.
+            </div>
+</div>
+</footer>
+</body></html>

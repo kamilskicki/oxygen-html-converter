@@ -1,0 +1,27 @@
+{
+  "oxygenVersion": "6.1.0",
+  "source": "oxygen/subplugins/oxygen-elements/elements/*/element.php",
+  "elementTypes": [
+    "OxygenElements\\Component",
+    "OxygenElements\\Container",
+    "OxygenElements\\ContainerLink",
+    "OxygenElements\\ContainerShortcode",
+    "OxygenElements\\CssCode",
+    "OxygenElements\\DynamicDataLoop",
+    "OxygenElements\\Html5Video",
+    "OxygenElements\\HtmlCode",
+    "OxygenElements\\Image",
+    "OxygenElements\\JavaScriptCode",
+    "OxygenElements\\PhpCode",
+    "OxygenElements\\PostsLoop",
+    "OxygenElements\\RichText",
+    "OxygenElements\\Shortcode",
+    "OxygenElements\\SvgIcon",
+    "OxygenElements\\TemplateContentArea",
+    "OxygenElements\\TermLoopBuilder",
+    "OxygenElements\\Text",
+    "OxygenElements\\TextLink",
+    "OxygenElements\\WpWidget",
+    "OxygenElements\\oEmbed"
+  ]
+}

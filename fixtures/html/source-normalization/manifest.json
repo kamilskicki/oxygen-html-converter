@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "m7-02-source-normalization",
+  "fixtures": [
+    {
+      "file": "generated-page.html",
+      "normalization": {
+        "headerRoles": {
+          "#site-header": "site_header",
+          "#hero-header": "content_header"
+        }
+      },
+      "expected": {
+        "removedRootWrappers": 2,
+        "placeholderLinks": 2,
+        "temporaryMedia": 2,
+        "sourceArtifactsRemoved": 2
+      }
+    }
+  ]
+}

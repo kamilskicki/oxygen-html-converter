@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kamil Skicki | Design 2 — Dark Luxury Glass</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #FF1A1A;
+            --blue: #2B6BFF;
+            --dark: #050508;
+            --surface: #0C0C12;
+            --glass: rgba(12, 12, 18, 0.6);
+            --glass-border: rgba(255,255,255,0.06);
+            --text: #E8E8EC;
+            --muted: #6B6B80;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Cormorant Garamond', serif;
+            background: var(--dark);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* ── AMBIENT BACKGROUND ── */
+        .ambient {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        }
+        .orb {
+            position: absolute; border-radius: 50%;
+            filter: blur(120px); opacity: 0.25;
+        }
+        .orb-1 { width: 700px; height: 700px; background: var(--blue); top: -20%; left: -10%; animation: drift1 25s ease-in-out infinite; }
+        .orb-2 { width: 600px; height: 600px; background: var(--red); bottom: -15%; right: -10%; animation: drift2 30s ease-in-out infinite; }
+        .orb-3 { width: 400px; height: 400px; background: #6B2BFF; top: 40%; left: 50%; opacity: 0.1; animation: drift1 35s ease-in-out infinite reverse; }
+        @keyframes drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(50px,-40px)} }
+        @keyframes drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-40px,30px)} }
+
+        /* ── GRID OVERLAY ── */
+        .grid-overlay {
+            position: fixed; inset: 0; z-index: 1; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ── CONTENT ── */
+        .content { position: relative; z-index: 2; }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1.25rem 3rem;
+            background: rgba(5,5,8,0.7);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .nav-inner {
+            max-width: 1400px; margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .logo {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.5rem; font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+        .logo span {
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+        .nav-links a {
+            color: var(--muted); text-decoration: none;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem; text-transform: uppercase;
+            letter-spacing: 0.12em; transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--text); }
+        .nav-cta {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.1em; font-weight: 500;
+            padding: 0.7rem 1.4rem;
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            color: white; text-decoration: none;
+            border-radius: 50px; transition: all 0.3s;
+        }
+        .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(43,107,255,0.3); }
+
+        /* ── HERO ── */
+        .hero {
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            text-align: center;
+            padding: 8rem 2rem;
+            position: relative;
+        }
+        .hero-inner { max-width: 900px; }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1.2rem;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.68rem; text-transform: uppercase;
+            letter-spacing: 0.12em; color: var(--muted);
+            margin-bottom: 3rem;
+            animation: fadeUp 0.8s ease both;
+        }
+        .hero-badge::before { content: '✦'; color: var(--blue); }
+        .hero h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(3rem, 7vw, 6.5rem);
+            font-weight: 300; line-height: 1.05;
+            letter-spacing: -0.02em;
+            margin-bottom: 2rem;
+            animation: fadeUp 0.8s ease 0.15s both;
+        }
+        .hero h1 strong {
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--blue) 0%, var(--red) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero-sub {
+            font-size: 1.2rem; line-height: 1.8;
+            color: var(--muted); max-width: 600px;
+            margin: 0 auto 3rem;
+            animation: fadeUp 0.8s ease 0.3s both;
+        }
+        .hero-ctas {
+            display: flex; gap: 1rem; justify-content: center;
+            animation: fadeUp 0.8s ease 0.45s both;
+        }
+        .btn-glass {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem; text-transform: uppercase;
+            letter-spacing: 0.1em; font-weight: 500;
+            padding: 1rem 2rem; border-radius: 50px;
+            text-decoration: none; cursor: pointer; border: none;
+            transition: all 0.4s;
+        }
+        .btn-glass.primary {
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            color: white;
+        }
+        .btn-glass.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 50px rgba(43,107,255,0.3), 0 15px 50px rgba(255,26,26,0.15);
+        }
+        .btn-glass.secondary {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+        }
+        .btn-glass.secondary:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        /* Hero stats */
+        .hero-stats {
+            display: flex; justify-content: center; gap: 4rem;
+            margin-top: 5rem;
+            animation: fadeUp 0.8s ease 0.6s both;
+        }
+        .hero-stat {
+            text-align: center;
+        }
+        .hero-stat-val {
+            font-family: 'Syne', sans-serif;
+            font-size: 2.5rem; font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero-stat-lbl {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.12em; color: var(--muted);
+            margin-top: 0.5rem;
+        }
+
+        @keyframes fadeUp {
+            from { opacity:0; transform:translateY(30px); }
+            to { opacity:1; transform:none; }
+        }
+
+        /* ── GLASS CARD SECTIONS ── */
+        section { padding: 7rem 2rem; }
+        .container { max-width: 1300px; margin: 0 auto; }
+
+        .section-header { text-align: center; margin-bottom: 5rem; }
+        .section-tag {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.2em; color: var(--blue);
+            margin-bottom: 1rem; display: block;
+        }
+        .section-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(2.2rem, 4vw, 3.5rem);
+            font-weight: 300; line-height: 1.1;
+        }
+        .section-title strong {
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        /* ── PHILOSOPHY ── */
+        .phil-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
+        }
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 2.5rem;
+            transition: all 0.5s;
+            position: relative; overflow: hidden;
+        }
+        .glass-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+        }
+        .glass-card:hover {
+            border-color: rgba(255,255,255,0.12);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .glass-card:nth-child(1):hover { box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(43,107,255,0.1); }
+        .glass-card:nth-child(2):hover { box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(255,26,26,0.1); }
+        .glass-card:nth-child(3):hover { box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(160,120,255,0.1); }
+        .gc-icon { font-size: 2rem; margin-bottom: 1.5rem; }
+        .gc-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.4rem; font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        .glass-card:nth-child(1) .gc-title { color: var(--blue); }
+        .glass-card:nth-child(2) .gc-title { color: var(--red); }
+        .glass-card:nth-child(3) .gc-title { color: #A078FF; }
+        .gc-text {
+            font-size: 1rem; line-height: 1.7;
+            color: var(--muted); margin-bottom: 1.5rem;
+        }
+        .gc-list { list-style: none; }
+        .gc-list li {
+            padding: 0.5rem 0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem; color: var(--muted);
+            border-top: 1px solid rgba(255,255,255,0.04);
+        }
+        .gc-list li::before { content: '→ '; color: var(--blue); }
+
+        /* ── CASE STUDIES ── */
+        .case-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
+        }
+        .case-glass {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            overflow: hidden;
+            transition: all 0.5s;
+            cursor: pointer;
+        }
+        .case-glass:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 25px 70px rgba(0,0,0,0.5);
+        }
+        .case-visual {
+            height: 200px;
+            position: relative; overflow: hidden;
+        }
+        .case-glass:nth-child(1) .case-visual { background: linear-gradient(135deg, rgba(43,107,255,0.3), rgba(43,107,255,0.05)); }
+        .case-glass:nth-child(2) .case-visual { background: linear-gradient(135deg, rgba(255,26,26,0.3), rgba(255,26,26,0.05)); }
+        .case-glass:nth-child(3) .case-visual { background: linear-gradient(135deg, rgba(160,120,255,0.3), rgba(160,120,255,0.05)); }
+        .case-visual-text {
+            position: absolute; bottom: 1.5rem; left: 1.5rem;
+            font-family: 'Syne', sans-serif;
+            font-size: 4rem; font-weight: 800;
+            opacity: 0.15;
+        }
+        .case-body { padding: 2rem; }
+        .case-tag-lbl {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--blue);
+            margin-bottom: 0.75rem;
+        }
+        .case-name {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.5rem; font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .case-desc { color: var(--muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem; }
+        .case-metrics { display: flex; gap: 2rem; }
+        .case-m-val {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.3rem; font-weight: 800;
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .case-m-lbl {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--muted);
+        }
+
+        /* ── SERVICES ── */
+        .svc-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
+        }
+        .svc-card {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 2.5rem;
+            transition: all 0.5s;
+            position: relative;
+        }
+        .svc-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+        }
+        .svc-card.featured {
+            border-color: rgba(43,107,255,0.25);
+            background: linear-gradient(180deg, rgba(43,107,255,0.08), var(--glass));
+        }
+        .svc-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .svc-badge {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.58rem; text-transform: uppercase;
+            letter-spacing: 0.12em;
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            color: white; padding: 0.3rem 0.8rem;
+            border-radius: 50px;
+            position: absolute; top: -0.7rem; right: 2rem;
+        }
+        .svc-icon { font-size: 2rem; margin-bottom: 1.5rem; }
+        .svc-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.4rem; font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+        .svc-desc { color: var(--muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem; }
+        .svc-price {
+            font-family: 'Syne', sans-serif;
+            font-size: 2rem; font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+        .svc-price .old {
+            font-size: 1rem; text-decoration: line-through; opacity: 0.3;
+            margin-left: 0.5rem;
+        }
+        .svc-price .per {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65rem; color: var(--muted);
+        }
+        .svc-features { list-style: none; margin: 1.5rem 0 2rem; }
+        .svc-features li {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem; color: var(--muted);
+            padding: 0.5rem 0;
+            border-top: 1px solid rgba(255,255,255,0.04);
+        }
+        .svc-btn {
+            width: 100%; padding: 0.9rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.1em; font-weight: 500;
+            background: transparent; color: var(--text);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px; cursor: pointer;
+            transition: all 0.3s;
+        }
+        .svc-btn:hover {
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            border-color: transparent;
+        }
+
+        /* ── FINAL CTA ── */
+        .final-cta {
+            padding: 10rem 2rem; text-align: center;
+            position: relative;
+        }
+        .final-cta::before {
+            content: '';
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(43,107,255,0.15) 0%, transparent 70%);
+            border-radius: 50%; filter: blur(60px);
+        }
+        .final-cta h2 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(2.5rem, 5vw, 5rem);
+            font-weight: 300; line-height: 1.1;
+            margin-bottom: 1.5rem; position: relative;
+        }
+        .final-cta h2 strong {
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .final-cta p { color: var(--muted); font-size: 1.1rem; line-height: 1.8; max-width: 560px; margin: 0 auto 3rem; position: relative; }
+        .final-guarantee {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--muted);
+            margin-top: 2rem; position: relative;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            border-top: 1px solid var(--glass-border);
+            padding: 5rem 2rem 2rem;
+        }
+        .footer-grid {
+            max-width: 1300px; margin: 0 auto;
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem; margin-bottom: 4rem;
+        }
+        .footer-brand {
+            font-family: 'Syne', sans-serif;
+            font-size: 2rem; font-weight: 800;
+            margin-bottom: 1rem;
+        }
+        .footer-brand span {
+            background: linear-gradient(135deg, var(--blue), var(--red));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .footer-tagline { color: var(--muted); font-size: 0.9rem; line-height: 1.7; max-width: 320px; }
+        .footer-col-title {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.2em; color: var(--blue);
+            margin-bottom: 1.5rem;
+        }
+        .footer-col ul { list-style: none; }
+        .footer-col li { margin-bottom: 0.75rem; }
+        .footer-col a { color: var(--muted); text-decoration: none; font-size: 0.9rem; transition: color 0.3s; }
+        .footer-col a:hover { color: var(--text); }
+        .footer-bottom {
+            max-width: 1300px; margin: 0 auto;
+            border-top: 1px solid var(--glass-border);
+            padding-top: 2rem;
+            display: flex; justify-content: space-between;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--muted);
+        }
+
+        /* ── SCROLL REVEAL ── */
+        .sr { opacity: 0; transform: translateY(25px); transition: all 0.7s cubic-bezier(0.16,1,0.3,1); }
+        .sr.vis { opacity: 1; transform: none; }
+        .d1 { transition-delay: 0.1s; } .d2 { transition-delay: 0.2s; } .d3 { transition-delay: 0.3s; }
+
+        @media (max-width: 1024px) {
+            .phil-grid, .case-grid, .svc-grid { grid-template-columns: 1fr; }
+            .hero-stats { flex-wrap: wrap; gap: 2rem; }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            nav { padding: 1rem 1.5rem; }
+            .nav-links { display: none; }
+            .hero { padding: 7rem 1.5rem 4rem; }
+            section { padding: 5rem 1.5rem; }
+            .footer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="ambient">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+</div>
+<div class="grid-overlay"></div>
+
+<div class="content">
+
+<nav>
+    <div class="nav-inner">
+        <div class="logo">Kamil<span>.</span></div>
+        <ul class="nav-links">
+            <li><a href="#phil">Philosophy</a></li>
+            <li><a href="#cases">Case Studies</a></li>
+            <li><a href="#svc">Services</a></li>
+        </ul>
+        <a href="#cta" class="nav-cta">Book Strategy Call</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-badge">Trusted by 50+ Founders</div>
+        <h1>AI-Powered Growth<br>for <strong>Ambitious Founders</strong></h1>
+        <p class="hero-sub">From first customer to exit strategy. I help founders leverage AI to scale faster, work smarter, and build companies worth acquiring.</p>
+        <div class="hero-ctas">
+            <a href="#cta" class="btn-glass primary">Book Free Strategy Call →</a>
+            <a href="#cases" class="btn-glass secondary">View Case Studies</a>
+        </div>
+        <div class="hero-stats">
+            <div class="hero-stat"><div class="hero-stat-val">$4.5M</div><div class="hero-stat-lbl">Exit Value</div></div>
+            <div class="hero-stat"><div class="hero-stat-val">2000%</div><div class="hero-stat-lbl">Peak ROAS</div></div>
+            <div class="hero-stat"><div class="hero-stat-val">84%</div><div class="hero-stat-lbl">Open Rate</div></div>
+            <div class="hero-stat"><div class="hero-stat-val">50+</div><div class="hero-stat-lbl">Founders</div></div>
+        </div>
+    </div>
+</section>
+
+<section id="phil">
+    <div class="container">
+        <div class="section-header sr">
+            <span class="section-tag">The Philosophy</span>
+            <h2 class="section-title">Theory <strong>vs</strong> Practice</h2>
+        </div>
+        <div class="phil-grid">
+            <div class="glass-card sr">
+                <div class="gc-icon">🛡️</div>
+                <h3 class="gc-title">The Skeptic</h3>
+                <p class="gc-text">"Most AI tools are overhyped. Most growth tactics fail. Most founders chase shiny objects instead of fundamentals."</p>
+                <ul class="gc-list"><li>Ruthless prioritization</li><li>Data over intuition</li><li>Risk mitigation first</li></ul>
+            </div>
+            <div class="glass-card sr d1">
+                <div class="gc-icon">🚀</div>
+                <h3 class="gc-title">The Optimist</h3>
+                <p class="gc-text">"AI is the biggest leverage point in human history. Bold moves create breakout success. Speed beats perfection."</p>
+                <ul class="gc-list"><li>First-mover advantage</li><li>Experiment aggressively</li><li>Think in 10x, not 10%</li></ul>
+            </div>
+            <div class="glass-card sr d2">
+                <div class="gc-icon">⚖️</div>
+                <h3 class="gc-title">The Synthesis</h3>
+                <p class="gc-text">"Use AI to amplify what works. Test boldly, but measure ruthlessly. Move fast, but don't break the core."</p>
+                <ul class="gc-list"><li>Validated learning loops</li><li>Strategic AI integration</li><li>Sustainable acceleration</li></ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="cases">
+    <div class="container">
+        <div class="section-header sr">
+            <span class="section-tag">Proof of Work</span>
+            <h2 class="section-title">Case <strong>Studies</strong></h2>
+        </div>
+        <div class="case-grid">
+            <div class="case-glass sr">
+                <div class="case-visual"><span class="case-visual-text">NQ</span></div>
+                <div class="case-body">
+                    <div class="case-tag-lbl">E-commerce</div>
+                    <h3 class="case-name">Nature Queen</h3>
+                    <p class="case-desc">AI-powered retention system that transformed customer LTV</p>
+                    <div class="case-metrics">
+                        <div><div class="case-m-val">3.2x</div><div class="case-m-lbl">LTV Increase</div></div>
+                        <div><div class="case-m-val">84%</div><div class="case-m-lbl">Open Rate</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="case-glass sr d1">
+                <div class="case-visual"><span class="case-visual-text">SC</span></div>
+                <div class="case-body">
+                    <div class="case-tag-lbl">B2B SaaS</div>
+                    <h3 class="case-name">StoneCo</h3>
+                    <p class="case-desc">Automated pipeline generation with AI SDRs and personalization</p>
+                    <div class="case-metrics">
+                        <div><div class="case-m-val">$100K</div><div class="case-m-lbl">Pipeline/Mo</div></div>
+                        <div><div class="case-m-val">40%</div><div class="case-m-lbl">Cost Reduction</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="case-glass sr d2">
+                <div class="case-visual"><span class="case-visual-text">WG</span></div>
+                <div class="case-body">
+                    <div class="case-tag-lbl">Growth Agency</div>
+                    <h3 class="case-name">Wave Growth</h3>
+                    <p class="case-desc">Complete AI transformation and exit preparation</p>
+                    <div class="case-metrics">
+                        <div><div class="case-m-val">2000%</div><div class="case-m-lbl">Peak ROAS</div></div>
+                        <div><div class="case-m-val">$4.5M</div><div class="case-m-lbl">Exit Value</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="svc">
+    <div class="container">
+        <div class="section-header sr">
+            <span class="section-tag">How I Help</span>
+            <h2 class="section-title">Growth <strong>Partnerships</strong></h2>
+        </div>
+        <div class="svc-grid">
+            <div class="svc-card sr">
+                <div class="svc-icon">🔍</div>
+                <h3 class="svc-title">Growth Audit</h3>
+                <p class="svc-desc">Comprehensive analysis of your growth engine with actionable AI integration roadmap.</p>
+                <div class="svc-price">$2,500 <span class="old">$5,000</span></div>
+                <ul class="svc-features"><li>2-week deep dive</li><li>AI opportunity scan</li><li>90-day action plan</li><li>1-hour strategy call</li></ul>
+                <button class="svc-btn">Get Started</button>
+            </div>
+            <div class="svc-card featured sr d1">
+                <span class="svc-badge">Most Popular</span>
+                <div class="svc-icon">🤝</div>
+                <h3 class="svc-title">AI Partnership</h3>
+                <p class="svc-desc">Ongoing strategic partnership to implement AI across your growth stack.</p>
+                <div class="svc-price">$8K-15K <span class="per">/month</span></div>
+                <ul class="svc-features"><li>Weekly strategy calls</li><li>AI system implementation</li><li>Team training & enablement</li><li>Performance monitoring</li><li>Priority support</li></ul>
+                <button class="svc-btn">Apply Now</button>
+            </div>
+            <div class="svc-card sr d2">
+                <div class="svc-icon">🎯</div>
+                <h3 class="svc-title">Exit Prep</h3>
+                <p class="svc-desc">Comprehensive preparation for acquisition including documentation and buyer outreach.</p>
+                <div class="svc-price">Custom</div>
+                <ul class="svc-features"><li>Valuation optimization</li><li>Documentation package</li><li>Buyer identification</li><li>Negotiation support</li></ul>
+                <button class="svc-btn">Schedule Call</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="final-cta" id="cta">
+    <h2 class="sr">Ready to <strong>10x Your Growth</strong>?</h2>
+    <p class="sr d1">Book a free 30-minute strategy call. We'll diagnose your biggest growth opportunity and map out an AI-powered plan to capture it.</p>
+    <a href="#" class="btn-glass primary sr d2">Book Free Strategy Call →</a>
+    <div class="final-guarantee sr d3">★ No pitch, no pressure — just actionable insights</div>
+</section>
+
+<footer>
+    <div class="footer-grid">
+        <div><div class="footer-brand">Kamil<span>.</span></div><p class="footer-tagline">AI-Powered Growth Partner helping ambitious founders scale faster and build companies worth acquiring.</p></div>
+        <div class="footer-col"><div class="footer-col-title">Services</div><ul><li><a href="#">Growth Audit</a></li><li><a href="#">AI Partnership</a></li><li><a href="#">Exit Preparation</a></li></ul></div>
+        <div class="footer-col"><div class="footer-col-title">Resources</div><ul><li><a href="#">Case Studies</a></li><li><a href="#">AI Tools Guide</a></li><li><a href="#">Newsletter</a></li></ul></div>
+        <div class="footer-col"><div class="footer-col-title">Connect</div><ul><li><a href="#">LinkedIn</a></li><li><a href="#">Twitter/X</a></li><li><a href="#">Email</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><span>© 2025 Kamil Skicki</span><span>Design 2 — Dark Luxury Glass</span></div>
+</footer>
+
+</div>
+
+<script>
+const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('vis'); });
+}, {threshold: 0.1});
+document.querySelectorAll('.sr').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>

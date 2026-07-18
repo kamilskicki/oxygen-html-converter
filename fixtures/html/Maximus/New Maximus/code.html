@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dla kogo - MAXIMUS Heritage Minimalism</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;500&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#fecf93",
+                        "on-surface-variant": "#564240",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#352f2c",
+                        "on-primary-fixed-variant": "#822622",
+                        "paper-soft": "#E8DED0",
+                        "on-secondary-fixed": "#291800",
+                        "on-tertiary-container": "#7cadc8",
+                        "tertiary-fixed-dim": "#9ccde9",
+                        "surface-container-highest": "#ece0db",
+                        "surface-bright": "#fff8f5",
+                        "oxblood-deep": "#4D0907",
+                        "inverse-primary": "#ffb3ac",
+                        "ink-black": "#17120F",
+                        "error": "#ba1a1a",
+                        "on-secondary-container": "#795726",
+                        "on-background": "#201a17",
+                        "secondary-fixed": "#ffddb4",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "ivory-base": "#F3EDE4",
+                        "tertiary": "#002a3a",
+                        "primary": "#540306",
+                        "on-tertiary-fixed": "#001e2b",
+                        "brass-accent": "#9A7440",
+                        "surface": "#fff8f5",
+                        "paper-bright": "#FCF9F4",
+                        "background": "#fff8f5",
+                        "secondary-fixed-dim": "#ecbf84",
+                        "oxblood-primary": "#731B19",
+                        "on-surface": "#201a17",
+                        "inverse-on-surface": "#faeee9",
+                        "outline-variant": "#ddc0bd",
+                        "error-container": "#ffdad6",
+                        "copper-highlight": "#BE8656",
+                        "primary-container": "#731b19",
+                        "on-primary-fixed": "#410003",
+                        "ink-soft": "#544B45",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#c1e8ff",
+                        "surface-tint": "#a13d37",
+                        "surface-container-high": "#f2e6e0",
+                        "on-secondary-fixed-variant": "#604111",
+                        "tertiary-container": "#004158",
+                        "on-primary": "#ffffff",
+                        "surface-container-low": "#fdf1ec",
+                        "surface-variant": "#ece0db",
+                        "secondary": "#7a5827",
+                        "on-primary-container": "#fd8279",
+                        "outline": "#89716f",
+                        "surface-dim": "#e3d8d2",
+                        "on-tertiary-fixed-variant": "#144c63",
+                        "surface-container": "#f7ece6",
+                        "primary-fixed-dim": "#ffb3ac",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "section-gap": "120px",
+                        "gutter-grid": "24px",
+                        "component-padding": "16px",
+                        "unit": "8px",
+                        "margin-page": "64px"
+                    },
+                    "fontFamily": {
+                        "wordmark-aux": ["Noto Serif", "serif"],
+                        "body-main": ["Inter", "sans-serif"],
+                        "section-headline": ["Noto Serif", "serif"],
+                        "metadata-label": ["Inter", "sans-serif"],
+                        "hero-serif": ["Noto Serif", "serif"]
+                    },
+                    "fontSize": {
+                        "wordmark-aux": ["14px", { "lineHeight": "1", "letterSpacing": "0.2em", "fontWeight": "500" }],
+                        "body-main": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "section-headline": ["32px", { "lineHeight": "1.2", "fontWeight": "400" }],
+                        "metadata-label": ["12px", { "lineHeight": "1.4", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                        "hero-serif": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-main antialiased selection:bg-oxblood-primary selection:text-white">
+<!-- TopNavBar (Web) -->
+<header class="hidden md:flex bg-stone-50 border-b border-red-900/10 full-width top-0 z-50 flat no shadows">
+<div class="flex justify-between items-center w-full px-8 py-6 max-w-screen-2xl mx-auto">
+<div class="text-2xl font-bold tracking-[0.2em] text-red-900 font-serif">MAXIMUS</div>
+<nav class="flex gap-8">
+<a class="font-serif tracking-tight text-sm uppercase text-red-900 border-b border-red-900 pb-1" href="#">Dla kogo</a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 hover:text-red-800 transition-colors duration-300" href="#">Programy</a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 hover:text-red-800 transition-colors duration-300" href="#">Startery</a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 hover:text-red-800 transition-colors duration-300" href="#">Memberships</a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 hover:text-red-800 transition-colors duration-300" href="#">Premium</a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 hover:text-red-800 transition-colors duration-300" href="#">Lokalizacje</a>
+</nav>
+<div class="flex items-center gap-6">
+<a class="text-red-900 font-serif tracking-tight text-sm uppercase font-bold hover:text-red-800 transition-colors duration-300" href="#">DOŁĄCZ</a>
+<button class="text-red-900 hover:text-red-800 transition-colors duration-300">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</button>
+<button class="text-red-900 hover:text-red-800 transition-colors duration-300">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Mobile) -->
+<div class="md:hidden fixed bottom-0 w-full bg-stone-50 border-t border-red-900/10 z-50 flex justify-around py-4">
+<a class="flex flex-col items-center gap-1 text-red-900" href="#">
+<span class="material-symbols-outlined icon-fill" data-icon="group">group</span>
+<span class="font-metadata-label text-[10px]">Dla kogo</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-stone-500" href="#">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+<span class="font-metadata-label text-[10px]">Programy</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-stone-500" href="#">
+<span class="material-symbols-outlined" data-icon="rocket_launch">rocket_launch</span>
+<span class="font-metadata-label text-[10px]">Startery</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-stone-500" href="#">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+<span class="font-metadata-label text-[10px]">Menu</span>
+</a>
+</div>
+<main class="pb-32 md:pb-0">
+<!-- Hero Section -->
+<section class="pt-margin-page pb-section-gap px-gutter-grid max-w-7xl mx-auto text-center">
+<h1 class="font-hero-serif text-hero-serif text-ink-black mb-6">Wybierz Swoją Ścieżkę</h1>
+<p class="font-body-main text-body-main text-ink-soft max-w-2xl mx-auto">
+                Klub Maximus to przestrzeń stworzona z myślą o świadomym rozwoju. Znajdź program dedykowany Twoim potrzebom – od budowania fundamentów u najmłodszych, po zaawansowany trening performance i powrót do pełnej sprawności.
+            </p>
+<div class="w-16 h-px bg-oxblood-primary mx-auto mt-12"></div>
+</section>
+<!-- Persona Cards Bento Grid -->
+<section class="px-gutter-grid max-w-7xl mx-auto mb-section-gap">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Rodzic / Opiekun -->
+<div class="bg-paper-soft p-8 border border-outline-variant flex flex-col justify-between group hover:border-brass-accent transition-colors duration-300">
+<div>
+<div class="text-brass-accent mb-6">
+<span class="material-symbols-outlined text-4xl" data-icon="family_restroom">family_restroom</span>
+</div>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-4">Rodzic / Opiekun</h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8">
+                            Zadbaj o wszechstronny rozwój motoryczny swojego dziecka. Bezpieczne fundamenty ruchowe pod okiem ekspertów, budujące pewność siebie i zdrowe nawyki na lata.
+                        </p>
+</div>
+<button class="self-start uppercase font-metadata-label text-metadata-label text-oxblood-primary border-b-2 border-oxblood-primary pb-1 tracking-widest hover:text-ink-black hover:border-ink-black transition-colors duration-300 flex items-center gap-2">
+                        Zapisz dziecko <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Młody zawodnik -->
+<div class="bg-surface-container p-8 border border-outline-variant flex flex-col justify-between group hover:border-brass-accent transition-colors duration-300 lg:col-span-2 relative overflow-hidden">
+<img alt="Młody sportowiec trenujący na bieżni z pełnym skupieniem, oświetlenie studyjne, ciemne tło" class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-multiply" data-alt="Młody sportowiec trenujący z pełnym skupieniem na ciemnym tle, oświetlenie akcentujące sylwetkę, profesjonalny trening, wysoki kontrast" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHisYBNnCO0eEgVgZWCdO7NiW73lEbUcnlccvhmao4aNEgeUwFGgs-dY62fq1dyOYxiqVKVHhyAI9ZWwPI90rGbCVWz_SgN2RninDgteO1Y13f97BfOyd5dVML71gY7BkO_piUmM0rJ_EPoM7pG0oUx3953pVspj17bv4oYgYvEhAyN5d4I70T07KpqcOVve2aHy2vO4oGwXuwFmxTHXYF8eNJEa2GajJXu_lRh8k8RGw4Ty8izIzGYNoaGxfhIP2UNHyF9MCVbEw"/>
+<div class="relative z-10">
+<div class="text-brass-accent mb-6">
+<span class="material-symbols-outlined text-4xl" data-icon="sports_gymnastics">sports_gymnastics</span>
+</div>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-4">Młody Zawodnik</h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8 max-w-lg">
+                            Profesjonalne przygotowanie motoryczne dla aspirujących sportowców. Prewencja urazów, optymalizacja wyników i specjalistyczny trening kierunkowy.
+                        </p>
+</div>
+<button class="relative z-10 self-start uppercase font-metadata-label text-metadata-label text-oxblood-primary border-b-2 border-oxblood-primary pb-1 tracking-widest hover:text-ink-black hover:border-ink-black transition-colors duration-300 flex items-center gap-2">
+                        Sprawdź programy <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Dorosły Performance -->
+<div class="bg-surface-container p-8 border border-outline-variant flex flex-col justify-between group hover:border-brass-accent transition-colors duration-300 lg:col-span-2 relative overflow-hidden">
+<div class="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-paper-soft to-transparent opacity-50"></div>
+<div class="relative z-10">
+<div class="text-brass-accent mb-6">
+<span class="material-symbols-outlined text-4xl" data-icon="fitness_center">fitness_center</span>
+</div>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-4">Dorosły Performance</h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8 max-w-lg">
+                            Dla tych, którzy wymagają więcej. Zaawansowane plany treningowe, periodyzacja i bezkompromisowe dążenie do maksymalizacji potencjału siłowego i wytrzymałościowego.
+                        </p>
+</div>
+<button class="relative z-10 self-start bg-ink-black text-white px-6 py-3 uppercase font-metadata-label text-metadata-label tracking-widest hover:bg-oxblood-primary transition-colors duration-300 flex items-center gap-2">
+                        Wybierz Performance
+                    </button>
+</div>
+<!-- Osoba z przeciążeniem -->
+<div class="bg-paper-soft p-8 border border-outline-variant flex flex-col justify-between group hover:border-brass-accent transition-colors duration-300">
+<div>
+<div class="text-brass-accent mb-6">
+<span class="material-symbols-outlined text-4xl" data-icon="healing">healing</span>
+</div>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-4">Osoba z Przeciążeniem</h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8">
+                            Trening medyczny i powrót do zdrowia. Bezpieczna odbudowa funkcji ruchowych, eliminacja bólu i reedukacja wzorców pod okiem fizjoterapeutów.
+                        </p>
+</div>
+<button class="self-start uppercase font-metadata-label text-metadata-label text-oxblood-primary border-b-2 border-oxblood-primary pb-1 tracking-widest hover:text-ink-black hover:border-ink-black transition-colors duration-300 flex items-center gap-2">
+                        Konsultacja medyczna <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Senior -->
+<div class="bg-ivory-base p-8 border border-outline-variant flex flex-col justify-between group hover:border-brass-accent transition-colors duration-300">
+<div>
+<div class="text-brass-accent mb-6">
+<span class="material-symbols-outlined text-4xl" data-icon="elderly">elderly</span>
+</div>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-4">Senior</h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8">
+                            Aktywne i zdrowe starzenie się. Programy nastawione na poprawę mobilności, gęstości kości i utrzymanie niezależności fizycznej w każdym wieku.
+                        </p>
+</div>
+<button class="self-start uppercase font-metadata-label text-metadata-label text-oxblood-primary border-b-2 border-oxblood-primary pb-1 tracking-widest hover:text-ink-black hover:border-ink-black transition-colors duration-300 flex items-center gap-2">
+                        Programy dla seniorów <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Firma -->
+<div class="bg-surface-container p-8 border border-outline-variant flex flex-col justify-between group hover:border-brass-accent transition-colors duration-300 lg:col-span-2">
+<div>
+<div class="text-brass-accent mb-6">
+<span class="material-symbols-outlined text-4xl" data-icon="domain">domain</span>
+</div>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-4">Firma</h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8 max-w-lg">
+                            Ekskluzywne pakiety korporacyjne. Budowanie zespołów poprzez wspólny wysiłek, pakiety zdrowotne dla kadry menedżerskiej i dedykowane sesje treningowe dla Twojej organizacji.
+                        </p>
+</div>
+<button class="self-start uppercase font-metadata-label text-metadata-label text-oxblood-primary border-b-2 border-oxblood-primary pb-1 tracking-widest hover:text-ink-black hover:border-ink-black transition-colors duration-300 flex items-center gap-2">
+                        Oferta B2B <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-stone-50 full-width py-12 border-t border-red-900/10 flat no shadows">
+<div class="flex flex-col md:flex-row justify-between items-center px-8 w-full max-w-7xl mx-auto gap-8 md:gap-0">
+<div class="text-lg font-bold text-red-900 font-serif">MAXIMUS</div>
+<div class="flex flex-wrap justify-center gap-6">
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 hover:text-red-900 transition-colors" href="#">Polityka prywatności</a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 hover:text-red-900 transition-colors" href="#">Regulamin</a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 hover:text-red-900 transition-colors" href="#">Kontakt</a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 hover:text-red-900 transition-colors" href="#">Kariera</a>
+</div>
+<div class="font-serif text-xs tracking-widest uppercase text-stone-400">© 2024 MAXIMUS. HERITAGE MINIMALISM.</div>
+</div>
+</footer>
+</body></html>

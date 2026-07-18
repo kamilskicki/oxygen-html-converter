@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kamil Tomczyk - AI-Powered Growth Partner | Aurora Luxe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+@property --gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@property --glow-opacity {
+  syntax: '<number>';
+  initial-value: 0.4;
+  inherits: false;
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #0c0118;
+  --surface: rgba(255,255,255,0.03);
+  --glass: rgba(255,255,255,0.06);
+  --glass-border: rgba(255,255,255,0.08);
+  --text-primary: #f4f0ff;
+  --text-secondary: #8b7fad;
+  --purple: #7b2ff7;
+  --pink: #ff6ac1;
+  --cyan: #00d2ff;
+  --gold: #ffb347;
+  --radius-lg: 28px;
+  --radius-md: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 100px;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+/* ========================= AURORA BACKGROUND ========================= */
+.aurora-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.35;
+  will-change: transform;
+}
+
+.aurora-orb--1 {
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, var(--purple) 0%, transparent 70%);
+  top: -15%;
+  left: -10%;
+  animation: orb-drift-1 25s ease-in-out infinite;
+}
+
+.aurora-orb--2 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--pink) 0%, transparent 70%);
+  top: 30%;
+  right: -15%;
+  animation: orb-drift-2 30s ease-in-out infinite;
+}
+
+.aurora-orb--3 {
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, var(--cyan) 0%, transparent 70%);
+  bottom: -10%;
+  left: 20%;
+  animation: orb-drift-3 28s ease-in-out infinite;
+}
+
+.aurora-orb--4 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--gold) 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  animation: orb-drift-4 22s ease-in-out infinite;
+  opacity: 0.2;
+}
+
+@keyframes orb-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(80px, 60px) scale(1.1); }
+  50% { transform: translate(40px, 120px) scale(0.95); }
+  75% { transform: translate(-30px, 50px) scale(1.05); }
+}
+
+@keyframes orb-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-70px, 80px) scale(1.08); }
+  50% { transform: translate(-120px, 30px) scale(0.92); }
+  75% { transform: translate(-40px, -50px) scale(1.04); }
+}
+
+@keyframes orb-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(60px, -70px) scale(1.06); }
+  50% { transform: translate(100px, -30px) scale(0.97); }
+  75% { transform: translate(30px, -90px) scale(1.1); }
+}
+
+@keyframes orb-drift-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-90px, -40px) scale(1.12); }
+  50% { transform: translate(-50px, 70px) scale(0.9); }
+  75% { transform: translate(40px, 30px) scale(1.03); }
+}
+
+/* ========================= GLASS UTILITY ========================= */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+}
+
+/* ========================= LAYOUT ========================= */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+  z-index: 1;
+}
+
+section {
+  padding: 120px 0;
+  position: relative;
+}
+
+/* ========================= SECTION LABELS ========================= */
+.section-label {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.15;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+/* ========================= GRADIENT TEXT ========================= */
+.gradient-text-pp {
+  background: linear-gradient(135deg, var(--purple), var(--pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-cp {
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-pg {
+  background: linear-gradient(135deg, var(--pink), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ========================= BUTTONS ========================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 16px 36px;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+  transition: all 600ms cubic-bezier(0.23, 1, 0.32, 1);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--purple), var(--pink));
+  color: #fff;
+  box-shadow: 0 8px 32px rgba(123, 47, 247, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 16px 48px rgba(123, 47, 247, 0.45);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.btn-glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+}
+
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(123, 47, 247, 0.2);
+}
+
+/* ========================= NAVIGATION ========================= */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  padding: 20px 0;
+  transition: all 600ms ease;
+}
+
+.nav.scrolled {
+  padding: 12px 0;
+  background: rgba(12, 1, 24, 0.7);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.nav-logo {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.nav-logo span {
+  opacity: 0.4;
+  font-weight: 300;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 400ms ease;
+}
+
+.nav-links a:hover {
+  color: var(--text-primary);
+}
+
+.nav-cta {
+  padding: 10px 24px !important;
+  font-size: 0.85rem !important;
+}
+
+.nav-mobile-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 4px;
+}
+
+.nav-mobile-toggle span {
+  width: 24px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: all 300ms ease;
+}
+
+/* ========================= HERO ========================= */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-top: 100px;
+  padding-bottom: 80px;
+}
+
+.hero-content {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  border-radius: var(--radius-pill);
+  background: rgba(123, 47, 247, 0.1);
+  border: 1px solid rgba(123, 47, 247, 0.2);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #c4a8ff;
+  margin-bottom: 48px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.hero-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--purple);
+  box-shadow: 0 0 12px var(--purple);
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--purple); }
+  50% { opacity: 0.5; box-shadow: 0 0 24px var(--purple); }
+}
+
+.hero-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.8rem, 6.5vw, 5rem);
+  line-height: 1.08;
+  margin-bottom: 28px;
+  letter-spacing: -0.03em;
+}
+
+.hero-subtitle {
+  font-size: 1.12rem;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  max-width: 640px;
+  margin: 0 auto 44px;
+  font-weight: 300;
+}
+
+.hero-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 80px;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 740px;
+  margin: 0 auto;
+}
+
+.stat-card {
+  padding: 32px 24px;
+  text-align: center;
+  transition: all 700ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.stat-card:hover {
+  transform: translateY(-8px);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 64px rgba(123, 47, 247, 0.15);
+}
+
+.stat-value {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 1.65rem;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.stat-card:nth-child(1) .stat-value { color: var(--purple); }
+.stat-card:nth-child(2) .stat-value { color: var(--pink); }
+.stat-card:nth-child(3) .stat-value { color: var(--gold); }
+
+.stat-label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* ========================= METHODOLOGY / TIMELINE ========================= */
+.methodology {
+  position: relative;
+}
+
+.methodology-header {
+  text-align: center;
+  margin-bottom: 80px;
+}
+
+.timeline {
+  position: relative;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 32px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--purple), var(--pink), var(--gold));
+  opacity: 0.3;
+}
+
+.timeline-node {
+  position: relative;
+  padding-left: 88px;
+  padding-bottom: 72px;
+}
+
+.timeline-node:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: 20px;
+  top: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-dot::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.timeline-node:nth-child(1) .timeline-dot {
+  border-color: var(--purple);
+  box-shadow: 0 0 24px rgba(123, 47, 247, 0.4);
+}
+
+.timeline-node:nth-child(1) .timeline-dot::after {
+  background: var(--purple);
+}
+
+.timeline-node:nth-child(2) .timeline-dot {
+  border-color: var(--pink);
+  box-shadow: 0 0 24px rgba(255, 106, 193, 0.4);
+}
+
+.timeline-node:nth-child(2) .timeline-dot::after {
+  background: var(--pink);
+}
+
+.timeline-node:nth-child(3) .timeline-dot {
+  border-color: var(--gold);
+  box-shadow: 0 0 24px rgba(255, 179, 71, 0.4);
+}
+
+.timeline-node:nth-child(3) .timeline-dot::after {
+  background: var(--gold);
+}
+
+.timeline-node-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 1.4rem;
+  margin-bottom: 14px;
+  letter-spacing: -0.01em;
+}
+
+.timeline-node:nth-child(1) .timeline-node-title { color: #b48aff; }
+.timeline-node:nth-child(2) .timeline-node-title { color: #ff8ed4; }
+.timeline-node:nth-child(3) .timeline-node-title { color: var(--gold); }
+
+.timeline-node-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  font-weight: 300;
+}
+
+/* ========================= CASE STUDIES ========================= */
+.cases {
+  position: relative;
+}
+
+.cases-header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.cases-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.case-card {
+  overflow: hidden;
+  transition: all 700ms cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.case-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.case-accent {
+  height: 4px;
+  border-radius: 2px 2px 0 0;
+}
+
+.case-card:nth-child(1) .case-accent {
+  background: linear-gradient(90deg, var(--purple), #9b5fff);
+}
+
+.case-card:nth-child(2) .case-accent {
+  background: linear-gradient(90deg, var(--pink), #ff8ed4);
+}
+
+.case-card:nth-child(3) .case-accent {
+  background: linear-gradient(90deg, var(--gold), #ffd48a);
+}
+
+.case-body {
+  padding: 36px 32px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.case-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.case-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 1.35rem;
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+
+.case-description {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-bottom: 28px;
+  flex: 1;
+  font-weight: 300;
+}
+
+.case-stats {
+  display: flex;
+  gap: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.case-stat-item {
+  flex: 1;
+}
+
+.case-stat-value {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 1.15rem;
+  margin-bottom: 4px;
+}
+
+.case-card:nth-child(1) .case-stat-value { color: #b48aff; }
+.case-card:nth-child(2) .case-stat-value { color: #ff8ed4; }
+.case-card:nth-child(3) .case-stat-value { color: var(--gold); }
+
+.case-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* ========================= SERVICES ========================= */
+.services {
+  position: relative;
+}
+
+.services-header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.service-card {
+  position: relative;
+  padding: 44px 32px 40px;
+  border-radius: var(--radius-lg);
+  background: var(--glass);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--glass-border);
+  transition: all 700ms cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.service-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+  padding: 1px;
+  background: linear-gradient(var(--gradient-angle), var(--purple), var(--pink), var(--cyan));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 700ms ease;
+  animation: gradient-rotate 6s linear infinite;
+}
+
+@keyframes gradient-rotate {
+  to { --gradient-angle: 360deg; }
+}
+
+.service-card:hover::before {
+  opacity: 1;
+}
+
+.service-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 32px 80px rgba(123, 47, 247, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.service-card--featured {
+  border-color: rgba(123, 47, 247, 0.25);
+  background: rgba(123, 47, 247, 0.06);
+}
+
+.service-badge {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--purple), var(--pink));
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #fff;
+}
+
+.service-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+.service-price {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+
+.service-price .old-price {
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  margin-left: 8px;
+}
+
+.service-description {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-bottom: 28px;
+  font-weight: 300;
+  margin-top: 16px;
+}
+
+.service-features {
+  list-style: none;
+  margin-bottom: 32px;
+  flex: 1;
+}
+
+.service-features li {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  padding-left: 24px;
+  position: relative;
+  font-weight: 400;
+}
+
+.service-features li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--purple);
+  opacity: 0.5;
+}
+
+.service-card:nth-child(2) .service-features li::before {
+  background: var(--pink);
+  opacity: 0.7;
+}
+
+.service-card:nth-child(3) .service-features li::before {
+  background: var(--gold);
+  opacity: 0.5;
+}
+
+.service-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 14px 24px;
+}
+
+/* ========================= CTA SECTION ========================= */
+.cta-section {
+  position: relative;
+  padding: 140px 0;
+  overflow: hidden;
+}
+
+.cta-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.cta-glow::before,
+.cta-glow::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+}
+
+.cta-glow::before {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--purple) 0%, transparent 70%);
+  top: -30%;
+  left: -10%;
+  opacity: 0.3;
+  animation: cta-orb-1 15s ease-in-out infinite;
+}
+
+.cta-glow::after {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--pink) 0%, transparent 70%);
+  bottom: -30%;
+  right: -10%;
+  opacity: 0.25;
+  animation: cta-orb-2 18s ease-in-out infinite;
+}
+
+@keyframes cta-orb-1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(60px, 40px); }
+}
+
+@keyframes cta-orb-2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-50px, -30px); }
+}
+
+.cta-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.cta-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  line-height: 1.15;
+  margin-bottom: 24px;
+  letter-spacing: -0.03em;
+}
+
+.cta-subtitle {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin-bottom: 44px;
+  font-weight: 300;
+}
+
+.cta-btn {
+  padding: 20px 48px;
+  font-size: 1.05rem;
+  font-weight: 500;
+  box-shadow: 0 12px 48px rgba(123, 47, 247, 0.35), 0 0 80px rgba(123, 47, 247, 0.1);
+}
+
+.cta-btn:hover {
+  box-shadow: 0 20px 64px rgba(123, 47, 247, 0.5), 0 0 120px rgba(123, 47, 247, 0.15);
+}
+
+.cta-note {
+  margin-top: 24px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  font-weight: 300;
+}
+
+/* ========================= FOOTER ========================= */
+.footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 72px 0 40px;
+  position: relative;
+  z-index: 1;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+  margin-bottom: 56px;
+}
+
+.footer-brand-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+  margin-bottom: 12px;
+}
+
+.footer-brand-tagline {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  max-width: 300px;
+  font-weight: 300;
+}
+
+.footer-col-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+}
+
+.footer-col ul {
+  list-style: none;
+}
+
+.footer-col ul li {
+  margin-bottom: 12px;
+}
+
+.footer-col ul li a {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 400ms ease;
+  font-weight: 300;
+}
+
+.footer-col ul li a:hover {
+  color: var(--text-primary);
+}
+
+.footer-social {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.footer-social a {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 500ms ease;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.footer-social a:hover {
+  background: rgba(123, 47, 247, 0.15);
+  border-color: rgba(123, 47, 247, 0.3);
+  color: var(--text-primary);
+  transform: translateY(-3px);
+}
+
+.footer-bottom {
+  padding-top: 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-copyright {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  font-weight: 300;
+}
+
+.footer-bottom-links {
+  display: flex;
+  gap: 24px;
+}
+
+.footer-bottom-links a {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 400ms ease;
+  font-weight: 300;
+}
+
+.footer-bottom-links a:hover {
+  opacity: 1;
+}
+
+/* ========================= REVEAL ANIMATIONS ========================= */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 900ms cubic-bezier(0.23, 1, 0.32, 1),
+              transform 900ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 100ms; }
+.reveal-delay-2 { transition-delay: 200ms; }
+.reveal-delay-3 { transition-delay: 300ms; }
+.reveal-delay-4 { transition-delay: 400ms; }
+
+/* ========================= RESPONSIVE ========================= */
+@media (max-width: 1024px) {
+  .cases-grid,
+  .services-grid {
+    grid-template-columns: 1fr;
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 36px;
+  }
+}
+
+@media (max-width: 768px) {
+  section {
+    padding: 80px 0;
+  }
+
+  .container {
+    padding: 0 20px;
+  }
+
+  .nav-links {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: rgba(12, 1, 24, 0.95);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 28px;
+    z-index: 99;
+  }
+
+  .nav-links.open {
+    display: flex;
+  }
+
+  .nav-links a {
+    font-size: 1.2rem;
+  }
+
+  .nav-mobile-toggle {
+    display: flex;
+    z-index: 101;
+  }
+
+  .hero-stats {
+    grid-template-columns: 1fr;
+    max-width: 320px;
+  }
+
+  .hero-title {
+    font-size: clamp(2.2rem, 8vw, 3.2rem);
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .timeline::before {
+    left: 16px;
+  }
+
+  .timeline-node {
+    padding-left: 56px;
+  }
+
+  .timeline-dot {
+    left: 4px;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .aurora-orb {
+    opacity: 0.2;
+  }
+
+  .aurora-orb--1 { width: 400px; height: 400px; }
+  .aurora-orb--2 { width: 350px; height: 350px; }
+  .aurora-orb--3 { width: 300px; height: 300px; }
+  .aurora-orb--4 { width: 280px; height: 280px; }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding-top: 80px;
+  }
+
+  .btn {
+    padding: 14px 28px;
+    font-size: 0.9rem;
+  }
+
+  .case-stats {
+    flex-direction: column;
+    gap: 14px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ========================= AURORA BACKGROUND ========================= -->
+<div class="aurora-bg" id="aurora">
+  <div class="aurora-orb aurora-orb--1"></div>
+  <div class="aurora-orb aurora-orb--2"></div>
+  <div class="aurora-orb aurora-orb--3"></div>
+  <div class="aurora-orb aurora-orb--4"></div>
+</div>
+
+<!-- ========================= NAVIGATION ========================= -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">kamil <span>tomczyk</span></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#methodology">Framework</a></li>
+      <li><a href="#cases">Results</a></li>
+      <li><a href="#services">Services</a></li>
+      <li><a href="#cta" class="btn btn-primary nav-cta">Book a Call</a></li>
+    </ul>
+    <button class="nav-mobile-toggle" id="navToggle" aria-label="Toggle menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ========================= HERO ========================= -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-badge reveal">Trusted by 50+ Visionary Founders</div>
+      <h1 class="hero-title reveal reveal-delay-1">
+        Your AI-Powered<br>
+        <span class="gradient-text-pp">Growth Partner</span>
+      </h1>
+      <p class="hero-subtitle reveal reveal-delay-2">
+        I help ambitious founders harness artificial intelligence to scale faster, compound smarter, and build ventures worthy of acquisition. From zero to exit&#8212;engineered with precision.
+      </p>
+      <div class="hero-buttons reveal reveal-delay-3">
+        <a href="#cta" class="btn btn-primary">Begin Your Growth Journey &#8594;</a>
+        <a href="#cases" class="btn btn-secondary">Explore Results</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-card glass reveal reveal-delay-2">
+          <div class="stat-value">$4.5M</div>
+          <div class="stat-label">Exits Orchestrated</div>
+        </div>
+        <div class="stat-card glass reveal reveal-delay-3">
+          <div class="stat-value">2000%</div>
+          <div class="stat-label">Peak Return on Ad Spend</div>
+        </div>
+        <div class="stat-card glass reveal reveal-delay-4">
+          <div class="stat-value">84%</div>
+          <div class="stat-label">Email Engagement Rate</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= METHODOLOGY ========================= -->
+<section class="methodology" id="methodology">
+  <div class="container">
+    <div class="methodology-header">
+      <div class="section-label reveal">The Framework</div>
+      <h2 class="section-title reveal reveal-delay-1">Where Skepticism Meets Ambition</h2>
+    </div>
+    <div class="timeline">
+      <div class="timeline-node reveal">
+        <div class="timeline-dot"></div>
+        <h3 class="timeline-node-title">Rigorous Analysis</h3>
+        <p class="timeline-node-text">Most AI tools over-promise. Most growth tactics under-deliver. I start with radical honesty&#8212;auditing every channel, questioning every assumption, separating signal from noise.</p>
+      </div>
+      <div class="timeline-node reveal reveal-delay-1">
+        <div class="timeline-dot"></div>
+        <h3 class="timeline-node-title">Bold Architecture</h3>
+        <p class="timeline-node-text">AI is the greatest leverage multiplier in business history. Once we know what&#8217;s real, we design systems that don&#8217;t just improve&#8212;they transform. Think 10x, not 10%.</p>
+      </div>
+      <div class="timeline-node reveal reveal-delay-2">
+        <div class="timeline-dot"></div>
+        <h3 class="timeline-node-title">Sustainable Velocity</h3>
+        <p class="timeline-node-text">The synthesis: AI amplifies what&#8217;s proven. We test courageously, measure obsessively, and build momentum that compounds. Speed with substance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= CASE STUDIES ========================= -->
+<section class="cases" id="cases">
+  <div class="container">
+    <div class="cases-header">
+      <div class="section-label reveal">Proof of Impact</div>
+      <h2 class="section-title reveal reveal-delay-1">Transformations, Not Testimonials</h2>
+    </div>
+    <div class="cases-grid">
+      <div class="case-card glass reveal">
+        <div class="case-accent"></div>
+        <div class="case-body">
+          <div class="case-tag">E-commerce</div>
+          <h3 class="case-name">Nature Queen</h3>
+          <p class="case-description">Deployed an AI-driven retention ecosystem that anticipates customer needs before they arise. Hyper-personalized journeys that feel human, powered by machine intelligence.</p>
+          <div class="case-stats">
+            <div class="case-stat-item">
+              <div class="case-stat-value">3.2x</div>
+              <div class="case-stat-label">LTV Growth</div>
+            </div>
+            <div class="case-stat-item">
+              <div class="case-stat-value">84%</div>
+              <div class="case-stat-label">Open Rate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="case-card glass reveal reveal-delay-1">
+        <div class="case-accent"></div>
+        <div class="case-body">
+          <div class="case-tag">B2B SaaS</div>
+          <h3 class="case-name">StoneCo</h3>
+          <p class="case-description">Created an autonomous AI sales engine&#8212;intelligent prospecting, dynamic personalization, and nurture sequences that convert while the team sleeps.</p>
+          <div class="case-stats">
+            <div class="case-stat-item">
+              <div class="case-stat-value">$100K</div>
+              <div class="case-stat-label">Pipeline/Month</div>
+            </div>
+            <div class="case-stat-item">
+              <div class="case-stat-value">40%</div>
+              <div class="case-stat-label">Cost Reduction</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="case-card glass reveal reveal-delay-2">
+        <div class="case-accent"></div>
+        <div class="case-body">
+          <div class="case-tag">Growth Agency</div>
+          <h3 class="case-name">Wave Growth</h3>
+          <p class="case-description">Full-spectrum AI integration from internal operations to client-facing campaigns. The result: industry-defying performance metrics and a premium acquisition.</p>
+          <div class="case-stats">
+            <div class="case-stat-item">
+              <div class="case-stat-value">2000%</div>
+              <div class="case-stat-label">Peak ROAS</div>
+            </div>
+            <div class="case-stat-item">
+              <div class="case-stat-value">$4.5M</div>
+              <div class="case-stat-label">Exit</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= SERVICES ========================= -->
+<section class="services" id="services">
+  <div class="container">
+    <div class="services-header">
+      <div class="section-label reveal">Partnership Models</div>
+      <h2 class="section-title reveal reveal-delay-1">Three Paths to Transformation</h2>
+    </div>
+    <div class="services-grid">
+      <div class="service-card reveal">
+        <h3 class="service-name">Growth Audit</h3>
+        <div class="service-price">$2,500 <span class="old-price">$5,000</span></div>
+        <p class="service-description">A two-week immersive analysis of your growth infrastructure. We map every AI opportunity, identify hidden leverage points, and deliver a 90-day transformation blueprint with a dedicated strategy session.</p>
+        <ul class="service-features">
+          <li>Deep-dive analysis</li>
+          <li>AI opportunity mapping</li>
+          <li>90-day roadmap</li>
+          <li>Strategy session</li>
+        </ul>
+        <a href="#cta" class="btn btn-glass service-btn">Start Your Audit</a>
+      </div>
+      <div class="service-card service-card--featured reveal reveal-delay-1">
+        <span class="service-badge">Recommended</span>
+        <h3 class="service-name">AI Partnership</h3>
+        <div class="service-price gradient-text-pp">$8K&#8211;15K/mo</div>
+        <p class="service-description">Your dedicated AI growth strategist, embedded in your operation. Weekly sessions to architect and optimize your AI stack, upskill your team, and drive compounding returns month over month.</p>
+        <ul class="service-features">
+          <li>Weekly strategy sessions</li>
+          <li>Full AI implementation</li>
+          <li>Team enablement</li>
+          <li>Performance analytics</li>
+          <li>Priority access</li>
+        </ul>
+        <a href="#cta" class="btn btn-primary service-btn">Apply Now</a>
+      </div>
+      <div class="service-card reveal reveal-delay-2">
+        <h3 class="service-name">Exit Architecture</h3>
+        <div class="service-price">Custom</div>
+        <p class="service-description">Meticulous preparation for your next chapter. We maximize your valuation, craft compelling documentation, identify strategic acquirers, and navigate negotiations to ensure you capture every dollar of value you&#8217;ve built.</p>
+        <ul class="service-features">
+          <li>Valuation optimization</li>
+          <li>Deal documentation</li>
+          <li>Buyer targeting</li>
+          <li>Negotiation support</li>
+        </ul>
+        <a href="#cta" class="btn btn-glass service-btn">Let&#8217;s Talk</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= CTA ========================= -->
+<section class="cta-section" id="cta">
+  <div class="cta-glow"></div>
+  <div class="container">
+    <div class="cta-content">
+      <h2 class="cta-title reveal">Ready to Rewrite Your<br><span class="gradient-text-pp">Growth Story?</span></h2>
+      <p class="cta-subtitle reveal reveal-delay-1">Book a complimentary 30-minute strategy session. No pitch, no pressure&#8212;just a candid conversation about your biggest growth opportunity and how AI can unlock it.</p>
+      <a href="#" class="btn btn-primary cta-btn reveal reveal-delay-2">Book Your Free Strategy Call &#8594;</a>
+      <p class="cta-note reveal reveal-delay-3">Zero commitment. Pure strategy. Immediate value.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= FOOTER ========================= -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand-name">kamil tomczyk</div>
+        <p class="footer-brand-tagline">AI-powered growth strategy for ambitious founders building ventures worthy of acquisition.</p>
+        <div class="footer-social">
+          <a href="#" aria-label="LinkedIn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+          </a>
+          <a href="#" aria-label="Twitter">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>
+          </a>
+          <a href="#" aria-label="Email">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Services</div>
+        <ul>
+          <li><a href="#services">Growth Audit</a></li>
+          <li><a href="#services">AI Partnership</a></li>
+          <li><a href="#services">Exit Architecture</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Results</div>
+        <ul>
+          <li><a href="#cases">Nature Queen</a></li>
+          <li><a href="#cases">StoneCo</a></li>
+          <li><a href="#cases">Wave Growth</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Connect</div>
+        <ul>
+          <li><a href="#cta">Book a Call</a></li>
+          <li><a href="#">LinkedIn</a></li>
+          <li><a href="#">Twitter</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copyright">&#169; 2026 Kamil Tomczyk. All rights reserved.</div>
+      <div class="footer-bottom-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ========================= JAVASCRIPT ========================= -->
+<script>
+(function() {
+  'use strict';
+
+  // NAV SCROLL EFFECT
+  var nav = document.getElementById('nav');
+  window.addEventListener('scroll', function() {
+    if (window.pageYOffset > 60) {
+      nav.classList.add('scrolled');
+    } else {
+      nav.classList.remove('scrolled');
+    }
+  }, { passive: true });
+
+  // MOBILE NAV TOGGLE
+  var navToggle = document.getElementById('navToggle');
+  var navLinks = document.getElementById('navLinks');
+
+  function closeNav() {
+    navLinks.classList.remove('open');
+    var spans = navToggle.querySelectorAll('span');
+    spans[0].style.transform = '';
+    spans[1].style.opacity = '';
+    spans[2].style.transform = '';
+  }
+
+  navToggle.addEventListener('click', function() {
+    navLinks.classList.toggle('open');
+    var spans = navToggle.querySelectorAll('span');
+    if (navLinks.classList.contains('open')) {
+      spans[0].style.transform = 'rotate(45deg) translate(5px, 5px)';
+      spans[1].style.opacity = '0';
+      spans[2].style.transform = 'rotate(-45deg) translate(5px, -5px)';
+    } else {
+      closeNav();
+    }
+  });
+
+  var navLinkEls = navLinks.querySelectorAll('a');
+  for (var i = 0; i < navLinkEls.length; i++) {
+    navLinkEls[i].addEventListener('click', closeNav);
+  }
+
+  // INTERSECTION OBSERVER FOR REVEAL ANIMATIONS
+  var revealElements = document.querySelectorAll('.reveal');
+
+  var revealObserver = new IntersectionObserver(function(entries) {
+    for (var j = 0; j < entries.length; j++) {
+      if (entries[j].isIntersecting) {
+        entries[j].target.classList.add('visible');
+        revealObserver.unobserve(entries[j].target);
+      }
+    }
+  }, {
+    threshold: 0.1,
+    rootMargin: '0px 0px -60px 0px'
+  });
+
+  for (var k = 0; k < revealElements.length; k++) {
+    revealObserver.observe(revealElements[k]);
+  }
+
+  // PARALLAX ON AURORA ORBS
+  var auroraOrbs = document.querySelectorAll('.aurora-orb');
+  var orbSpeeds = [0.03, -0.02, 0.015, -0.025];
+
+  window.addEventListener('scroll', function() {
+    var scrollY = window.pageYOffset;
+    for (var m = 0; m < auroraOrbs.length; m++) {
+      var speed = orbSpeeds[m] || 0.02;
+      auroraOrbs[m].style.transform = 'translateY(' + (scrollY * speed) + 'px)';
+    }
+  }, { passive: true });
+
+  // SMOOTH SCROLL FOR ANCHOR LINKS
+  var anchorLinks = document.querySelectorAll('a[href^="#"]');
+  for (var n = 0; n < anchorLinks.length; n++) {
+    anchorLinks[n].addEventListener('click', function(e) {
+      var href = this.getAttribute('href');
+      if (href === '#') return;
+      e.preventDefault();
+      var target = document.querySelector(href);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
+})();
+</script>
+
+</body>
+</html>

@@ -54,18 +54,7 @@ function parseArgs(argv) {
 }
 
 function resolveDefaultFixtureDir() {
-  const candidates = [
-    path.resolve(process.cwd(), "..", "..", "fixtures", "html", "Maximus"),
-    path.resolve(process.cwd(), "..", "..", "..", "..", "fixtures", "html", "Maximus"),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, "maximus_transformacja_domu", "code.html"))) {
-      return candidate;
-    }
-  }
-
-  return candidates[0];
+  return path.resolve(process.cwd(), "fixtures", "html", "Maximus");
 }
 
 function run(command, args, options = {}) {

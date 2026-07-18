@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "milestone": "M4-07",
+  "description": "Canonical no-code native acceptance fixtures for Oxygen HTML Converter Core.",
+  "requiredCoverage": [
+    "text",
+    "image",
+    "button",
+    "layout",
+    "selector",
+    "responsive-style",
+    "unsupported-script",
+    "unsupported-form",
+    "fallback-css"
+  ],
+  "fixtures": [
+    {
+      "file": "01-text.html",
+      "title": "Native text fixture",
+      "coverage": ["text"],
+      "supported": true,
+      "modes": ["native"],
+      "expected": {
+        "visibleCodeBlocks": {"total": 0, "html": 0, "css": 0, "javascript": 0},
+        "unsupportedCount": 0,
+        "fallbackCss": false,
+        "minSelectors": 0,
+        "fallbackCategories": []
+      }
+    },
+    {
+      "file": "02-image.html",
+      "title": "Native image fixture",
+      "coverage": ["image"],
+      "supported": true,
+      "modes": ["native"],
+      "expected": {
+        "visibleCodeBlocks": {"total": 0, "html": 0, "css": 0, "javascript": 0},
+        "unsupportedCount": 0,
+        "fallbackCss": false,
+        "minSelectors": 0,
+        "fallbackCategories": []
+      }
+    },
+    {
+      "file": "03-button.html",
+      "title": "Native button and link fixture",
+      "coverage": ["button"],
+      "supported": true,
+      "modes": ["native"],
+      "expected": {
+        "visibleCodeBlocks": {"total": 0, "html": 0, "css": 0, "javascript": 0},
+        "unsupportedCount": 0,
+        "fallbackCss": false,
+        "minSelectors": 1,
+        "fallbackCategories": []
+      }
+    },
+    {
+      "file": "04-layout.html",
+      "title": "Native layout fixture",
+      "coverage": ["layout"],
+      "supported": true,
+      "modes": ["native"],
+      "expected": {
+        "visibleCodeBlocks": {"total": 0, "html": 0, "css": 0, "javascript": 0},
+        "unsupportedCount": 0,
+        "fallbackCss": false,
+        "minSelectors": 0,
+        "fallbackCategories": []
+      }
+    },
+    {
+      "file": "05-selector-responsive.html",
+      "title": "Native selector and responsive style fixture",
+      "coverage": ["selector", "responsive-style"],
+      "supported": true,
+      "modes": ["native"],
+      "expected": {
+        "visibleCodeBlocks": {"total": 0, "html": 0, "css": 0, "javascript": 0},
+        "unsupportedCount": 0,
+        "fallbackCss": false,
+        "minSelectors": 1,
+        "fallbackCategories": []
+      }
+    },
+    {
+      "file": "06-unsupported-script.html",
+      "title": "Unsupported script fixture",
+      "coverage": ["unsupported-script"],
+      "supported": false,
+      "modes": ["native"],
+      "expected": {
+        "visibleCodeBlocks": {"total": 0, "html": 0, "css": 0, "javascript": 0},
+        "unsupportedCount": 1,
+        "fallbackCss": false,
+        "minSelectors": 0,
+        "fallbackCategories": ["removed_executable"]
+      }
+    },
+    {
+      "file": "07-unsupported-form.html",
+      "title": "Unsupported form fixture",
+      "coverage": ["unsupported-form"],
+      "supported": false,
+      "modes": ["native"],
+      "expected": {
+        "visibleCodeBlocks": {"total": 1, "html": 1, "css": 0, "javascript": 0},
+        "unsupportedCount": 1,
+        "fallbackCss": false,
+        "minSelectors": 0,
+        "fallbackCategories": ["unsupported_form"]
+      }
+    },
+    {
+      "file": "08-fallback-css.html",
+      "title": "Fallback CSS owner fixture",
+      "coverage": ["fallback-css"],
+      "supported": false,
+      "modes": ["native"],
+      "expected": {
+        "visibleCodeBlocks": {"total": 0, "html": 0, "css": 0, "javascript": 0},
+        "unsupportedCount": 0,
+        "fallbackCss": true,
+        "minSelectors": 1,
+        "fallbackCategories": []
+      }
+    }
+  ]
+}

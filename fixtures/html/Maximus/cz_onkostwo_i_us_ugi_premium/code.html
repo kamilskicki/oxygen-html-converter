@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Memberships i Premium - MAXIMUS</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Noto+Serif:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+    </style>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#fecf93",
+                        "on-surface-variant": "#564240",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#352f2c",
+                        "on-primary-fixed-variant": "#822622",
+                        "paper-soft": "#E8DED0",
+                        "on-secondary-fixed": "#291800",
+                        "on-tertiary-container": "#7cadc8",
+                        "tertiary-fixed-dim": "#9ccde9",
+                        "surface-container-highest": "#ece0db",
+                        "surface-bright": "#fff8f5",
+                        "oxblood-deep": "#4D0907",
+                        "inverse-primary": "#ffb3ac",
+                        "ink-black": "#17120F",
+                        "error": "#ba1a1a",
+                        "on-secondary-container": "#795726",
+                        "on-background": "#201a17",
+                        "secondary-fixed": "#ffddb4",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "ivory-base": "#F3EDE4",
+                        "tertiary": "#002a3a",
+                        "primary": "#540306",
+                        "on-tertiary-fixed": "#001e2b",
+                        "brass-accent": "#9A7440",
+                        "surface": "#fff8f5",
+                        "paper-bright": "#FCF9F4",
+                        "background": "#fff8f5",
+                        "secondary-fixed-dim": "#ecbf84",
+                        "oxblood-primary": "#731B19",
+                        "on-surface": "#201a17",
+                        "inverse-on-surface": "#faeee9",
+                        "outline-variant": "#ddc0bd",
+                        "error-container": "#ffdad6",
+                        "copper-highlight": "#BE8656",
+                        "primary-container": "#731b19",
+                        "on-primary-fixed": "#410003",
+                        "ink-soft": "#544B45",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#c1e8ff",
+                        "surface-tint": "#a13d37",
+                        "surface-container-high": "#f2e6e0",
+                        "on-secondary-fixed-variant": "#604111",
+                        "tertiary-container": "#004158",
+                        "on-primary": "#ffffff",
+                        "surface-container-low": "#fdf1ec",
+                        "surface-variant": "#ece0db",
+                        "secondary": "#7a5827",
+                        "on-primary-container": "#fd8279",
+                        "outline": "#89716f",
+                        "surface-dim": "#e3d8d2",
+                        "on-tertiary-fixed-variant": "#144c63",
+                        "surface-container": "#f7ece6",
+                        "primary-fixed-dim": "#ffb3ac",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "section-gap": "120px",
+                        "gutter-grid": "24px",
+                        "component-padding": "16px",
+                        "unit": "8px",
+                        "margin-page": "64px"
+                    },
+                    "fontFamily": {
+                        "wordmark-aux": ["Noto Serif"],
+                        "body-main": ["Inter"],
+                        "section-headline": ["Noto Serif"],
+                        "metadata-label": ["Inter"],
+                        "hero-serif": ["Noto Serif"]
+                    },
+                    "fontSize": {
+                        "wordmark-aux": ["14px", { "lineHeight": "1", "letterSpacing": "0.2em", "fontWeight": "500" }],
+                        "body-main": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "section-headline": ["32px", { "lineHeight": "1.2", "fontWeight": "400" }],
+                        "metadata-label": ["12px", { "lineHeight": "1.4", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                        "hero-serif": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-main antialiased selection:bg-oxblood-primary selection:text-white">
+<!-- TopNavBar Component -->
+<nav class="bg-stone-50 dark:bg-stone-950 font-serif tracking-tight text-sm uppercase docked full-width top-0 z-50 border-b border-red-900/10 dark:border-red-900/20 flat no shadows flex justify-between items-center w-full px-8 py-6 max-w-screen-2xl mx-auto sticky">
+<div class="flex items-center gap-8">
+<a class="text-2xl font-bold tracking-[0.2em] text-red-900 dark:text-red-700 font-serif" href="#">MAXIMUS</a>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">Dla kogo</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">Programy</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">Startery</a>
+<a class="text-red-900 dark:text-red-600 border-b border-red-900 pb-1 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300 Active: opacity-70 transition-opacity" href="#">Memberships</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">Premium</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">Lokalizacje</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden md:block bg-transparent text-red-900 dark:text-red-700 border border-red-900/20 px-6 py-2 hover:bg-red-900/5 transition-colors duration-300">DOŁĄCZ</button>
+<button aria-label="person" class="text-red-900 dark:text-red-700 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</button>
+<button aria-label="menu" class="md:hidden text-red-900 dark:text-red-700 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</div>
+</nav>
+<main>
+<!-- Hero Section -->
+<section class="pt-margin-page pb-section-gap px-gutter-grid max-w-screen-2xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-gutter-grid items-center">
+<div class="md:col-span-7 pr-0 md:pr-12">
+<span class="font-metadata-label text-metadata-label text-brass-accent uppercase block mb-6">Filozofia Klubu</span>
+<h1 class="font-hero-serif text-hero-serif text-ink-black mb-8 leading-tight">
+                    Inwestycja <br/> w Ciągłość
+                </h1>
+<p class="font-body-main text-body-main text-ink-soft max-w-lg mb-10">
+                    Odrzucamy koncepcję tymczasowych zrywów. Prawdziwe rezultaty wymagają czasu, dyscypliny i środowiska, które wspiera Twój rozwój każdego dnia. Nasze modele członkowskie to fundament trwałej transformacji.
+                </p>
+<div class="flex items-center gap-6">
+<span class="h-[1px] w-12 bg-oxblood-primary block"></span>
+<span class="font-metadata-label text-metadata-label text-oxblood-primary uppercase tracking-widest">Wybierz swój standard</span>
+</div>
+</div>
+<div class="md:col-span-5 mt-12 md:mt-0 relative">
+<div class="absolute -inset-4 bg-paper-soft z-0 hidden md:block"></div>
+<img alt="Close-up of premium metallic dumbbell resting on dark textured rubber flooring with subtle warm studio lighting highlighting the knurling" class="w-full h-auto object-cover relative z-10 grayscale contrast-125" data-alt="Close-up of premium metallic dumbbell resting on dark textured rubber flooring with subtle warm studio lighting highlighting the knurling" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQrq28dZyHvNqVe0n2ob70GQWPwuap5P9fDhkPL0hs-kN72tMlkZsjv05cdmRZjF-oRTVPK2-sFKD0f8dbLBDrjgrZxnZeX2HAXkDb_hgU34ujXdDAZWLHzKaD_H8WOoMMDdPqJ8bqUm3FKHXRWe-Srnsaee2eyGW9lwgtAuWDkvQV9sRxl571_0_yTOjurnjkbzAkIo1pJoBYNBAuMKn8Ao7xMd8Yo6w86FpKOGlxKjm9nQ8q64XfyNxtK4-7Zjk_K-RB_TNoVM0"/>
+</div>
+</section>
+<!-- Memberships Pricing Section -->
+<section class="py-section-gap px-gutter-grid bg-ivory-base border-y border-outline-variant/30">
+<div class="max-w-screen-xl mx-auto">
+<div class="text-center mb-16">
+<h2 class="font-section-headline text-section-headline text-ink-black mb-4">Członkostwo Klubowe</h2>
+<p class="font-body-main text-body-main text-ink-soft max-w-2xl mx-auto">Zaprojektowane z myślą o osobach ceniących niezależność, ale wymagających najwyższej jakości przestrzeni i sprzętu.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter-grid max-w-4xl mx-auto">
+<!-- Standard Module -->
+<div class="bg-surface border border-outline-variant p-10 flex flex-col h-full relative">
+<div class="mb-8">
+<span class="font-metadata-label text-metadata-label text-ink-soft uppercase block mb-2">Moduł Baza</span>
+<h3 class="font-section-headline text-section-headline text-ink-black mb-4">Core</h3>
+<div class="font-hero-serif text-section-headline text-oxblood-primary">450 <span class="font-body-main text-body-main text-ink-soft align-top text-sm">PLN/MSC</span></div>
+</div>
+<ul class="font-body-main text-body-main text-ink-soft space-y-4 mb-12 flex-grow">
+<li class="flex items-start gap-3">
+<span class="text-brass-accent mt-1">—</span> Nielimitowany dostęp do stref treningowych
+                            </li>
+<li class="flex items-start gap-3">
+<span class="text-brass-accent mt-1">—</span> Dostęp do strefy cardio i wolnych ciężarów
+                            </li>
+<li class="flex items-start gap-3">
+<span class="text-brass-accent mt-1">—</span> Ręcznik treningowy w cenie
+                            </li>
+<li class="flex items-start gap-3">
+<span class="text-brass-accent mt-1">—</span> Aplikacja do śledzenia postępów
+                            </li>
+</ul>
+<button class="w-full py-4 border border-ink-black font-metadata-label text-metadata-label text-ink-black uppercase tracking-widest hover:bg-ink-black hover:text-white transition-colors duration-300">Wybierz Core</button>
+</div>
+<!-- Elite Module -->
+<div class="bg-paper-soft border border-brass-accent p-10 flex flex-col h-full relative">
+<div class="absolute top-0 right-0 bg-brass-accent text-white px-4 py-1 font-metadata-label text-metadata-label uppercase">Rekomendowane</div>
+<div class="mb-8">
+<span class="font-metadata-label text-metadata-label text-ink-soft uppercase block mb-2">Moduł Rozszerzony</span>
+<h3 class="font-section-headline text-section-headline text-ink-black mb-4">Elite</h3>
+<div class="font-hero-serif text-section-headline text-oxblood-primary">750 <span class="font-body-main text-body-main text-ink-soft align-top text-sm">PLN/MSC</span></div>
+</div>
+<ul class="font-body-main text-body-main text-ink-soft space-y-4 mb-12 flex-grow">
+<li class="flex items-start gap-3">
+<span class="text-brass-accent mt-1">—</span> Wszystkie korzyści pakietu Core
+                            </li>
+<li class="flex items-start gap-3">
+<span class="text-brass-accent mt-1">—</span> Dostęp do strefy odnowy biologicznej
+                            </li>
+<li class="flex items-start gap-3">
+<span class="text-brass-accent mt-1">—</span> 2 konsultacje trenerskie w miesiącu
+                            </li>
+<li class="flex items-start gap-3">
+<span class="text-brass-accent mt-1">—</span> Priorytetowa rezerwacja klas
+                            </li>
+</ul>
+<button class="w-full py-4 bg-ink-black font-metadata-label text-metadata-label text-white uppercase tracking-widest hover:bg-oxblood-primary transition-colors duration-300">Wybierz Elite</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Premium Care Section -->
+<section class="py-section-gap px-gutter-grid max-w-screen-2xl mx-auto">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid items-start">
+<div class="lg:col-span-4 lg:sticky top-32">
+<span class="font-metadata-label text-metadata-label text-oxblood-primary uppercase block mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" data-icon="workspace_premium" data-weight="fill" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+                        Najwyższy Standard
+                    </span>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-6">Opieka Premium</h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8">
+                        Dla tych, którzy wymagają absolutnej atencji i spersonalizowanego podejścia w każdym detalu. Osobisty konsjerż treningowy dba o to, by Twój czas w klubie był perfekcyjnie zorganizowany.
+                    </p>
+<a class="font-metadata-label text-metadata-label text-ink-black uppercase border-b border-ink-black pb-1 hover:text-oxblood-primary hover:border-oxblood-primary transition-colors inline-block" href="#">Aplikuj o status Premium</a>
+</div>
+<div class="lg:col-span-7 lg:col-start-6 flex flex-col gap-16 mt-12 lg:mt-0">
+<!-- Feature 1 -->
+<div class="group">
+<img alt="Personal trainer adjusting weights for a client in a softly lit, high-end private training studio with dark wood accents" class="w-full h-64 object-cover mb-6 grayscale group-hover:grayscale-0 transition-all duration-700" data-alt="Personal trainer adjusting weights for a client in a softly lit, high-end private training studio with dark wood accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCY3fQpcaK2kWuv8d7MJlwelwtmaBUyVyJlP0WyAWA9MBAfKTZpWyU7Lms5nhZywJG37aQFTdAABlJREQ9rQk7-m10VFmW90lQ64V9JiVHTQduDEm0c_aq6k5WJq2WbaBxhF7QhaI0rY8sU3KKGiEgwCV70cryIM-SZrfF3iOWGG1sKYHSDaIvuO0K9nWA5K7bN_q3MG5t_weMuJgMrxFEfI_qGhC9Gf9lqiBWD_yninOVtx05twA1k4LZCk2GTULtPZFVe5pWRY0E"/>
+<h3 class="font-section-headline text-section-headline text-ink-black text-2xl mb-3">Opieka 1-na-1</h3>
+<p class="font-body-main text-body-main text-ink-soft">
+                            Ekskluzywna współpraca z dedykowanym ekspertem. Twój plan jest dynamicznie modyfikowany w zależności od Twojej formy dnia, celów biznesowych i możliwości czasowych. Żadnych kompromisów.
+                        </p>
+</div>
+<!-- Feature 2 -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center group">
+<div class="order-2 md:order-1">
+<h3 class="font-section-headline text-section-headline text-ink-black text-2xl mb-3">Plan Regeneracji</h3>
+<p class="font-body-main text-body-main text-ink-soft">
+                                Trening to tylko bodziec. Prawdziwa adaptacja zachodzi podczas odpoczynku. Zapewniamy spersonalizowane protokoły odnowy biologicznej, w tym terapie zimnem i techniki oddechowe w strefie relaksu.
+                            </p>
+</div>
+<img alt="Minimalist luxury spa setting with folded crisp white towels on a dark stone counter beside a glowing candle" class="w-full h-48 object-cover order-1 md:order-2 grayscale group-hover:grayscale-0 transition-all duration-700" data-alt="Minimalist luxury spa setting with folded crisp white towels on a dark stone counter beside a glowing candle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDc3kXvKZyVPjXjElvK4HmdBFGaK4XFogCTeIhmlm_nGg4w1bcjXBLyvrx3g5xHwtspUaLVkx0O-db0OBYsqT9OuW8kyUvW2V4VhR3yrAZ51WM2b-M8199qyJhCZqxTk_r0v0BM8DMUviUfU8aUsiK-DHU301WIxKRHXxenfv5jB1rzei2NMA5LGicOOdk3Xq31jCb_MNNin6UMKn3fGL09aDRxFIgGFTDkD702jxgwCnG2xotqSKHLyDkT03--MtVr4ngjV3zutI"/>
+</div>
+<!-- Feature 3 -->
+<div class="group bg-paper-soft p-8 md:p-12 border border-outline-variant/50">
+<span class="material-symbols-outlined text-brass-accent mb-4 block text-3xl" data-icon="room_service">room_service</span>
+<h3 class="font-section-headline text-section-headline text-ink-black text-2xl mb-3">Room Service</h3>
+<p class="font-body-main text-body-main text-ink-soft">
+                            Twój shake proteinowy, świeży ręcznik i wyprasowana koszula czekają w szafce. Ty skupiasz się na wysiłku, my zajmujemy się logistyką. Czysta efektywność bez straty czasu.
+                        </p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Component -->
+<footer class="bg-stone-50 dark:bg-stone-950 font-serif text-xs tracking-widest uppercase full-width py-12 border-t border-t border-red-900/10 flat no shadows flex flex-col md:flex-row justify-between items-center px-8 w-full max-w-7xl mx-auto">
+<div class="mb-6 md:mb-0">
+<span class="text-lg font-bold text-red-900 dark:text-red-700">MAXIMUS</span>
+</div>
+<div class="flex flex-wrap justify-center gap-6 md:gap-8 mb-6 md:mb-0">
+<a class="text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">Polityka prywatności</a>
+<a class="text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">Regulamin</a>
+<a class="text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">Kontakt</a>
+<a class="text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">Kariera</a>
+</div>
+<div class="text-stone-400 dark:text-stone-600 text-center md:text-right">
+            © 2024 MAXIMUS. HERITAGE MINIMALISM.
+        </div>
+</footer>
+</body></html>

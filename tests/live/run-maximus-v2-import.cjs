@@ -50,18 +50,7 @@ function parseArgs(argv) {
 }
 
 function resolveDefaultFixtureDir() {
-  const candidates = [
-    path.resolve(process.cwd(), "..", "..", "fixtures", "html", "Maximus", "New Maximus"),
-    path.resolve(process.cwd(), "..", "..", "..", "..", "fixtures", "html", "Maximus", "New Maximus"),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, "code.html"))) {
-      return candidate;
-    }
-  }
-
-  return candidates[0];
+  return path.resolve(process.cwd(), "fixtures", "html", "Maximus", "New Maximus");
 }
 
 function run(command, args, options = {}) {

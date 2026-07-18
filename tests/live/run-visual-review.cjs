@@ -11,18 +11,7 @@ const DEFAULT_OUTPUT_DIR = path.resolve(
 );
 
 function resolveDefaultLocalFixtureDir() {
-  const candidates = [
-    path.resolve(process.cwd(), "..", "..", "fixtures", "html"),
-    path.resolve(process.cwd(), "..", "..", "..", "..", "fixtures", "html"),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return candidates[0];
+  return path.resolve(process.cwd(), "fixtures", "html");
 }
 
 const DEFAULT_LOCAL_FIXTURE_DIR = resolveDefaultLocalFixtureDir();

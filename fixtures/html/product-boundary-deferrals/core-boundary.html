@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Product Boundary Deferral Fixture</title>
+    <style>
+      .boundary-card {
+        display: grid;
+        gap: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="boundary-card" data-dynamic-binding="{{ post.title }}">
+      <h1>{{ post.title }}</h1>
+      <form action="https://example.com/lead" method="post" target="_blank">
+        <label>
+          Email
+          <input type="email" name="email" required>
+        </label>
+        <button type="submit" formaction="javascript:alert(1)">Send</button>
+      </form>
+      <ul data-loop-source="latest-posts">
+        <li>{{ post.title }}</li>
+      </ul>
+    </section>
+  </body>
+</html>

@@ -85,8 +85,7 @@ function resolve_measure_fixture_dir(): ?string
         $candidates[] = $envDir;
     }
 
-    $candidates[] = __DIR__ . '/../../../../fixtures/html';
-    $candidates[] = __DIR__ . '/../../../fixtures/html';
+    $candidates[] = __DIR__ . '/../fixtures/html';
 
     foreach ($candidates as $candidate) {
         $resolved = realpath($candidate);

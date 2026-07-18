@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kamil Skicki | Design 4 — Cyberpunk Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Fira+Code:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #FF2D55;
+            --blue: #00B4FF;
+            --dark: #05070F;
+            --surface: #0A0E1A;
+            --panel: #0D1220;
+            --text: #D4D8E8;
+            --muted: #4A5580;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Fira Code', monospace;
+            background: var(--dark);
+            color: var(--text);
+            overflow-x: hidden;
+            font-size: 14px;
+        }
+
+        /* Scanlines */
+        body::after {
+            content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+        }
+
+        /* BG Grid */
+        .bg-grid {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image: linear-gradient(rgba(0,180,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,180,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .content { position: relative; z-index: 1; }
+
+        /* NAV */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 2rem;
+            background: rgba(5,7,15,0.92);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(0,180,255,0.1);
+        }
+        .nav-inner { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.1rem; font-weight: 800;
+            letter-spacing: 0.1em;
+        }
+        .logo .lb { color: var(--blue); }
+        .logo .lr { color: var(--red); }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a {
+            color: var(--muted); text-decoration: none; font-size: 0.72rem;
+            text-transform: uppercase; letter-spacing: 0.12em; transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--blue); }
+        .nav-cta {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+            padding: 0.65rem 1.3rem;
+            background: transparent; color: var(--blue);
+            border: 1px solid var(--blue); text-decoration: none;
+            transition: all 0.3s; position: relative;
+        }
+        .nav-cta:hover { background: var(--blue); color: var(--dark); box-shadow: 0 0 25px rgba(0,180,255,0.3); }
+        .nav-cta::before, .nav-cta::after {
+            content: ''; position: absolute; width: 8px; height: 8px; border-color: var(--red);
+        }
+        .nav-cta::before { top: -3px; left: -3px; border-top: 2px solid; border-left: 2px solid; }
+        .nav-cta::after { bottom: -3px; right: -3px; border-bottom: 2px solid; border-right: 2px solid; }
+
+        /* HERO */
+        .hero {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            padding: 8rem 2rem; text-align: center; position: relative;
+        }
+        .hero-glow-1 {
+            position: absolute; width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(0,180,255,0.12) 0%, transparent 70%);
+            top: 10%; left: 10%; border-radius: 50%; filter: blur(40px);
+        }
+        .hero-glow-2 {
+            position: absolute; width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(255,45,85,0.12) 0%, transparent 70%);
+            bottom: 10%; right: 10%; border-radius: 50%; filter: blur(40px);
+        }
+        .hero-inner { max-width: 850px; position: relative; z-index: 2; }
+        .hero-status {
+            display: inline-flex; align-items: center; gap: 0.6rem;
+            padding: 0.4rem 1rem;
+            border: 1px solid rgba(0,180,255,0.2); background: rgba(0,180,255,0.05);
+            margin-bottom: 2.5rem; font-size: 0.68rem; color: var(--blue);
+            text-transform: uppercase; letter-spacing: 0.1em;
+        }
+        .status-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--blue); animation: blink 2s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .hero h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 5vw, 4rem);
+            font-weight: 900; line-height: 1.15;
+            letter-spacing: 0.04em;
+            margin-bottom: 2rem;
+        }
+        .hero h1 .hl-blue { color: var(--blue); text-shadow: 0 0 30px rgba(0,180,255,0.4); }
+        .hero h1 .hl-red { color: var(--red); text-shadow: 0 0 30px rgba(255,45,85,0.4); }
+        .hero-sub {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.05rem; line-height: 1.7;
+            color: var(--muted); max-width: 580px; margin: 0 auto 3rem;
+        }
+        .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .btn-cyber {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+            padding: 1rem 2rem; text-decoration: none; cursor: pointer;
+            transition: all 0.3s; position: relative; border: none;
+        }
+        .btn-cyber.primary {
+            background: var(--blue); color: var(--dark);
+            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+        }
+        .btn-cyber.primary:hover { box-shadow: 0 0 35px rgba(0,180,255,0.5); transform: translateY(-2px); }
+        .btn-cyber.secondary {
+            background: transparent; color: var(--red);
+            border: 1px solid var(--red);
+            clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+        }
+        .btn-cyber.secondary:hover { background: rgba(255,45,85,0.1); box-shadow: 0 0 25px rgba(255,45,85,0.3); }
+
+        /* Stats panel */
+        .stats-panel {
+            margin-top: 4rem;
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+            background: rgba(0,180,255,0.1);
+            border: 1px solid rgba(0,180,255,0.1);
+        }
+        .stat-cell {
+            background: var(--panel); padding: 2rem; text-align: center;
+            transition: background 0.3s;
+        }
+        .stat-cell:hover { background: rgba(0,180,255,0.05); }
+        .stat-val {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem; font-weight: 900; line-height: 1;
+        }
+        .stat-cell:nth-child(odd) .stat-val { color: var(--blue); text-shadow: 0 0 15px rgba(0,180,255,0.3); }
+        .stat-cell:nth-child(even) .stat-val { color: var(--red); text-shadow: 0 0 15px rgba(255,45,85,0.3); }
+        .stat-lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-top: 0.5rem; }
+
+        /* SECTIONS */
+        section { padding: 6rem 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section-header { margin-bottom: 4rem; }
+        .section-tag {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.2em;
+            padding: 0.4rem 1rem; display: inline-block; margin-bottom: 1rem;
+        }
+        .tag-b { color: var(--blue); border: 1px solid rgba(0,180,255,0.2); background: rgba(0,180,255,0.05); }
+        .tag-r { color: var(--red); border: 1px solid rgba(255,45,85,0.2); background: rgba(255,45,85,0.05); }
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.5rem, 3vw, 2.5rem);
+            font-weight: 800; letter-spacing: 0.04em;
+        }
+
+        /* PHILOSOPHY */
+        .phil-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(0,180,255,0.08); }
+        .phil-card {
+            background: var(--panel); padding: 2.5rem;
+            position: relative; transition: all 0.4s;
+        }
+        .phil-card::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+            height: 2px; transform: scaleX(0); transition: transform 0.4s;
+        }
+        .phil-card:nth-child(1)::after { background: var(--blue); }
+        .phil-card:nth-child(2)::after { background: var(--red); }
+        .phil-card:nth-child(3)::after { background: linear-gradient(90deg, var(--blue), var(--red)); }
+        .phil-card:hover::after { transform: scaleX(1); }
+        .phil-card:hover { background: rgba(0,180,255,0.03); }
+        .phil-icon { font-size: 1.8rem; margin-bottom: 1.5rem; }
+        .phil-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem; font-weight: 700;
+            letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 1rem;
+        }
+        .phil-card:nth-child(1) .phil-title { color: var(--blue); }
+        .phil-card:nth-child(2) .phil-title { color: var(--red); }
+        .phil-card:nth-child(3) .phil-title { background: linear-gradient(90deg, var(--blue), var(--red)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .phil-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem; line-height: 1.7; color: var(--muted); margin-bottom: 1.5rem;
+        }
+        .phil-list { list-style: none; }
+        .phil-list li {
+            font-size: 0.7rem; padding: 0.45rem 0; color: var(--muted);
+            border-top: 1px solid rgba(0,180,255,0.06);
+        }
+        .phil-list li::before { content: '> '; color: var(--blue); }
+
+        /* CASES */
+        .case-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(255,45,85,0.08); }
+        .case-card {
+            background: var(--panel); padding: 0; overflow: hidden; cursor: pointer;
+            transition: all 0.4s;
+        }
+        .case-card:hover { background: rgba(255,45,85,0.03); }
+        .case-header {
+            padding: 2rem 2rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.04);
+            position: relative;
+        }
+        .case-header::before {
+            content: attr(data-num);
+            position: absolute; top: 0.5rem; right: 1rem;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 4rem; font-weight: 900; opacity: 0.04;
+        }
+        .case-tag-lbl {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.15em;
+            color: var(--red); margin-bottom: 0.5rem;
+        }
+        .case-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.1rem; font-weight: 700; letter-spacing: 0.04em;
+        }
+        .case-body { padding: 1.5rem 2rem 2rem; }
+        .case-desc {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.88rem; line-height: 1.6; color: var(--muted); margin-bottom: 1.5rem;
+        }
+        .case-metrics { display: flex; gap: 2rem; }
+        .cm-val {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem; font-weight: 800;
+            color: var(--blue); text-shadow: 0 0 10px rgba(0,180,255,0.2);
+        }
+        .cm-lbl { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+
+        /* SERVICES */
+        .svc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(0,180,255,0.08); }
+        .svc-card {
+            background: var(--panel); padding: 2.5rem;
+            position: relative; transition: all 0.4s;
+        }
+        .svc-card.feat {
+            border: 1px solid rgba(0,180,255,0.15);
+            background: linear-gradient(180deg, rgba(0,180,255,0.04), var(--panel));
+        }
+        .svc-card:hover { transform: translateY(-3px); }
+        .svc-badge {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em;
+            background: var(--blue); color: var(--dark); padding: 0.25rem 0.6rem;
+            position: absolute; top: 0; right: 1.5rem; font-weight: 700;
+        }
+        .svc-icon { font-size: 1.8rem; margin-bottom: 1.5rem; }
+        .svc-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; margin-bottom: 0.75rem;
+        }
+        .svc-desc { font-family: 'Outfit', sans-serif; font-size: 0.88rem; line-height: 1.6; color: var(--muted); margin-bottom: 1.5rem; }
+        .svc-price {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.6rem; font-weight: 900; margin-bottom: 0.25rem;
+            color: var(--blue); text-shadow: 0 0 15px rgba(0,180,255,0.2);
+        }
+        .svc-price .old { font-size: 0.9rem; text-decoration: line-through; opacity: 0.3; margin-left: 0.5rem; color: var(--text); -webkit-text-fill-color: initial; text-shadow: none; }
+        .svc-price .per { font-size: 0.6rem; color: var(--muted); text-shadow: none; }
+        .svc-features { list-style: none; margin: 1.5rem 0 2rem; }
+        .svc-features li {
+            font-size: 0.68rem; padding: 0.45rem 0; color: var(--muted);
+            border-top: 1px solid rgba(0,180,255,0.06);
+        }
+        .svc-features li::before { content: '[+] '; color: var(--blue); }
+        .svc-btn {
+            width: 100%; padding: 0.8rem;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; cursor: pointer;
+            background: transparent; color: var(--blue);
+            border: 1px solid rgba(0,180,255,0.2);
+            transition: all 0.3s;
+        }
+        .svc-btn:hover { background: var(--blue); color: var(--dark); box-shadow: 0 0 25px rgba(0,180,255,0.3); }
+
+        /* FINAL CTA */
+        .final-cta {
+            padding: 8rem 2rem; text-align: center; position: relative;
+        }
+        .final-cta::before {
+            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            width: 600px; height: 400px;
+            background: radial-gradient(ellipse, rgba(0,180,255,0.08) 0%, transparent 60%);
+            filter: blur(40px);
+        }
+        .final-cta::after {
+            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            width: 500px; height: 400px;
+            background: radial-gradient(ellipse, rgba(255,45,85,0.06) 0%, transparent 60%);
+            filter: blur(40px);
+        }
+        .final-cta h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.5rem, 4vw, 3rem);
+            font-weight: 900; letter-spacing: 0.04em;
+            margin-bottom: 1.5rem; position: relative;
+        }
+        .final-cta h2 .hl-blue { color: var(--blue); text-shadow: 0 0 25px rgba(0,180,255,0.4); }
+        .final-cta h2 .hl-red { color: var(--red); text-shadow: 0 0 25px rgba(255,45,85,0.4); }
+        .final-cta p {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem; line-height: 1.7; color: var(--muted);
+            max-width: 520px; margin: 0 auto 3rem; position: relative;
+        }
+        .final-guarantee {
+            font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--muted); margin-top: 2rem; position: relative;
+        }
+
+        /* FOOTER */
+        footer {
+            border-top: 1px solid rgba(0,180,255,0.08);
+            padding: 4rem 2rem 2rem;
+        }
+        .footer-grid {
+            max-width: 1200px; margin: 0 auto;
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem; margin-bottom: 3rem;
+        }
+        .footer-brand {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem; font-weight: 800; letter-spacing: 0.08em; margin-bottom: 1rem;
+        }
+        .footer-brand .fb { color: var(--blue); }
+        .footer-brand .fr { color: var(--red); }
+        .footer-tagline { font-family: 'Outfit', sans-serif; color: var(--muted); font-size: 0.85rem; line-height: 1.7; max-width: 300px; }
+        .footer-col-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.15em;
+            color: var(--blue); margin-bottom: 1.5rem;
+        }
+        .footer-col ul { list-style: none; }
+        .footer-col li { margin-bottom: 0.65rem; }
+        .footer-col a { font-family: 'Outfit', sans-serif; color: var(--muted); text-decoration: none; font-size: 0.85rem; transition: color 0.3s; }
+        .footer-col a:hover { color: var(--blue); }
+        .footer-bottom {
+            max-width: 1200px; margin: 0 auto;
+            border-top: 1px solid rgba(0,180,255,0.06);
+            padding-top: 1.5rem;
+            display: flex; justify-content: space-between;
+            font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+        }
+
+        /* ANIMATIONS */
+        .rv { opacity: 0; transform: translateY(20px); transition: all 0.6s cubic-bezier(0.16,1,0.3,1); }
+        .rv.v { opacity: 1; transform: none; }
+        .dl1 { transition-delay: 0.1s; } .dl2 { transition-delay: 0.2s; } .dl3 { transition-delay: 0.3s; }
+
+        @media (max-width: 1024px) {
+            .phil-grid, .case-grid, .svc-grid { grid-template-columns: 1fr; }
+            .stats-panel { grid-template-columns: repeat(2, 1fr); }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            nav { padding: 0.75rem 1.5rem; }
+            .nav-links { display: none; }
+            .hero { padding: 7rem 1.5rem 3rem; }
+            .stats-panel { grid-template-columns: 1fr 1fr; }
+            section { padding: 4rem 1.5rem; }
+            .footer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="content">
+
+<nav>
+    <div class="nav-inner">
+        <div class="logo"><span class="lb">KAMIL</span><span class="lr">_</span></div>
+        <ul class="nav-links">
+            <li><a href="#phil">// philosophy</a></li>
+            <li><a href="#cases">// case_studies</a></li>
+            <li><a href="#svc">// services</a></li>
+        </ul>
+        <a href="#cta" class="nav-cta">INIT_CALL</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="hero-glow-1"></div>
+    <div class="hero-glow-2"></div>
+    <div class="hero-inner">
+        <div class="hero-status"><div class="status-dot"></div> System Online — 50+ Founders Connected</div>
+        <h1>AI-POWERED<br><span class="hl-blue">GROWTH</span> ENGINE<br>FOR <span class="hl-red">AMBITIOUS</span> FOUNDERS</h1>
+        <p class="hero-sub">From first customer to exit strategy. Leverage AI to scale faster, work smarter, and build companies worth acquiring.</p>
+        <div class="hero-ctas">
+            <a href="#cta" class="btn-cyber primary">EXECUTE: Strategy Call</a>
+            <a href="#cases" class="btn-cyber secondary">VIEW: Case Studies</a>
+        </div>
+        <div class="stats-panel">
+            <div class="stat-cell rv"><div class="stat-val">$4.5M</div><div class="stat-lbl">Exit Value</div></div>
+            <div class="stat-cell rv dl1"><div class="stat-val">2000%</div><div class="stat-lbl">Peak ROAS</div></div>
+            <div class="stat-cell rv dl2"><div class="stat-val">84%</div><div class="stat-lbl">Open Rate</div></div>
+            <div class="stat-cell rv dl3"><div class="stat-val">50+</div><div class="stat-lbl">Founders</div></div>
+        </div>
+    </div>
+</section>
+
+<section id="phil">
+    <div class="container">
+        <div class="section-header rv">
+            <span class="section-tag tag-b">// The Philosophy</span>
+            <h2 class="section-title">THEORY <span style="color:var(--red)">VS</span> PRACTICE</h2>
+        </div>
+        <div class="phil-grid">
+            <div class="phil-card rv">
+                <div class="phil-icon">🛡️</div>
+                <h3 class="phil-title">The Skeptic</h3>
+                <p class="phil-text">"Most AI tools are overhyped. Most growth tactics fail. Most founders chase shiny objects."</p>
+                <ul class="phil-list"><li>Ruthless prioritization</li><li>Data over intuition</li><li>Risk mitigation first</li></ul>
+            </div>
+            <div class="phil-card rv dl1">
+                <div class="phil-icon">🚀</div>
+                <h3 class="phil-title">The Optimist</h3>
+                <p class="phil-text">"AI is the biggest leverage point in human history. Bold moves create breakout success."</p>
+                <ul class="phil-list"><li>First-mover advantage</li><li>Experiment aggressively</li><li>Think in 10x, not 10%</li></ul>
+            </div>
+            <div class="phil-card rv dl2">
+                <div class="phil-icon">⚖️</div>
+                <h3 class="phil-title">The Synthesis</h3>
+                <p class="phil-text">"Use AI to amplify what works. Test boldly, but measure ruthlessly."</p>
+                <ul class="phil-list"><li>Validated learning loops</li><li>Strategic AI integration</li><li>Sustainable acceleration</li></ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="cases">
+    <div class="container">
+        <div class="section-header rv">
+            <span class="section-tag tag-r">// Proof of Work</span>
+            <h2 class="section-title">CASE <span style="color:var(--blue)">STUDIES</span></h2>
+        </div>
+        <div class="case-grid">
+            <div class="case-card rv">
+                <div class="case-header" data-num="01"><div class="case-tag-lbl">E-commerce</div><h3 class="case-name">Nature Queen</h3></div>
+                <div class="case-body"><p class="case-desc">AI-powered retention system that transformed customer LTV</p><div class="case-metrics"><div><div class="cm-val">3.2x</div><div class="cm-lbl">LTV Increase</div></div><div><div class="cm-val">84%</div><div class="cm-lbl">Open Rate</div></div></div></div>
+            </div>
+            <div class="case-card rv dl1">
+                <div class="case-header" data-num="02"><div class="case-tag-lbl">B2B SaaS</div><h3 class="case-name">StoneCo</h3></div>
+                <div class="case-body"><p class="case-desc">Automated pipeline generation with AI SDRs and personalization</p><div class="case-metrics"><div><div class="cm-val">$100K</div><div class="cm-lbl">Pipeline/Mo</div></div><div><div class="cm-val">40%</div><div class="cm-lbl">Cost Reduction</div></div></div></div>
+            </div>
+            <div class="case-card rv dl2">
+                <div class="case-header" data-num="03"><div class="case-tag-lbl">Growth Agency</div><h3 class="case-name">Wave Growth</h3></div>
+                <div class="case-body"><p class="case-desc">Complete AI transformation and exit preparation</p><div class="case-metrics"><div><div class="cm-val">2000%</div><div class="cm-lbl">Peak ROAS</div></div><div><div class="cm-val">$4.5M</div><div class="cm-lbl">Exit Value</div></div></div></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="svc">
+    <div class="container">
+        <div class="section-header rv">
+            <span class="section-tag tag-b">// How I Help</span>
+            <h2 class="section-title">GROWTH <span style="color:var(--red)">PARTNERSHIPS</span></h2>
+        </div>
+        <div class="svc-grid">
+            <div class="svc-card rv">
+                <div class="svc-icon">🔍</div><h3 class="svc-title">Growth Audit</h3>
+                <p class="svc-desc">Comprehensive growth engine analysis with actionable AI integration roadmap.</p>
+                <div class="svc-price">$2,500 <span class="old">$5,000</span></div>
+                <ul class="svc-features"><li>2-week deep dive</li><li>AI opportunity scan</li><li>90-day action plan</li><li>1-hour strategy call</li></ul>
+                <button class="svc-btn">GET_STARTED</button>
+            </div>
+            <div class="svc-card feat rv dl1">
+                <span class="svc-badge">POPULAR</span>
+                <div class="svc-icon">🤝</div><h3 class="svc-title">AI Partnership</h3>
+                <p class="svc-desc">Ongoing strategic partnership to implement AI across your growth stack.</p>
+                <div class="svc-price">$8K-15K <span class="per">/month</span></div>
+                <ul class="svc-features"><li>Weekly strategy calls</li><li>AI system implementation</li><li>Team training & enablement</li><li>Performance monitoring</li><li>Priority support</li></ul>
+                <button class="svc-btn">APPLY_NOW</button>
+            </div>
+            <div class="svc-card rv dl2">
+                <div class="svc-icon">🎯</div><h3 class="svc-title">Exit Prep</h3>
+                <p class="svc-desc">Comprehensive acquisition preparation including documentation and outreach.</p>
+                <div class="svc-price">Custom</div>
+                <ul class="svc-features"><li>Valuation optimization</li><li>Documentation package</li><li>Buyer identification</li><li>Negotiation support</li></ul>
+                <button class="svc-btn">SCHEDULE_CALL</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="final-cta" id="cta">
+    <h2 class="rv">READY TO <span class="hl-blue">10X</span><br>YOUR <span class="hl-red">GROWTH</span>?</h2>
+    <p class="rv dl1">Book a free 30-minute strategy call. We'll diagnose your biggest growth opportunity and map out an AI-powered plan.</p>
+    <a href="#" class="btn-cyber primary rv dl2" style="display:inline-block;">EXECUTE: Free Strategy Call</a>
+    <div class="final-guarantee rv dl3">[*] No pitch, no pressure — actionable insights only</div>
+</section>
+
+<footer>
+    <div class="footer-grid">
+        <div><div class="footer-brand"><span class="fb">KAMIL</span><span class="fr">_</span></div><p class="footer-tagline">AI-Powered Growth Partner helping ambitious founders scale faster and build companies worth acquiring.</p></div>
+        <div class="footer-col"><div class="footer-col-title">// Services</div><ul><li><a href="#">Growth Audit</a></li><li><a href="#">AI Partnership</a></li><li><a href="#">Exit Preparation</a></li></ul></div>
+        <div class="footer-col"><div class="footer-col-title">// Resources</div><ul><li><a href="#">Case Studies</a></li><li><a href="#">AI Tools Guide</a></li><li><a href="#">Newsletter</a></li></ul></div>
+        <div class="footer-col"><div class="footer-col-title">// Connect</div><ul><li><a href="#">LinkedIn</a></li><li><a href="#">Twitter/X</a></li><li><a href="#">Email</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><span>© 2025 Kamil Skicki</span><span>Design 4 — Cyberpunk Terminal</span></div>
+</footer>
+
+</div>
+<script>
+const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('v'); });
+}, {threshold: 0.1});
+document.querySelectorAll('.rv').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>

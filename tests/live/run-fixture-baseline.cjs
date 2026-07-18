@@ -17,18 +17,7 @@ const DEFAULT_DOCKER_PHP_USER =
   process.env.OXY_HTML_CONVERTER_DOCKER_PHP_USER || "www-data:www-data";
 
 function resolveDefaultLocalFixtureDir() {
-  const candidates = [
-    path.resolve(process.cwd(), "..", "..", "fixtures", "html"),
-    path.resolve(process.cwd(), "..", "..", "..", "..", "fixtures", "html"),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return candidates[0];
+  return path.resolve(process.cwd(), "fixtures", "html");
 }
 
 const DEFAULT_LOCAL_FIXTURE_DIR = resolveDefaultLocalFixtureDir();
@@ -446,7 +435,7 @@ function loadFixtureIndex(localFixtureDir) {
     : [];
   const coveredGapIds = new Set();
   const failures = [];
-  const devRoot = path.resolve(localFixtureDir, "..", "..");
+  const coreRoot = path.resolve(localFixtureDir, "..", "..");
 
   for (const fixture of Array.isArray(manifest.stableHtmlFixtures) ? manifest.stableHtmlFixtures : []) {
     const relativeFixture = normalizeFixturePath(fixture.fixture || "");
@@ -489,7 +478,7 @@ function loadFixtureIndex(localFixtureDir) {
       continue;
     }
 
-    const absolutePath = path.join(devRoot, ...relativeFixture.split("/"));
+    const absolutePath = path.join(coreRoot, ...relativeFixture.split("/"));
     if (!fs.existsSync(absolutePath)) {
       failures.push({
         fixture: relativeFixture,

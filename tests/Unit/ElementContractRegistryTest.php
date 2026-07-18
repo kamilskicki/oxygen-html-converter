@@ -46,32 +46,19 @@ class ElementContractRegistryTest extends TestCase
      */
     private static function stableOxygenElementSlugs(): array
     {
-        $configuredDir = getenv('OXY_HTML_CONVERTER_OXYGEN_DIR');
-        $oxygenDir = is_string($configuredDir) && trim($configuredDir) !== ''
-            ? rtrim($configuredDir, "\\/")
-            : dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'oxygen';
-        $elementsDir = $oxygenDir
-            . DIRECTORY_SEPARATOR . 'subplugins'
-            . DIRECTORY_SEPARATOR . 'oxygen-elements'
-            . DIRECTORY_SEPARATOR . 'elements';
-
-        $directories = glob($elementsDir . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . 'element.php');
-        if (!is_array($directories)) {
-            throw new \RuntimeException('Could not read stable Oxygen element source at ' . $elementsDir);
+        $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'fixtures'
+            . DIRECTORY_SEPARATOR . 'oxygen6-contracts'
+            . DIRECTORY_SEPARATOR . 'element-types.json';
+        $json = file_get_contents($path);
+        if (!is_string($json)) {
+            throw new \RuntimeException('Could not read stable Oxygen element contract at ' . $path);
         }
 
-        $slugs = [];
-        foreach ($directories as $elementFile) {
-            $source = file_get_contents($elementFile);
-            if (!is_string($source)) {
-                continue;
-            }
-
-            if (preg_match('/registerElementForEditing\(\s*"([^"]+)"/', $source, $matches) === 1) {
-                $slugs[] = stripcslashes($matches[1]);
-            }
+        $contract = json_decode($json, true);
+        if (!is_array($contract) || !is_array($contract['elementTypes'] ?? null)) {
+            throw new \RuntimeException('Stable Oxygen element contract is invalid at ' . $path);
         }
 
-        return $slugs;
+        return array_values(array_filter($contract['elementTypes'], 'is_string'));
     }
 }

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Startery i Programy - MAXIMUS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Noto+Serif:ital,wght@0,400;0,500;1,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-container": "#fecf93",
+                      "on-surface-variant": "#564240",
+                      "on-error-container": "#93000a",
+                      "inverse-surface": "#352f2c",
+                      "on-primary-fixed-variant": "#822622",
+                      "paper-soft": "#E8DED0",
+                      "on-secondary-fixed": "#291800",
+                      "on-tertiary-container": "#7cadc8",
+                      "tertiary-fixed-dim": "#9ccde9",
+                      "surface-container-highest": "#ece0db",
+                      "surface-bright": "#fff8f5",
+                      "oxblood-deep": "#4D0907",
+                      "inverse-primary": "#ffb3ac",
+                      "ink-black": "#17120F",
+                      "error": "#ba1a1a",
+                      "on-secondary-container": "#795726",
+                      "on-background": "#201a17",
+                      "secondary-fixed": "#ffddb4",
+                      "on-secondary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "ivory-base": "#F3EDE4",
+                      "tertiary": "#002a3a",
+                      "primary": "#540306",
+                      "on-tertiary-fixed": "#001e2b",
+                      "brass-accent": "#9A7440",
+                      "surface": "#fff8f5",
+                      "paper-bright": "#FCF9F4",
+                      "background": "#fff8f5",
+                      "secondary-fixed-dim": "#ecbf84",
+                      "oxblood-primary": "#731B19",
+                      "on-surface": "#201a17",
+                      "inverse-on-surface": "#faeee9",
+                      "outline-variant": "#ddc0bd",
+                      "error-container": "#ffdad6",
+                      "copper-highlight": "#BE8656",
+                      "primary-container": "#731b19",
+                      "on-primary-fixed": "#410003",
+                      "ink-soft": "#544B45",
+                      "on-tertiary": "#ffffff",
+                      "tertiary-fixed": "#c1e8ff",
+                      "surface-tint": "#a13d37",
+                      "surface-container-high": "#f2e6e0",
+                      "on-secondary-fixed-variant": "#604111",
+                      "tertiary-container": "#004158",
+                      "on-primary": "#ffffff",
+                      "surface-container-low": "#fdf1ec",
+                      "surface-variant": "#ece0db",
+                      "secondary": "#7a5827",
+                      "on-primary-container": "#fd8279",
+                      "outline": "#89716f",
+                      "surface-dim": "#e3d8d2",
+                      "on-tertiary-fixed-variant": "#144c63",
+                      "surface-container": "#f7ece6",
+                      "primary-fixed-dim": "#ffb3ac",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-fixed": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "section-gap": "120px",
+                      "gutter-grid": "24px",
+                      "component-padding": "16px",
+                      "unit": "8px",
+                      "margin-page": "64px"
+              },
+              "fontFamily": {
+                      "wordmark-aux": [
+                              "Noto Serif"
+                      ],
+                      "body-main": [
+                              "Inter"
+                      ],
+                      "section-headline": [
+                              "Noto Serif"
+                      ],
+                      "metadata-label": [
+                              "Inter"
+                      ],
+                      "hero-serif": [
+                              "Noto Serif"
+                      ]
+              },
+              "fontSize": {
+                      "wordmark-aux": [
+                              "14px",
+                              {
+                                      "lineHeight": "1",
+                                      "letterSpacing": "0.2em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-main": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "section-headline": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "metadata-label": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "hero-serif": [
+                              "64px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        /* Base styles to ensure consistency if tokens miss something */
+        body {
+            background-color: theme('colors.ivory-base');
+            color: theme('colors.ink-black');
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+</head>
+<body class="bg-ivory-base text-ink-black flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-stone-50 dark:bg-stone-950 w-full top-0 z-50 border-b border-red-900/10 dark:border-red-900/20">
+<div class="flex justify-between items-center w-full px-8 py-6 max-w-screen-2xl mx-auto">
+<!-- Brand -->
+<a class="text-2xl font-bold tracking-[0.2em] text-red-900 dark:text-red-700 font-serif" href="#">
+                MAXIMUS
+            </a>
+<!-- Navigation Links (Web) -->
+<nav class="hidden md:flex items-center gap-8">
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Dla kogo
+                </a>
+<!-- Active Item -->
+<a class="font-serif tracking-tight text-sm uppercase text-red-900 dark:text-red-600 border-b border-red-900 pb-1 opacity-70 transition-opacity" href="#">
+                    Programy
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Startery
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Memberships
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Premium
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Lokalizacje
+                </a>
+</nav>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-6">
+<a class="hidden lg:block text-red-900 dark:text-red-700 font-serif tracking-tight text-sm uppercase hover:text-red-800 transition-colors" href="#">
+                    DOŁĄCZ
+                </a>
+<button class="text-red-900 dark:text-red-700 hover:text-red-800 transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">person</span>
+</button>
+<button class="md:hidden text-red-900 dark:text-red-700 hover:text-red-800 transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="max-w-screen-2xl mx-auto px-8 pt-24 pb-16 md:pt-32 md:pb-24">
+<div class="max-w-3xl">
+<span class="font-metadata-label text-metadata-label text-oxblood-primary block mb-6 uppercase tracking-widest">
+                    Rozpocznij drogę
+                </span>
+<h1 class="font-hero-serif text-hero-serif text-ink-black mb-8">
+                    Startery i Programy.
+                </h1>
+<p class="font-body-main text-body-main text-ink-soft max-w-xl">
+                    Stworzone, by znieść bariery. Wybierz punkt startowy dopasowany do Twojego obecnego poziomu i celów. Precyzyjna metodyka, mierzalne rezultaty.
+                </p>
+</div>
+</section>
+<!-- Startery Section (Lowering Barrier) -->
+<section class="max-w-screen-2xl mx-auto px-8 py-16">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid items-start">
+<!-- Section Intro -->
+<div class="lg:col-span-4 lg:sticky lg:top-32">
+<h2 class="font-section-headline text-section-headline text-ink-black mb-4">
+                        Startery
+                    </h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8">
+                        Pierwszy krok nie musi być skokiem w nieznane. Nasze startery to bezpieczne, kontrolowane wprowadzenie do środowiska treningowego.
+                    </p>
+<div class="w-12 h-[1px] bg-oxblood-primary hidden lg:block"></div>
+</div>
+<!-- Starter Cards -->
+<div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-gutter-grid">
+<!-- Card 1 -->
+<div class="bg-paper-soft border border-ink-soft/10 p-8 flex flex-col justify-between min-h-[320px] group hover:bg-paper-bright transition-colors duration-300">
+<div>
+<div class="w-10 h-10 mb-6 text-oxblood-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[32px]" style="font-variation-settings: 'FILL' 0;">chat_bubble_outline</span>
+</div>
+<h3 class="font-section-headline text-[24px] leading-tight text-ink-black mb-3">
+                                Konsultacja Wstępna
+                            </h3>
+<p class="font-body-main text-body-main text-ink-soft">
+                                60 minut dedykowanej analizy. Wyznaczenie celów, ocena mobilności i zaplanowanie optymalnej ścieżki rozwoju.
+                            </p>
+</div>
+<div class="mt-8 pt-6 border-t border-ink-soft/10 flex justify-between items-center">
+<span class="font-metadata-label text-metadata-label text-ink-black uppercase">Bezpłatnie</span>
+<button class="text-oxblood-primary hover:text-oxblood-deep transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-paper-soft border border-ink-soft/10 p-8 flex flex-col justify-between min-h-[320px] group hover:bg-paper-bright transition-colors duration-300">
+<div>
+<div class="w-10 h-10 mb-6 text-oxblood-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[32px]" style="font-variation-settings: 'FILL' 0;">sports_score</span>
+</div>
+<h3 class="font-section-headline text-[24px] leading-tight text-ink-black mb-3">
+                                Starter Pack
+                            </h3>
+<p class="font-body-main text-body-main text-ink-soft">
+                                Konsultacja plus dwa treningi personalne wprowadzające. Opanowanie podstawowych wzorców ruchowych w bezpiecznym tempie.
+                            </p>
+</div>
+<div class="mt-8 pt-6 border-t border-ink-soft/10 flex justify-between items-center">
+<span class="font-metadata-label text-metadata-label text-ink-black uppercase">299 PLN</span>
+<button class="text-oxblood-primary hover:text-oxblood-deep transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Programy Section (Categorized) -->
+<section class="bg-paper-soft py-24 mt-16 border-t border-ink-soft/5">
+<div class="max-w-screen-2xl mx-auto px-8">
+<div class="flex flex-col md:flex-row md:justify-between md:items-end mb-16">
+<div class="max-w-2xl">
+<span class="font-metadata-label text-metadata-label text-oxblood-primary block mb-4 uppercase tracking-widest">
+                            Ścieżki rozwoju
+                        </span>
+<h2 class="font-hero-serif text-[48px] leading-[1.1] text-ink-black">
+                            Wybierz swój Program.
+                        </h2>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter-grid">
+<!-- Program 1: Performance -->
+<div class="bg-ivory-base flex flex-col border border-ink-soft/5">
+<div class="h-64 relative overflow-hidden bg-surface-dim">
+<img alt="Athlete performing a heavy deadlift in a modern, moody gym setting with chalk dust in the air" class="w-full h-full object-cover filter grayscale opacity-80 mix-blend-multiply" data-alt="Athlete performing a heavy deadlift in a modern, moody gym setting with chalk dust in the air" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiFhan5GyogezzHlB7C5nBJysUifd68-9rJHOO99tgMOCrC_CsQ6Wecvck89h9hzS5pis495i90vSBIro9keIbDJ7x0jxpdhnqefXZlwl_FGPQ_IF1aI7Qyy8dWlEXV6JcJPrQe_RU6dL5WjPuI6QxTF0hYSGskJ8w_2E6gOFDgmq8NHbuxo-DsqGG_1JAV3ZjvD20Coz7svHK9BnpTpOhohm7c0g45GRj8jslnHc6ZD0Y0JSt64_Bkv3xbN_Cgqjsj-tS7GYtJkE"/>
+</div>
+<div class="p-8 flex-grow flex flex-col">
+<h3 class="font-section-headline text-section-headline text-ink-black mb-4">
+                                Performance
+                            </h3>
+<p class="font-body-main text-body-main text-ink-soft flex-grow mb-8">
+                                Zwiększenie siły, mocy i wytrzymałości. Program dedykowany osobom chcącym przekraczać własne granice pod okiem ekspertów.
+                            </p>
+<a class="inline-flex items-center gap-2 font-metadata-label text-metadata-label text-oxblood-primary uppercase tracking-widest hover:text-oxblood-deep transition-colors" href="#">
+                                Szczegóły programu <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+<!-- Program 2: Recovery -->
+<div class="bg-ivory-base flex flex-col border border-ink-soft/5">
+<div class="h-64 relative overflow-hidden bg-surface-dim">
+<img alt="Close up of hands doing mobility stretches on a premium yoga mat in a calm, naturally lit studio" class="w-full h-full object-cover filter grayscale opacity-80 mix-blend-multiply" data-alt="Close up of hands doing mobility stretches on a premium yoga mat in a calm, naturally lit studio" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYkgQhu0ZYPNYqJ5RlQ8xdTK4UCtdHPYOn3JpHHJwMf0vH1tbncJUwZATTaGjJOZZ5u5dSIJ3SuUK6NP7LqjuUKgRyWA_J6yj1DR26zRO9boNRD3sJiCqm4mfUV--uj5JY0z0oJIxjdfUlSl5w_5QeA67b8xiRHIcGRS26vXSh9_wbzHr9npnmD-yezZQC57n3D1VE_Ha7yehFwQdwc7fP7fdN2OedW3IKfrol7D0MumwGbnnmkp4n_H9uOxzzYxVoFWdVcPXkgAU"/>
+</div>
+<div class="p-8 flex-grow flex flex-col">
+<h3 class="font-section-headline text-section-headline text-ink-black mb-4">
+                                Recovery
+                            </h3>
+<p class="font-body-main text-body-main text-ink-soft flex-grow mb-8">
+                                Odnowa biologiczna, poprawa mobilności i prewencja kontuzji. Balans dla ciała obciążonego codziennym stresem lub intensywnym treningiem.
+                            </p>
+<a class="inline-flex items-center gap-2 font-metadata-label text-metadata-label text-oxblood-primary uppercase tracking-widest hover:text-oxblood-deep transition-colors" href="#">
+                                Szczegóły programu <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+<!-- Program 3: Dla Dzieci -->
+<div class="bg-ivory-base flex flex-col border border-ink-soft/5">
+<div class="h-64 relative overflow-hidden bg-surface-dim">
+<img alt="Young child confidently balancing on functional training equipment in a bright, spacious facility" class="w-full h-full object-cover filter grayscale opacity-80 mix-blend-multiply" data-alt="Young child confidently balancing on functional training equipment in a bright, spacious facility" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_EjqOjoHdfRfKMT57xqLnv9xXydkswXXtSQ35Ad51Mkvc5o8zAEr3yJiRzv4za6G3oR56ftcfEFIllTVbJTg1cvHS9olkU4k2qDnF8DzBb7Bpv3xGUfX-bMBrViKbxKoC87iJjxvMHeOGf_Y9irrtjbArbLy1WKGkkeqKdRBC0ueujqXCntePNElZXkCSnE-1zFz8hrXoi6iq_oYY8OvYF1B4_YMHbq8jZsYfwwQYuroOhhf1dDdzXAhWO7zjyNbx_BR9hI2byRw"/>
+</div>
+<div class="p-8 flex-grow flex flex-col">
+<h3 class="font-section-headline text-section-headline text-ink-black mb-4">
+                                Dla Dzieci
+                            </h3>
+<p class="font-body-main text-body-main text-ink-soft flex-grow mb-8">
+                                Kształtowanie zdrowych nawyków ruchowych od najmłodszych lat. Zajęcia ogólnorozwojowe budujące koordynację i pewność siebie.
+                            </p>
+<a class="inline-flex items-center gap-2 font-metadata-label text-metadata-label text-oxblood-primary uppercase tracking-widest hover:text-oxblood-deep transition-colors" href="#">
+                                Szczegóły programu <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="max-w-4xl mx-auto px-8 py-32 text-center">
+<h2 class="font-hero-serif text-[40px] leading-tight text-ink-black mb-6">
+                Gotowy na pierwszy krok?
+            </h2>
+<p class="font-body-main text-body-main text-ink-soft mb-10 max-w-xl mx-auto">
+                Nie odkładaj decyzji na później. Zarezerwuj wstępną konsultację i pozwól naszym ekspertom zaplanować Twoją drogę do celu.
+            </p>
+<button class="bg-ink-black text-on-primary font-metadata-label text-metadata-label px-8 py-4 uppercase tracking-[0.2em] hover:bg-oxblood-deep transition-colors duration-300 rounded-none border border-transparent hover:border-brass-accent">
+                Zarezerwuj Konsultację
+            </button>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-stone-50 dark:bg-stone-950 full-width py-12 border-t border-red-900/10 mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center px-8 w-full max-w-7xl mx-auto gap-8">
+<div class="text-lg font-bold text-red-900 dark:text-red-700 font-serif tracking-[0.2em]">
+                MAXIMUS
+            </div>
+<nav class="flex flex-wrap justify-center gap-6">
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">
+                    Polityka prywatności
+                </a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">
+                    Regulamin
+                </a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">
+                    Kontakt
+                </a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">
+                    Kariera
+                </a>
+</nav>
+<div class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 text-center md:text-right">
+                © 2024 MAXIMUS. HERITAGE MINIMALISM.
+            </div>
+</div>
+</footer>
+</body></html>

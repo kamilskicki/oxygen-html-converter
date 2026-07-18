@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Startery - Twój pierwszy krok</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;500;700&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#564240",
+                        "ink-black": "#17120F",
+                        "tertiary": "#002a3a",
+                        "tertiary-container": "#004158",
+                        "oxblood-primary": "#731B19",
+                        "tertiary-fixed-dim": "#9ccde9",
+                        "on-primary-container": "#fd8279",
+                        "inverse-primary": "#ffb3ac",
+                        "brass-accent": "#9A7440",
+                        "secondary-container": "#fecf93",
+                        "on-surface": "#201a17",
+                        "copper-highlight": "#BE8656",
+                        "surface-bright": "#fff8f5",
+                        "on-background": "#201a17",
+                        "outline-variant": "#ddc0bd",
+                        "on-error-container": "#93000a",
+                        "surface-container": "#f7ece6",
+                        "on-primary-fixed-variant": "#822622",
+                        "inverse-on-surface": "#faeee9",
+                        "surface-container-highest": "#ece0db",
+                        "on-secondary-fixed-variant": "#604111",
+                        "primary-container": "#731b19",
+                        "tertiary-fixed": "#c1e8ff",
+                        "surface-container-lowest": "#ffffff",
+                        "outline": "#89716f",
+                        "ivory-base": "#F3EDE4",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#7cadc8",
+                        "on-tertiary-fixed-variant": "#144c63",
+                        "on-secondary-container": "#795726",
+                        "surface-container-high": "#f2e6e0",
+                        "paper-soft": "#E8DED0",
+                        "secondary": "#7a5827",
+                        "surface-tint": "#a13d37",
+                        "primary": "#540306",
+                        "primary-fixed-dim": "#ffb3ac",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#410003",
+                        "secondary-fixed": "#ffddb4",
+                        "error-container": "#ffdad6",
+                        "surface": "#fff8f5",
+                        "oxblood-deep": "#4D0907",
+                        "inverse-surface": "#352f2c",
+                        "on-secondary-fixed": "#291800",
+                        "surface-variant": "#ece0db",
+                        "surface-container-low": "#fdf1ec",
+                        "paper-bright": "#FCF9F4",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#ecbf84",
+                        "ink-soft": "#544B45",
+                        "background": "#fff8f5",
+                        "primary-fixed": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#e3d8d2",
+                        "on-tertiary-fixed": "#001e2b",
+                        "on-primary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-page": "64px",
+                        "component-padding": "16px",
+                        "section-gap": "120px",
+                        "unit": "8px",
+                        "gutter-grid": "24px"
+                    },
+                    "fontFamily": {
+                        "wordmark-aux": ["Noto Serif"],
+                        "hero-serif": ["Noto Serif"],
+                        "metadata-label": ["Inter"],
+                        "body-main": ["Inter"],
+                        "section-headline": ["Noto Serif"]
+                    },
+                    "fontSize": {
+                        "wordmark-aux": ["14px", { "lineHeight": "1", "letterSpacing": "0.2em", "fontWeight": "500" }],
+                        "hero-serif": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+                        "metadata-label": ["12px", { "lineHeight": "1.4", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                        "body-main": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "section-headline": ["32px", { "lineHeight": "1.2", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-ivory-base text-ink-black font-body-main antialiased selection:bg-oxblood-primary selection:text-ivory-base">
+<!-- TopNavBar -->
+<header class="bg-ivory-base dark:bg-ink-black text-oxblood-primary dark:text-primary-fixed font-wordmark-aux text-wordmark-aux uppercase tracking-widest fixed top-0 w-full z-50 border-b border-brass-accent/20">
+<div class="flex justify-between items-center h-20 px-margin-page w-full max-w-full">
+<a class="font-hero-serif text-section-headline font-bold text-oxblood-deep dark:text-primary-fixed" href="#">PHYSICAL CULTURE</a>
+<nav class="hidden md:flex gap-8 items-center">
+<a class="text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300" href="#">Dla kogo</a>
+<a class="text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300" href="#">Programy</a>
+<a class="text-oxblood-primary dark:text-inverse-primary border-b border-oxblood-primary pb-1 scale-95 duration-200 ease-in-out" href="#">Startery</a>
+<a class="text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300" href="#">Memberships</a>
+<a class="text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300" href="#">Premium</a>
+<a class="text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300" href="#">Lokalizacje</a>
+</nav>
+<button class="bg-oxblood-primary text-ivory-base px-6 py-3 font-metadata-label text-metadata-label tracking-widest hover:bg-oxblood-deep transition-colors duration-300 hidden md:block">
+                Dołącz
+            </button>
+<button class="md:hidden text-oxblood-primary">
+<span class="material-symbols-outlined" style="font-size: 28px;">menu</span>
+</button>
+</div>
+</header>
+<main class="pt-32 pb-section-gap px-margin-page max-w-7xl mx-auto">
+<!-- Hero Section -->
+<section class="mb-section-gap pt-16 flex flex-col md:flex-row gap-gutter-grid items-start">
+<div class="md:w-7/12">
+<span class="font-metadata-label text-metadata-label text-brass-accent uppercase mb-4 block">Początek drogi</span>
+<h1 class="font-hero-serif text-hero-serif text-oxblood-deep mb-8 leading-tight">
+                    Startery <span class="block text-ink-black opacity-40">- Twój pierwszy krok</span>
+</h1>
+<p class="font-body-main text-body-main text-ink-soft max-w-lg mb-8">
+                    Obniżamy barierę wejścia. Nasze startery zostały zaprojektowane, aby zebrać kluczowe dane o Twojej kondycji i celach. To nie jest po prostu trening – to proces profilowania, który pozwala nam stworzyć perfekcyjnie dopasowaną rekomendację dalszej ścieżki w klubie.
+                </p>
+<div class="w-16 h-[1px] bg-oxblood-primary"></div>
+</div>
+<div class="md:w-5/12 w-full mt-12 md:mt-0 relative">
+<div class="aspect-[4/5] bg-paper-soft relative overflow-hidden group">
+<img alt="Elegant gym equipment in minimal setting" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 filter grayscale contrast-125 opacity-90" data-alt="A meticulously curated arrangement of premium, vintage-inspired fitness equipment resting on a polished hardwood floor. The scene is bathed in soft, natural light filtering through tall windows, creating long elegant shadows. The aesthetic is heritage minimalism, emphasizing high-quality materials like brushed steel and dark leather over aggressive modern gym aesthetics. The color palette features deep blacks, rich wood tones, and subtle brass accents, reflecting a sense of disciplined, exclusive physical culture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxzJumtVBlI9wy-k9FegHO19HTS4I7Lf2MjaHZdmoN-AanzmuLdOhhe5ZgRQi2V1ulInqa45bO_8xYUz7WGNzYrDjvYBfLoWTuHYRR_Y1q8vvPrJJ4h4NIhqmcX5nN3gn3LglFJP5MpSyX-oAlg5ESDCUtNsWPuoZOYTXYaDJkriym99fbUJdnZumpKs0Xmn7GjeSbzrqdOQYUDORR7PfxM7C1uZIFT6l2PTVc9I2jeqGXfYnKESya5YzzoCwR5O3XezRL0gk3mbQ"/>
+<div class="absolute inset-0 bg-oxblood-deep/10 mix-blend-multiply"></div>
+</div>
+<!-- Brass decorative element -->
+<div class="absolute -bottom-6 -left-6 w-24 h-24 border-b border-l border-brass-accent pointer-events-none"></div>
+</div>
+</section>
+<!-- Starter Options Grid -->
+<section class="mb-section-gap">
+<div class="flex items-center gap-4 mb-16">
+<span class="material-symbols-outlined text-oxblood-primary" style="font-variation-settings: 'FILL' 1;">shield</span>
+<h2 class="font-section-headline text-section-headline text-ink-black">Dostępne Opcje</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter-grid">
+<!-- Option 1 -->
+<div class="bg-paper-soft border border-brass-accent/10 p-8 flex flex-col group hover:border-brass-accent/40 transition-colors duration-300">
+<div class="mb-8 border-b border-ink-soft/10 pb-6">
+<h3 class="font-section-headline text-[24px] text-oxblood-deep mb-2">Konsultacja Wstępna</h3>
+<p class="font-metadata-label text-metadata-label text-ink-soft uppercase tracking-wider">Analiza i Strategia</p>
+</div>
+<p class="font-body-main text-body-main text-ink-soft mb-8 flex-grow">
+                        Rozmowa profilująca z ekspertem. Analiza Twoich celów, historii treningowej i potencjalnych ograniczeń. Idealna dla osób potrzebujących wyraźnego kierunku.
+                    </p>
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-end border-b border-ink-soft/20 pb-2">
+<span class="font-metadata-label text-metadata-label text-ink-soft">INWESTYCJA</span>
+<span class="font-wordmark-aux text-wordmark-aux text-ink-black font-bold">150 PLN</span>
+</div>
+<button class="w-full bg-transparent border border-oxblood-primary text-oxblood-primary py-4 font-metadata-label text-metadata-label tracking-widest hover:bg-oxblood-primary hover:text-ivory-base transition-colors duration-300 mt-4">
+                            WYBIERZ STARTER
+                        </button>
+</div>
+</div>
+<!-- Option 2 (Featured) -->
+<div class="bg-ink-black text-ivory-base p-8 flex flex-col relative transform md:-translate-y-4 shadow-2xl shadow-ink-black/20">
+<!-- Accent Line -->
+<div class="absolute top-0 left-0 w-full h-1 bg-brass-accent"></div>
+<div class="mb-8 border-b border-outline-variant/20 pb-6">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-section-headline text-[24px] text-paper-bright">Starter Pack</h3>
+<span class="material-symbols-outlined text-brass-accent" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<p class="font-metadata-label text-metadata-label text-outline-variant uppercase tracking-wider">3 Treningi Personalne</p>
+</div>
+<p class="font-body-main text-body-main text-surface-variant mb-8 flex-grow">
+                        Kompleksowe wprowadzenie. Trzy sesje 1-na-1 podczas których testujemy Twoją sprawność, uczymy podstaw wzorców ruchowych i tworzymy solidny fundament.
+                    </p>
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-end border-b border-outline-variant/20 pb-2">
+<span class="font-metadata-label text-metadata-label text-outline-variant">INWESTYCJA</span>
+<span class="font-wordmark-aux text-wordmark-aux text-paper-bright font-bold">450 PLN</span>
+</div>
+<button class="w-full bg-brass-accent text-ink-black py-4 font-metadata-label text-metadata-label tracking-widest hover:bg-copper-highlight transition-colors duration-300 mt-4">
+                            WYBIERZ STARTER
+                        </button>
+</div>
+</div>
+<!-- Option 3 -->
+<div class="bg-paper-soft border border-brass-accent/10 p-8 flex flex-col group hover:border-brass-accent/40 transition-colors duration-300">
+<div class="mb-8 border-b border-ink-soft/10 pb-6">
+<h3 class="font-section-headline text-[24px] text-oxblood-deep mb-2">No Ego Beginner</h3>
+<p class="font-metadata-label text-metadata-label text-ink-soft uppercase tracking-wider">Warsztaty Grupowe</p>
+</div>
+<p class="font-body-main text-body-main text-ink-soft mb-8 flex-grow">
+                        Kameralne zajęcia wprowadzające dla absolutnie początkujących. Zdejmujemy presję, uczymy techniki w grupie o podobnym poziomie zaawansowania.
+                    </p>
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-end border-b border-ink-soft/20 pb-2">
+<span class="font-metadata-label text-metadata-label text-ink-soft">INWESTYCJA</span>
+<span class="font-wordmark-aux text-wordmark-aux text-ink-black font-bold">200 PLN</span>
+</div>
+<button class="w-full bg-transparent border border-oxblood-primary text-oxblood-primary py-4 font-metadata-label text-metadata-label tracking-widest hover:bg-oxblood-primary hover:text-ivory-base transition-colors duration-300 mt-4">
+                            WYBIERZ STARTER
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-paper-soft dark:bg-ink-black text-ink-black dark:text-ivory-base font-metadata-label text-metadata-label uppercase w-full border-t border-brass-accent/10">
+<div class="flex flex-col md:flex-row justify-between items-center py-section-gap px-margin-page gap-gutter-grid max-w-7xl mx-auto">
+<div class="font-hero-serif text-section-headline text-oxblood-primary">
+                PHYSICAL CULTURE
+            </div>
+<nav class="flex flex-wrap justify-center gap-6">
+<a class="text-ink-soft dark:text-outline-variant hover:text-brass-accent transition-colors duration-300 opacity-80 hover:opacity-100" href="#">Regulamin</a>
+<a class="text-ink-soft dark:text-outline-variant hover:text-brass-accent transition-colors duration-300 opacity-80 hover:opacity-100" href="#">Polityka Prywatności</a>
+<a class="text-ink-soft dark:text-outline-variant hover:text-brass-accent transition-colors duration-300 opacity-80 hover:opacity-100" href="#">Kontakt</a>
+<a class="text-ink-soft dark:text-outline-variant hover:text-brass-accent transition-colors duration-300 opacity-80 hover:opacity-100" href="#">FAQ</a>
+</nav>
+<div class="text-ink-soft opacity-60 text-center md:text-right">
+                © 2024 PHYSICAL CULTURE CLUB. ALL RIGHTS RESERVED.
+            </div>
+</div>
+</footer>
+</body></html>

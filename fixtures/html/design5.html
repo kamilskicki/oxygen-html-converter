@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kamil Skicki | Design 5 — Art Deco Luxury</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Raleway:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Noto+Serif+Display:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy: #0F1D3D;
+            --crimson: #A51C30;
+            --cream: #FAF7F2;
+            --warm: #F3EDE3;
+            --gold: #C5A256;
+            --ink: #1C1C1C;
+            --muted: #8A8577;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Raleway', sans-serif;
+            background: var(--cream);
+            color: var(--ink);
+            overflow-x: hidden;
+        }
+
+        /* Decorative SVG pattern overlay */
+        .deco-pattern {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230F1D3D'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        .content { position: relative; z-index: 1; }
+
+        /* NAV */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1.25rem 3rem;
+            background: rgba(250,247,242,0.92);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(15,29,61,0.08);
+        }
+        .nav-inner { max-width: 1300px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo {
+            font-family: 'Cinzel', serif;
+            font-size: 1.3rem; font-weight: 800;
+            letter-spacing: 0.12em; color: var(--navy);
+        }
+        .logo span { color: var(--crimson); }
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+        .nav-links a {
+            color: var(--muted); text-decoration: none;
+            font-size: 0.72rem; text-transform: uppercase;
+            letter-spacing: 0.18em; font-weight: 500;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--navy); }
+        .nav-cta {
+            font-family: 'Cinzel', serif;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.12em; font-weight: 700;
+            padding: 0.75rem 1.5rem;
+            background: var(--navy); color: var(--cream);
+            text-decoration: none; border: none;
+            transition: all 0.3s;
+        }
+        .nav-cta:hover { background: var(--crimson); }
+
+        /* Decorative divider */
+        .deco-divider {
+            text-align: center; padding: 2rem 0; color: var(--gold);
+            font-size: 1.5rem; letter-spacing: 0.5em;
+        }
+        .deco-line {
+            display: flex; align-items: center; gap: 1.5rem;
+            max-width: 300px; margin: 0 auto;
+        }
+        .deco-line::before, .deco-line::after {
+            content: ''; flex: 1; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        }
+
+        /* HERO */
+        .hero {
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            text-align: center; padding: 8rem 2rem;
+            position: relative; overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 30% 20%, rgba(15,29,61,0.04) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 80%, rgba(165,28,48,0.03) 0%, transparent 50%);
+        }
+        /* Deco frame corners */
+        .hero-frame { position: absolute; inset: 3rem; pointer-events: none; }
+        .hero-frame::before, .hero-frame::after,
+        .hero-frame .corner-bl, .hero-frame .corner-br {
+            position: absolute; width: 80px; height: 80px;
+            border-color: var(--gold); opacity: 0.3;
+        }
+        .hero-frame::before { content: ''; top: 0; left: 0; border-top: 2px solid; border-left: 2px solid; }
+        .hero-frame::after { content: ''; top: 0; right: 0; border-top: 2px solid; border-right: 2px solid; }
+        .corner-bl { bottom: 0 !important; left: 0 !important; border-bottom: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+        .corner-br { bottom: 0 !important; right: 0 !important; border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+
+        .hero-inner { max-width: 800px; position: relative; z-index: 2; }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            font-family: 'Cinzel', serif;
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 0.25em; color: var(--gold);
+            margin-bottom: 2.5rem;
+        }
+        .hero-badge::before, .hero-badge::after { content: '◆'; font-size: 0.5rem; }
+        .hero h1 {
+            font-family: 'Noto Serif Display', serif;
+            font-size: clamp(2.8rem, 6vw, 5.5rem);
+            font-weight: 300; line-height: 1.1;
+            letter-spacing: -0.01em;
+            margin-bottom: 2rem; color: var(--navy);
+        }
+        .hero h1 strong {
+            font-weight: 900;
+            font-style: italic;
+            color: var(--crimson);
+        }
+        .hero-sub {
+            font-size: 1.1rem; line-height: 1.8;
+            color: var(--muted); max-width: 560px;
+            margin: 0 auto 3rem;
+        }
+        .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .btn-deco {
+            font-family: 'Cinzel', serif;
+            font-size: 0.68rem; text-transform: uppercase;
+            letter-spacing: 0.12em; font-weight: 700;
+            padding: 1rem 2.5rem;
+            text-decoration: none; cursor: pointer; border: none;
+            transition: all 0.4s;
+        }
+        .btn-deco.primary { background: var(--navy); color: var(--cream); }
+        .btn-deco.primary:hover { background: var(--crimson); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(165,28,48,0.2); }
+        .btn-deco.secondary { background: transparent; color: var(--navy); border: 1.5px solid var(--navy); }
+        .btn-deco.secondary:hover { background: var(--navy); color: var(--cream); }
+
+        /* Hero stats */
+        .hero-stats {
+            display: flex; justify-content: center; gap: 4rem; margin-top: 5rem;
+        }
+        .hero-stat { text-align: center; }
+        .hs-val {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5rem; font-weight: 900; line-height: 1;
+            color: var(--navy);
+        }
+        .hs-val.red { color: var(--crimson); }
+        .hs-lbl {
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--muted); margin-top: 0.5rem;
+        }
+
+        /* SECTION LAYOUT */
+        section { padding: 7rem 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section-header { text-align: center; margin-bottom: 5rem; }
+        .section-tag {
+            font-family: 'Cinzel', serif;
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 0.3em; color: var(--gold);
+            margin-bottom: 1rem; display: block;
+        }
+        .section-title {
+            font-family: 'Noto Serif Display', serif;
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            font-weight: 300; color: var(--navy);
+        }
+        .section-title em { font-weight: 900; font-style: italic; color: var(--crimson); }
+
+        /* PHILOSOPHY */
+        .philosophy { background: var(--navy); color: var(--cream); }
+        .philosophy .section-tag { color: var(--gold); }
+        .philosophy .section-title { color: var(--cream); }
+        .philosophy .section-title em { color: var(--gold); }
+        .phil-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .phil-card {
+            padding: 3rem;
+            border: 1px solid rgba(197,162,86,0.15);
+            position: relative; transition: all 0.4s;
+        }
+        .phil-card::before {
+            content: ''; position: absolute;
+            top: -1px; left: 30%; right: 30%;
+            height: 2px;
+        }
+        .phil-card:nth-child(1)::before { background: var(--gold); }
+        .phil-card:nth-child(2)::before { background: var(--crimson); }
+        .phil-card:nth-child(3)::before { background: linear-gradient(90deg, var(--gold), var(--crimson)); }
+        .phil-card:hover { border-color: rgba(197,162,86,0.35); transform: translateY(-4px); }
+        .phil-icon {
+            font-size: 1.5rem; margin-bottom: 1.5rem;
+            width: 56px; height: 56px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid rgba(197,162,86,0.2);
+        }
+        .phil-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.2rem; font-weight: 700;
+            letter-spacing: 0.08em; margin-bottom: 1rem;
+        }
+        .phil-card:nth-child(1) .phil-title { color: var(--gold); }
+        .phil-card:nth-child(2) .phil-title { color: #E87A8A; }
+        .phil-card:nth-child(3) .phil-title { color: var(--gold); }
+        .phil-text {
+            font-size: 0.92rem; line-height: 1.8;
+            color: rgba(250,247,242,0.5); margin-bottom: 1.5rem;
+            font-style: italic;
+        }
+        .phil-list { list-style: none; }
+        .phil-list li {
+            font-size: 0.78rem; padding: 0.5rem 0;
+            color: rgba(250,247,242,0.45);
+            border-top: 1px solid rgba(197,162,86,0.08);
+            letter-spacing: 0.04em;
+        }
+        .phil-list li::before { content: '◇ '; color: var(--gold); }
+
+        /* CASES */
+        .cases-section { background: var(--warm); }
+        .case-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .case-card {
+            background: var(--cream);
+            border: 1px solid rgba(15,29,61,0.08);
+            overflow: hidden; cursor: pointer;
+            transition: all 0.4s;
+        }
+        .case-card:hover { transform: translateY(-6px); box-shadow: 0 20px 60px rgba(15,29,61,0.1); }
+        .case-visual {
+            height: 180px; position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .case-card:nth-child(1) .case-visual { background: var(--navy); }
+        .case-card:nth-child(2) .case-visual { background: var(--crimson); }
+        .case-card:nth-child(3) .case-visual { background: var(--ink); }
+        .case-visual-text {
+            font-family: 'Cinzel', serif;
+            font-size: 4rem; font-weight: 900;
+            color: rgba(255,255,255,0.08); letter-spacing: 0.1em;
+        }
+        .case-visual-num {
+            position: absolute; top: 1rem; right: 1.5rem;
+            font-family: 'Cinzel', serif;
+            font-size: 0.65rem; color: rgba(255,255,255,0.3);
+            letter-spacing: 0.15em;
+        }
+        .case-body { padding: 2rem; }
+        .case-tag-lbl {
+            font-family: 'Cinzel', serif;
+            font-size: 0.58rem; text-transform: uppercase;
+            letter-spacing: 0.2em; color: var(--gold);
+            margin-bottom: 0.75rem;
+        }
+        .case-name {
+            font-family: 'Noto Serif Display', serif;
+            font-size: 1.5rem; font-weight: 700;
+            color: var(--navy); margin-bottom: 0.5rem;
+        }
+        .case-desc { font-size: 0.9rem; line-height: 1.6; color: var(--muted); margin-bottom: 1.5rem; }
+        .case-metrics { display: flex; gap: 2rem; }
+        .cm-val { font-family: 'Cinzel', serif; font-size: 1.3rem; font-weight: 900; color: var(--crimson); }
+        .cm-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+
+        /* SERVICES */
+        .svc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .svc-card {
+            background: white;
+            border: 1px solid rgba(15,29,61,0.08);
+            padding: 3rem; position: relative;
+            transition: all 0.4s;
+        }
+        .svc-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: var(--navy);
+        }
+        .svc-card.feat::before {
+            background: linear-gradient(90deg, var(--navy), var(--crimson));
+            height: 4px;
+        }
+        .svc-card.feat {
+            border-color: rgba(15,29,61,0.15);
+            box-shadow: 0 10px 40px rgba(15,29,61,0.08);
+        }
+        .svc-card:hover { transform: translateY(-4px); box-shadow: 0 20px 50px rgba(15,29,61,0.1); }
+        .svc-badge {
+            font-family: 'Cinzel', serif;
+            font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.12em;
+            background: var(--crimson); color: var(--cream);
+            padding: 0.3rem 0.8rem;
+            position: absolute; top: -0.7rem; right: 2rem;
+        }
+        .svc-icon { font-size: 1.8rem; margin-bottom: 1.5rem; }
+        .svc-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.1rem; font-weight: 700;
+            letter-spacing: 0.06em; color: var(--navy);
+            margin-bottom: 0.75rem;
+        }
+        .svc-desc { font-size: 0.92rem; line-height: 1.7; color: var(--muted); margin-bottom: 1.5rem; }
+        .svc-price {
+            font-family: 'Cinzel', serif;
+            font-size: 2rem; font-weight: 900;
+            color: var(--navy); margin-bottom: 0.25rem;
+        }
+        .svc-price .old { font-size: 1rem; text-decoration: line-through; opacity: 0.3; margin-left: 0.5rem; }
+        .svc-price .per { font-size: 0.65rem; color: var(--muted); font-weight: 400; }
+        .svc-features { list-style: none; margin: 1.5rem 0 2rem; }
+        .svc-features li {
+            font-size: 0.78rem; padding: 0.5rem 0; color: var(--muted);
+            border-top: 1px solid rgba(15,29,61,0.06);
+        }
+        .svc-features li::before { content: '◇ '; color: var(--gold); }
+        .svc-btn {
+            width: 100%; padding: 0.9rem;
+            font-family: 'Cinzel', serif;
+            font-size: 0.68rem; text-transform: uppercase;
+            letter-spacing: 0.1em; font-weight: 700;
+            cursor: pointer; background: var(--navy); color: var(--cream);
+            border: none; transition: all 0.3s;
+        }
+        .svc-btn:hover { background: var(--crimson); }
+
+        /* FINAL CTA */
+        .final-cta {
+            padding: 10rem 2rem; text-align: center;
+            background: var(--navy); color: var(--cream);
+            position: relative; overflow: hidden;
+        }
+        .final-cta::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at center, rgba(197,162,86,0.06) 0%, transparent 60%);
+        }
+        .final-cta-frame {
+            position: absolute; inset: 4rem; pointer-events: none;
+            border: 1px solid rgba(197,162,86,0.12);
+        }
+        .final-cta h2 {
+            font-family: 'Noto Serif Display', serif;
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 300; line-height: 1.1;
+            margin-bottom: 1.5rem; position: relative;
+        }
+        .final-cta h2 em { font-weight: 900; font-style: italic; color: var(--gold); }
+        .final-cta p {
+            font-size: 1.05rem; line-height: 1.8;
+            color: rgba(250,247,242,0.5); max-width: 520px;
+            margin: 0 auto 3rem; position: relative;
+        }
+        .final-guarantee {
+            font-family: 'Cinzel', serif;
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 0.2em; color: var(--gold); opacity: 0.6;
+            margin-top: 2rem; position: relative;
+        }
+
+        /* FOOTER */
+        footer {
+            background: var(--ink); color: var(--cream);
+            padding: 5rem 3rem 2rem;
+        }
+        .footer-grid {
+            max-width: 1200px; margin: 0 auto;
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem; margin-bottom: 4rem;
+        }
+        .footer-brand {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem; font-weight: 800;
+            letter-spacing: 0.1em; margin-bottom: 1rem;
+        }
+        .footer-brand span { color: var(--gold); }
+        .footer-tagline { color: rgba(250,247,242,0.35); font-size: 0.88rem; line-height: 1.7; max-width: 300px; }
+        .footer-col-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.2em; color: var(--gold);
+            margin-bottom: 1.5rem;
+        }
+        .footer-col ul { list-style: none; }
+        .footer-col li { margin-bottom: 0.7rem; }
+        .footer-col a { color: rgba(250,247,242,0.35); text-decoration: none; font-size: 0.88rem; transition: color 0.3s; }
+        .footer-col a:hover { color: var(--cream); }
+        .footer-bottom {
+            max-width: 1200px; margin: 0 auto;
+            border-top: 1px solid rgba(197,162,86,0.1);
+            padding-top: 2rem;
+            display: flex; justify-content: space-between;
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 0.1em; color: rgba(250,247,242,0.25);
+        }
+
+        /* ANIMATIONS */
+        .rv { opacity: 0; transform: translateY(25px); transition: all 0.8s cubic-bezier(0.16,1,0.3,1); }
+        .rv.v { opacity: 1; transform: none; }
+        .d1 { transition-delay: 0.12s; } .d2 { transition-delay: 0.24s; } .d3 { transition-delay: 0.36s; }
+
+        @media (max-width: 1024px) {
+            .phil-grid, .case-grid, .svc-grid { grid-template-columns: 1fr; }
+            .hero-stats { flex-wrap: wrap; gap: 2rem; }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            nav { padding: 1rem 1.5rem; } .nav-links { display: none; }
+            .hero { padding: 7rem 1.5rem 4rem; }
+            .hero-frame { inset: 1.5rem; }
+            section { padding: 5rem 1.5rem; }
+            .footer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="deco-pattern"></div>
+<div class="content">
+
+<nav>
+    <div class="nav-inner">
+        <div class="logo">KAMIL<span>.</span></div>
+        <ul class="nav-links">
+            <li><a href="#phil">Philosophy</a></li>
+            <li><a href="#cases">Case Studies</a></li>
+            <li><a href="#svc">Services</a></li>
+        </ul>
+        <a href="#cta" class="nav-cta">Book Strategy Call</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="hero-frame"><div class="corner-bl" style="position:absolute"></div><div class="corner-br" style="position:absolute"></div></div>
+    <div class="hero-inner">
+        <div class="hero-badge rv">◆ Trusted by 50+ Founders ◆</div>
+        <h1 class="rv d1">AI-Powered Growth<br>for <strong>Ambitious Founders</strong></h1>
+        <p class="hero-sub rv d2">From first customer to exit strategy. I help founders leverage AI to scale faster, work smarter, and build companies worth acquiring.</p>
+        <div class="hero-ctas rv d3">
+            <a href="#cta" class="btn-deco primary">Book Free Strategy Call</a>
+            <a href="#cases" class="btn-deco secondary">View Case Studies</a>
+        </div>
+        <div class="hero-stats rv" style="transition-delay:0.48s">
+            <div class="hero-stat"><div class="hs-val">$4.5M</div><div class="hs-lbl">Exit Value</div></div>
+            <div class="hero-stat"><div class="hs-val red">2000%</div><div class="hs-lbl">Peak ROAS</div></div>
+            <div class="hero-stat"><div class="hs-val">84%</div><div class="hs-lbl">Open Rate</div></div>
+            <div class="hero-stat"><div class="hs-val red">50+</div><div class="hs-lbl">Founders</div></div>
+        </div>
+    </div>
+</section>
+
+<div class="deco-divider"><div class="deco-line"><span>◆</span></div></div>
+
+<section class="philosophy" id="phil">
+    <div class="container">
+        <div class="section-header rv">
+            <span class="section-tag">The Philosophy</span>
+            <h2 class="section-title">Theory <em>vs</em> Practice</h2>
+        </div>
+        <div class="phil-grid">
+            <div class="phil-card rv">
+                <div class="phil-icon">🛡️</div>
+                <h3 class="phil-title">The Skeptic</h3>
+                <p class="phil-text">"Most AI tools are overhyped. Most growth tactics fail. Most founders chase shiny objects instead of fundamentals."</p>
+                <ul class="phil-list"><li>Ruthless prioritization</li><li>Data over intuition</li><li>Risk mitigation first</li></ul>
+            </div>
+            <div class="phil-card rv d1">
+                <div class="phil-icon">🚀</div>
+                <h3 class="phil-title">The Optimist</h3>
+                <p class="phil-text">"AI is the biggest leverage point in human history. Bold moves create breakout success. Speed beats perfection."</p>
+                <ul class="phil-list"><li>First-mover advantage</li><li>Experiment aggressively</li><li>Think in 10x, not 10%</li></ul>
+            </div>
+            <div class="phil-card rv d2">
+                <div class="phil-icon">⚖️</div>
+                <h3 class="phil-title">The Synthesis</h3>
+                <p class="phil-text">"Use AI to amplify what works. Test boldly, but measure ruthlessly. Move fast, but don't break the core."</p>
+                <ul class="phil-list"><li>Validated learning loops</li><li>Strategic AI integration</li><li>Sustainable acceleration</li></ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cases-section" id="cases">
+    <div class="container">
+        <div class="section-header rv">
+            <span class="section-tag">Proof of Work</span>
+            <h2 class="section-title">Case <em>Studies</em></h2>
+        </div>
+        <div class="case-grid">
+            <div class="case-card rv">
+                <div class="case-visual"><span class="case-visual-text">NQ</span><span class="case-visual-num">No. 01</span></div>
+                <div class="case-body"><div class="case-tag-lbl">E-Commerce</div><h3 class="case-name">Nature Queen</h3><p class="case-desc">AI-powered retention system that transformed customer LTV</p><div class="case-metrics"><div><div class="cm-val">3.2x</div><div class="cm-lbl">LTV Increase</div></div><div><div class="cm-val">84%</div><div class="cm-lbl">Open Rate</div></div></div></div>
+            </div>
+            <div class="case-card rv d1">
+                <div class="case-visual"><span class="case-visual-text">SC</span><span class="case-visual-num">No. 02</span></div>
+                <div class="case-body"><div class="case-tag-lbl">B2B SaaS</div><h3 class="case-name">StoneCo</h3><p class="case-desc">Automated pipeline generation with AI SDRs and personalization</p><div class="case-metrics"><div><div class="cm-val">$100K</div><div class="cm-lbl">Pipeline/Mo</div></div><div><div class="cm-val">40%</div><div class="cm-lbl">Cost Reduction</div></div></div></div>
+            </div>
+            <div class="case-card rv d2">
+                <div class="case-visual"><span class="case-visual-text">WG</span><span class="case-visual-num">No. 03</span></div>
+                <div class="case-body"><div class="case-tag-lbl">Growth Agency</div><h3 class="case-name">Wave Growth</h3><p class="case-desc">Complete AI transformation and exit preparation</p><div class="case-metrics"><div><div class="cm-val">2000%</div><div class="cm-lbl">Peak ROAS</div></div><div><div class="cm-val">$4.5M</div><div class="cm-lbl">Exit Value</div></div></div></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="svc">
+    <div class="container">
+        <div class="section-header rv">
+            <span class="section-tag">How I Help</span>
+            <h2 class="section-title">Growth <em>Partnerships</em></h2>
+        </div>
+        <div class="svc-grid">
+            <div class="svc-card rv">
+                <div class="svc-icon">🔍</div><h3 class="svc-title">Growth Audit</h3>
+                <p class="svc-desc">Comprehensive analysis of your growth engine with actionable AI integration roadmap.</p>
+                <div class="svc-price">$2,500 <span class="old">$5,000</span></div>
+                <ul class="svc-features"><li>2-week deep dive</li><li>AI opportunity scan</li><li>90-day action plan</li><li>1-hour strategy call</li></ul>
+                <button class="svc-btn">Get Started</button>
+            </div>
+            <div class="svc-card feat rv d1">
+                <span class="svc-badge">Most Popular</span>
+                <div class="svc-icon">🤝</div><h3 class="svc-title">AI Partnership</h3>
+                <p class="svc-desc">Ongoing strategic partnership to implement AI across your growth stack.</p>
+                <div class="svc-price">$8K–15K <span class="per">/month</span></div>
+                <ul class="svc-features"><li>Weekly strategy calls</li><li>AI system implementation</li><li>Team training & enablement</li><li>Performance monitoring</li><li>Priority support</li></ul>
+                <button class="svc-btn">Apply Now</button>
+            </div>
+            <div class="svc-card rv d2">
+                <div class="svc-icon">🎯</div><h3 class="svc-title">Exit Prep</h3>
+                <p class="svc-desc">Comprehensive acquisition preparation including documentation and outreach.</p>
+                <div class="svc-price">Custom</div>
+                <ul class="svc-features"><li>Valuation optimization</li><li>Documentation package</li><li>Buyer identification</li><li>Negotiation support</li></ul>
+                <button class="svc-btn">Schedule Call</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="final-cta" id="cta">
+    <div class="final-cta-frame"></div>
+    <h2 class="rv">Ready to <em>10x Your Growth</em>?</h2>
+    <p class="rv d1">Book a free 30-minute strategy call. We'll diagnose your biggest growth opportunity and map out an AI-powered plan to capture it.</p>
+    <a href="#" class="btn-deco primary rv d2" style="display:inline-block; background:var(--gold); color:var(--navy);">Book Free Strategy Call</a>
+    <div class="final-guarantee rv d3">◆ No pitch, no pressure — just actionable insights ◆</div>
+</section>
+
+<footer>
+    <div class="footer-grid">
+        <div><div class="footer-brand">KAMIL<span>.</span></div><p class="footer-tagline">AI-Powered Growth Partner helping ambitious founders scale faster and build companies worth acquiring.</p></div>
+        <div class="footer-col"><div class="footer-col-title">Services</div><ul><li><a href="#">Growth Audit</a></li><li><a href="#">AI Partnership</a></li><li><a href="#">Exit Preparation</a></li></ul></div>
+        <div class="footer-col"><div class="footer-col-title">Resources</div><ul><li><a href="#">Case Studies</a></li><li><a href="#">AI Tools Guide</a></li><li><a href="#">Newsletter</a></li></ul></div>
+        <div class="footer-col"><div class="footer-col-title">Connect</div><ul><li><a href="#">LinkedIn</a></li><li><a href="#">Twitter/X</a></li><li><a href="#">Email</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><span>© 2025 Kamil Skicki</span><span>Design 5 — Art Deco Luxury</span></div>
+</footer>
+
+</div>
+<script>
+const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('v'); });
+}, {threshold: 0.1});
+document.querySelectorAll('.rv').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>

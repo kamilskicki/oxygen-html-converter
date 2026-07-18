@@ -39,8 +39,8 @@ final class FixtureIndexTest extends TestCase
 
     public function testFixtureIndexListsAllStableHtmlFixturesAndGapCoverage(): void
     {
-        $devRoot = self::devRoot();
-        $fixtureRoot = $devRoot . '/fixtures/html';
+        $coreRoot = self::coreRoot();
+        $fixtureRoot = $coreRoot . '/fixtures/html';
         $indexPath = $fixtureRoot . '/fixture-index.json';
 
         $this->assertFileExists($indexPath);
@@ -78,7 +78,7 @@ final class FixtureIndexTest extends TestCase
             $this->assertFixtureIndexEntryShape($entry);
 
             $fixture = (string) $entry['fixture'];
-            $this->assertFileExists($devRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $fixture), $fixture);
+            $this->assertFileExists($coreRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $fixture), $fixture);
 
             foreach ($entry['gapIds'] as $gapId) {
                 $coveredGapIds[(string) $gapId] = true;
@@ -217,17 +217,12 @@ final class FixtureIndexTest extends TestCase
 
     private static function fixtureRoot(): string
     {
-        return self::devRoot() . '/fixtures/html';
+        return self::coreRoot() . '/fixtures/html';
     }
 
-    private static function devRoot(): string
+    private static function coreRoot(): string
     {
-        $configuredRoot = getenv('OXY_HTML_CONVERTER_DEV_ROOT');
-        if (is_string($configuredRoot) && trim($configuredRoot) !== '') {
-            return rtrim($configuredRoot, "\\/");
-        }
-
-        return dirname(__DIR__, 4);
+        return dirname(__DIR__, 2);
     }
 
     /**

@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Parser Edge Case Fixture</title>
+    <style>
+      .edge-card {
+        --label: "alpha; beta";
+        width: calc(100% - 2rem);
+        color: #123456;
+        padding: 1rem;
+      }
+
+      .edge-card::before {
+        content: "prefix; suffix";
+        background-image: url("data:image/svg+xml;utf8,<svg></svg>");
+      }
+
+      @media (max-width: 767px) {
+        .edge-card {
+          margin: calc(1rem + 2px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="edge-card">
+      <h1>Parser edge case</h1>
+      <p>Preserve semicolons inside strings, data URLs, custom properties, and calc expressions.</p>
+    </section>
+  </body>
+</html>

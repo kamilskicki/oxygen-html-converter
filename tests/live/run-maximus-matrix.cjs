@@ -15,18 +15,7 @@ const MAX_VISUAL_WIDTH_DELTA_PX = 24;
 const MAX_VISUAL_HEIGHT_DELTA_PX = 320;
 
 function resolveDefaultLocalFixtureDir() {
-  const candidates = [
-    path.resolve(process.cwd(), "..", "..", "fixtures", "html"),
-    path.resolve(process.cwd(), "..", "..", "..", "..", "fixtures", "html"),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return candidates[0];
+  return path.resolve(process.cwd(), "fixtures", "html");
 }
 
 function parseArgs(argv) {

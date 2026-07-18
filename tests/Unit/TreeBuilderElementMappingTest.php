@@ -987,7 +987,7 @@ class TreeBuilderElementMappingTest extends TestCase
 
     private static function nativeNoCodeFixtureDir(): string
     {
-        return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'html'
+        return dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'html'
             . DIRECTORY_SEPARATOR . 'native-no-code';
     }
 

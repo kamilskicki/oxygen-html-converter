@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kamil Skicki | Design 3 — Split Duality</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #E5193B;
+            --blue: #1A3FBA;
+            --dark-blue: #0C1E5C;
+            --dark-red: #6B0D1B;
+            --white: #FAFAFA;
+            --off-white: #F0EDE8;
+            --black: #0A0A0A;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--black);
+            color: var(--white);
+            overflow-x: hidden;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1.25rem 3rem;
+            background: rgba(10,10,10,0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .nav-inner { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem; letter-spacing: 0.05em;
+        }
+        .logo .k-blue { color: var(--blue); }
+        .logo .k-red { color: var(--red); }
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+        .nav-links a {
+            color: rgba(255,255,255,0.5); text-decoration: none;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68rem; text-transform: uppercase;
+            letter-spacing: 0.12em; transition: color 0.3s;
+        }
+        .nav-links a:hover { color: white; }
+        .nav-cta {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68rem; text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 0.7rem 1.5rem;
+            border: none; cursor: pointer;
+            color: white; text-decoration: none;
+            position: relative; overflow: hidden;
+        }
+        .nav-cta::before {
+            content: ''; position: absolute; inset: 0;
+            background: var(--blue); transform: skewX(-8deg);
+        }
+        .nav-cta::after {
+            content: ''; position: absolute;
+            top: 0; right: 0; bottom: 0; width: 50%;
+            background: var(--red); transform: skewX(-8deg);
+        }
+        .nav-cta span { position: relative; z-index: 1; }
+
+        /* ── HERO ── */
+        .hero {
+            min-height: 100vh;
+            display: grid; grid-template-columns: 1fr 1fr;
+            position: relative;
+        }
+        .hero-blue {
+            background: var(--blue);
+            display: flex; align-items: center; justify-content: flex-end;
+            padding: 8rem 0 4rem 3rem;
+            position: relative; overflow: hidden;
+        }
+        .hero-blue::after {
+            content: 'STRATEGY';
+            position: absolute; bottom: -2rem; left: -1rem;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 15vw; color: rgba(255,255,255,0.04);
+            white-space: nowrap; line-height: 1;
+        }
+        .hero-red {
+            background: var(--red);
+            display: flex; align-items: center;
+            padding: 8rem 3rem 4rem 0;
+            position: relative; overflow: hidden;
+        }
+        .hero-red::after {
+            content: 'RESULTS';
+            position: absolute; top: -1rem; right: -1rem;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 15vw; color: rgba(255,255,255,0.04);
+            white-space: nowrap; line-height: 1;
+        }
+
+        /* Diagonal divider */
+        .hero-divider {
+            position: absolute;
+            top: 0; left: 50%; bottom: 0;
+            width: 120px; transform: translateX(-50%);
+            z-index: 10;
+            overflow: hidden;
+        }
+        .hero-divider::before {
+            content: '';
+            position: absolute; top: -10%; left: 50%; bottom: -10%;
+            width: 500px; transform: translateX(-50%) skewX(-5deg);
+            background: var(--black);
+        }
+
+        .hero-content-left {
+            max-width: 480px; padding-right: 5rem;
+        }
+        .hero-content-right {
+            max-width: 480px; padding-left: 5rem;
+        }
+        .hero-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.25em;
+            opacity: 0.6; margin-bottom: 1.5rem;
+        }
+        .hero-mini-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3rem; line-height: 1;
+            letter-spacing: 0.02em;
+            margin-bottom: 1rem;
+        }
+        .hero-mini-text {
+            font-size: 1rem; line-height: 1.7;
+            opacity: 0.75;
+        }
+
+        /* Center floating content */
+        .hero-center {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            text-align: center;
+            width: 90%; max-width: 700px;
+        }
+        .hero-badge {
+            display: inline-block;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 0.2em;
+            background: var(--black);
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 0.5rem 1.2rem; margin-bottom: 2rem;
+            color: rgba(255,255,255,0.6);
+        }
+        .hero-center h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(3rem, 6.5vw, 6rem);
+            line-height: 1; letter-spacing: 0.02em;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+        }
+        .hero-center h1 .t-blue { color: var(--blue); text-shadow: 0 0 40px rgba(26,63,186,0.5); }
+        .hero-center h1 .t-red { color: var(--red); text-shadow: 0 0 40px rgba(229,25,59,0.5); }
+        .hero-sub {
+            font-size: 1.05rem; line-height: 1.7;
+            opacity: 0.65; max-width: 540px;
+            margin: 0 auto 2.5rem;
+        }
+        .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .btn-split {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72rem; text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 1rem 2rem;
+            text-decoration: none; cursor: pointer; border: none;
+            color: white; position: relative; overflow: hidden;
+            transition: transform 0.3s;
+        }
+        .btn-split:hover { transform: scale(1.04); }
+        .btn-split.fill::before {
+            content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 50%;
+            background: var(--blue); transform: skewX(-5deg); transform-origin: top;
+        }
+        .btn-split.fill::after {
+            content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 55%;
+            background: var(--red); transform: skewX(-5deg); transform-origin: bottom;
+        }
+        .btn-split span { position: relative; z-index: 1; }
+        .btn-split.outline {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.25);
+        }
+        .btn-split.outline:hover { border-color: rgba(255,255,255,0.5); }
+
+        /* ── STATS BAR ── */
+        .stats-bar {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .stat-cell {
+            padding: 2.5rem; text-align: center;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            position: relative; overflow: hidden;
+            transition: background 0.3s;
+        }
+        .stat-cell:last-child { border-right: none; }
+        .stat-cell:nth-child(odd)::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(26,63,186,0.08), transparent);
+        }
+        .stat-cell:nth-child(even)::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(229,25,59,0.08), transparent);
+        }
+        .stat-cell:hover { background: rgba(255,255,255,0.03); }
+        .stat-val {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3rem; line-height: 1;
+            position: relative;
+        }
+        .stat-cell:nth-child(odd) .stat-val { color: var(--blue); }
+        .stat-cell:nth-child(even) .stat-val { color: var(--red); }
+        .stat-lbl {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: rgba(255,255,255,0.4);
+            margin-top: 0.5rem; position: relative;
+        }
+
+        /* ── SECTION LAYOUT ── */
+        section { padding: 7rem 3rem; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        .section-header { margin-bottom: 5rem; }
+        .section-tag {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 0.25em;
+            display: inline-block; padding: 0.4rem 1rem;
+            margin-bottom: 1rem;
+        }
+        .tag-blue { background: rgba(26,63,186,0.15); color: var(--blue); }
+        .tag-red { background: rgba(229,25,59,0.15); color: var(--red); }
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            line-height: 1; letter-spacing: 0.02em;
+        }
+
+        /* ── PHILOSOPHY ── */
+        .phil-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+        .phil-card {
+            padding: 3rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            position: relative; overflow: hidden;
+            transition: all 0.4s;
+        }
+        .phil-card:not(:last-child) { border-right: none; }
+        .phil-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 0; width: 4px; height: 0;
+            transition: height 0.5s;
+        }
+        .phil-card:nth-child(1)::before { background: var(--blue); }
+        .phil-card:nth-child(2)::before { background: var(--red); }
+        .phil-card:nth-child(3)::before { background: linear-gradient(180deg, var(--blue), var(--red)); }
+        .phil-card:hover::before { height: 100%; }
+        .phil-card:hover { background: rgba(255,255,255,0.02); }
+        .phil-icon { font-size: 2rem; margin-bottom: 1.5rem; }
+        .phil-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem; letter-spacing: 0.02em;
+            margin-bottom: 1rem;
+        }
+        .phil-card:nth-child(1) .phil-title { color: var(--blue); }
+        .phil-card:nth-child(2) .phil-title { color: var(--red); }
+        .phil-card:nth-child(3) .phil-title { background: linear-gradient(135deg, var(--blue), var(--red)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .phil-text { font-size: 0.95rem; line-height: 1.7; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; }
+        .phil-list { list-style: none; }
+        .phil-list li {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem; padding: 0.5rem 0;
+            color: rgba(255,255,255,0.4);
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* ── CASES ── */
+        .cases-section { background: var(--off-white); color: var(--black); }
+        .cases-section .section-title { color: var(--black); }
+        .case-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+        .case-card {
+            position: relative; overflow: hidden;
+            aspect-ratio: 3/4; cursor: pointer;
+        }
+        .case-card:not(:last-child) { border-right: 2px solid var(--off-white); }
+        .case-bg { position: absolute; inset: 0; transition: transform 0.6s; }
+        .case-card:nth-child(1) .case-bg { background: var(--blue); }
+        .case-card:nth-child(2) .case-bg { background: var(--black); }
+        .case-card:nth-child(3) .case-bg { background: var(--red); }
+        .case-card:hover .case-bg { transform: scale(1.06); }
+        .case-inner {
+            position: absolute; inset: 0;
+            padding: 2.5rem;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            z-index: 2; color: white;
+        }
+        .case-num {
+            position: absolute; top: 1.5rem; right: 2rem;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 8rem; opacity: 0.08; line-height: 1;
+        }
+        .case-tag-lbl {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.58rem; text-transform: uppercase;
+            letter-spacing: 0.2em;
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: 0.3rem 0.7rem;
+            display: inline-block; width: fit-content;
+            margin-bottom: 1rem;
+        }
+        .case-name {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.5rem; letter-spacing: 0.02em;
+            margin-bottom: 0.5rem;
+        }
+        .case-desc { font-size: 0.9rem; line-height: 1.5; opacity: 0.65; margin-bottom: 1.5rem; }
+        .case-stats-row { display: flex; gap: 2rem; }
+        .cs-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; }
+        .cs-lbl { font-family: 'Space Mono', monospace; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5; }
+
+        /* ── SERVICES ── */
+        .svc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+        .svc-card {
+            padding: 3rem; border: 1px solid rgba(255,255,255,0.08);
+            position: relative; transition: all 0.4s;
+        }
+        .svc-card:not(:last-child) { border-right: none; }
+        .svc-card.feat {
+            background: linear-gradient(180deg, rgba(26,63,186,0.12), rgba(229,25,59,0.06));
+            border-color: rgba(26,63,186,0.2);
+        }
+        .svc-card:hover { background: rgba(255,255,255,0.03); transform: translateY(-4px); }
+        .svc-badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.1em;
+            position: absolute; top: 0; right: 2rem;
+            padding: 0.3rem 0.8rem; color: white;
+            overflow: hidden;
+        }
+        .svc-badge::before {
+            content: ''; position: absolute; inset: 0;
+            background: var(--blue); transform: skewX(-5deg);
+        }
+        .svc-badge::after {
+            content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 50%;
+            background: var(--red); transform: skewX(-5deg);
+        }
+        .svc-badge span { position: relative; z-index: 1; }
+        .svc-icon { font-size: 2rem; margin-bottom: 1.5rem; }
+        .svc-title { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; letter-spacing: 0.02em; margin-bottom: 0.75rem; }
+        .svc-desc { font-size: 0.95rem; line-height: 1.6; color: rgba(255,255,255,0.45); margin-bottom: 1.5rem; }
+        .svc-price { font-family: 'Bebas Neue', sans-serif; font-size: 2.8rem; margin-bottom: 0.25rem; }
+        .svc-price .old { font-size: 1.4rem; text-decoration: line-through; opacity: 0.3; margin-left: 0.5rem; }
+        .svc-price .per { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: rgba(255,255,255,0.4); }
+        .svc-features { list-style: none; margin: 1.5rem 0 2rem; }
+        .svc-features li {
+            font-family: 'Space Mono', monospace; font-size: 0.68rem;
+            padding: 0.5rem 0; color: rgba(255,255,255,0.4);
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .svc-btn {
+            width: 100%; padding: 0.9rem;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68rem; text-transform: uppercase;
+            letter-spacing: 0.1em; cursor: pointer;
+            background: transparent; color: white;
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: all 0.3s; position: relative; overflow: hidden;
+        }
+        .svc-btn:hover { color: white; border-color: transparent; }
+        .svc-btn::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(90deg, var(--blue), var(--red));
+            transform: scaleX(0); transform-origin: left;
+            transition: transform 0.4s;
+        }
+        .svc-btn:hover::before { transform: scaleX(1); }
+        .svc-btn span { position: relative; z-index: 1; }
+
+        /* ── FINAL CTA ── */
+        .final-cta {
+            padding: 0; display: grid; grid-template-columns: 1fr 1fr;
+            min-height: 60vh;
+        }
+        .cta-blue {
+            background: var(--blue); display: flex; align-items: center;
+            justify-content: flex-end; padding: 5rem;
+        }
+        .cta-red {
+            background: var(--red); display: flex; align-items: center;
+            padding: 5rem;
+        }
+        .cta-content {
+            text-align: center; max-width: 600px;
+            position: relative; z-index: 2;
+            grid-column: 1 / -1;
+            position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .final-cta { position: relative; }
+        .final-cta h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(3rem, 6vw, 5.5rem);
+            line-height: 1; letter-spacing: 0.02em;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 4px 30px rgba(0,0,0,0.3);
+        }
+        .final-cta p {
+            font-size: 1.05rem; line-height: 1.7;
+            opacity: 0.75; max-width: 500px;
+            margin: 0 auto 2.5rem;
+        }
+        .final-guarantee {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.15em; opacity: 0.5;
+            margin-top: 2rem;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            background: var(--black); padding: 5rem 3rem 2rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .footer-grid {
+            max-width: 1300px; margin: 0 auto;
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem; margin-bottom: 4rem;
+        }
+        .footer-brand { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 0.03em; margin-bottom: 1rem; }
+        .footer-brand .fb { color: var(--blue); }
+        .footer-brand .fr { color: var(--red); }
+        .footer-tagline { color: rgba(255,255,255,0.4); font-size: 0.9rem; line-height: 1.7; max-width: 320px; }
+        .footer-col-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.2em; margin-bottom: 1.5rem;
+        }
+        .fc-blue { color: var(--blue); }
+        .fc-red { color: var(--red); }
+        .footer-col ul { list-style: none; }
+        .footer-col li { margin-bottom: 0.75rem; }
+        .footer-col a { color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.9rem; transition: color 0.3s; }
+        .footer-col a:hover { color: white; }
+        .footer-bottom {
+            max-width: 1300px; margin: 0 auto;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 2rem;
+            display: flex; justify-content: space-between;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.1em; color: rgba(255,255,255,0.3);
+        }
+
+        /* ── ANIMATIONS ── */
+        .anim { opacity: 0; transform: translateY(25px); transition: all 0.7s cubic-bezier(0.16,1,0.3,1); }
+        .anim.on { opacity: 1; transform: none; }
+        .ad1 { transition-delay: 0.1s; } .ad2 { transition-delay: 0.2s; } .ad3 { transition-delay: 0.3s; }
+
+        @media (max-width: 1024px) {
+            .hero { grid-template-columns: 1fr; min-height: auto; }
+            .hero-blue, .hero-red { display: none; }
+            .hero-divider { display: none; }
+            .hero-center { position: relative; top: auto; left: auto; transform: none; padding: 8rem 2rem 4rem; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .phil-grid, .case-grid, .svc-grid { grid-template-columns: 1fr; }
+            .phil-card, .svc-card { border-right: 1px solid rgba(255,255,255,0.08) !important; }
+            .case-card { border-right: none !important; border-bottom: 2px solid var(--off-white); }
+            .final-cta { grid-template-columns: 1fr; min-height: auto; }
+            .cta-blue, .cta-red { display: none; }
+            .cta-content { position: relative; left: auto; top: auto; transform: none; padding: 5rem 2rem; }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            nav { padding: 1rem 1.5rem; } .nav-links { display: none; }
+            section { padding: 5rem 1.5rem; }
+            .footer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-inner">
+        <div class="logo"><span class="k-blue">KA</span><span class="k-red">MIL</span></div>
+        <ul class="nav-links">
+            <li><a href="#phil">Philosophy</a></li>
+            <li><a href="#cases">Case Studies</a></li>
+            <li><a href="#svc">Services</a></li>
+        </ul>
+        <a href="#cta" class="nav-cta"><span>Book Call</span></a>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="hero-blue"></div>
+    <div class="hero-red"></div>
+    <div class="hero-divider"></div>
+    <div class="hero-center">
+        <div class="hero-badge">★ Trusted by 50+ Founders</div>
+        <h1>AI-POWERED GROWTH<br>FOR <span class="t-blue">AMBITIOUS</span><br><span class="t-red">FOUNDERS</span></h1>
+        <p class="hero-sub">From first customer to exit strategy. Leverage AI to scale faster, work smarter, and build companies worth acquiring.</p>
+        <div class="hero-ctas">
+            <a href="#cta" class="btn-split fill"><span>Book Free Strategy Call →</span></a>
+            <a href="#cases" class="btn-split outline"><span>View Case Studies</span></a>
+        </div>
+    </div>
+</section>
+
+<div class="stats-bar">
+    <div class="stat-cell anim"><div class="stat-val">$4.5M</div><div class="stat-lbl">Exit Value</div></div>
+    <div class="stat-cell anim ad1"><div class="stat-val">2000%</div><div class="stat-lbl">Peak ROAS</div></div>
+    <div class="stat-cell anim ad2"><div class="stat-val">84%</div><div class="stat-lbl">Open Rate</div></div>
+    <div class="stat-cell anim ad3"><div class="stat-val">50+</div><div class="stat-lbl">Founders</div></div>
+</div>
+
+<section id="phil">
+    <div class="container">
+        <div class="section-header anim">
+            <span class="section-tag tag-blue">The Philosophy</span>
+            <h2 class="section-title">THEORY <span style="color:var(--red)">VS</span> PRACTICE</h2>
+        </div>
+        <div class="phil-grid">
+            <div class="phil-card anim">
+                <div class="phil-icon">🛡️</div>
+                <h3 class="phil-title">THE SKEPTIC</h3>
+                <p class="phil-text">"Most AI tools are overhyped. Most growth tactics fail. Most founders chase shiny objects instead of fundamentals."</p>
+                <ul class="phil-list"><li>→ Ruthless prioritization</li><li>→ Data over intuition</li><li>→ Risk mitigation first</li></ul>
+            </div>
+            <div class="phil-card anim ad1">
+                <div class="phil-icon">🚀</div>
+                <h3 class="phil-title">THE OPTIMIST</h3>
+                <p class="phil-text">"AI is the biggest leverage point in human history. Bold moves create breakout success."</p>
+                <ul class="phil-list"><li>→ First-mover advantage</li><li>→ Experiment aggressively</li><li>→ Think in 10x, not 10%</li></ul>
+            </div>
+            <div class="phil-card anim ad2">
+                <div class="phil-icon">⚖️</div>
+                <h3 class="phil-title">THE SYNTHESIS</h3>
+                <p class="phil-text">"Use AI to amplify what works. Test boldly, but measure ruthlessly."</p>
+                <ul class="phil-list"><li>→ Validated learning loops</li><li>→ Strategic AI integration</li><li>→ Sustainable acceleration</li></ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cases-section" id="cases">
+    <div class="container">
+        <div class="section-header anim">
+            <span class="section-tag tag-red">Proof of Work</span>
+            <h2 class="section-title" style="color:var(--black)">CASE STUDIES</h2>
+        </div>
+        <div class="case-grid">
+            <div class="case-card anim"><div class="case-bg"></div><div class="case-inner"><div class="case-num">01</div><span class="case-tag-lbl">E-commerce</span><h3 class="case-name">NATURE QUEEN</h3><p class="case-desc">AI-powered retention system that transformed customer LTV</p><div class="case-stats-row"><div><div class="cs-val">3.2x</div><div class="cs-lbl">LTV Increase</div></div><div><div class="cs-val">84%</div><div class="cs-lbl">Open Rate</div></div></div></div></div>
+            <div class="case-card anim ad1"><div class="case-bg"></div><div class="case-inner"><div class="case-num">02</div><span class="case-tag-lbl">B2B SaaS</span><h3 class="case-name">STONECO</h3><p class="case-desc">Automated pipeline with AI SDRs and personalization</p><div class="case-stats-row"><div><div class="cs-val">$100K</div><div class="cs-lbl">Pipeline/Mo</div></div><div><div class="cs-val">40%</div><div class="cs-lbl">Cost Reduction</div></div></div></div></div>
+            <div class="case-card anim ad2"><div class="case-bg"></div><div class="case-inner"><div class="case-num">03</div><span class="case-tag-lbl">Growth Agency</span><h3 class="case-name">WAVE GROWTH</h3><p class="case-desc">Complete AI transformation and exit preparation</p><div class="case-stats-row"><div><div class="cs-val">2000%</div><div class="cs-lbl">Peak ROAS</div></div><div><div class="cs-val">$4.5M</div><div class="cs-lbl">Exit Value</div></div></div></div></div>
+        </div>
+    </div>
+</section>
+
+<section id="svc">
+    <div class="container">
+        <div class="section-header anim">
+            <span class="section-tag tag-blue">How I Help</span>
+            <h2 class="section-title">GROWTH <span style="color:var(--red)">PARTNERSHIPS</span></h2>
+        </div>
+        <div class="svc-grid">
+            <div class="svc-card anim">
+                <div class="svc-icon">🔍</div><h3 class="svc-title">GROWTH AUDIT</h3>
+                <p class="svc-desc">Comprehensive analysis of your growth engine with actionable AI roadmap.</p>
+                <div class="svc-price">$2,500 <span class="old">$5,000</span></div>
+                <ul class="svc-features"><li>2-week deep dive</li><li>AI opportunity scan</li><li>90-day action plan</li><li>1-hour strategy call</li></ul>
+                <button class="svc-btn"><span>Get Started</span></button>
+            </div>
+            <div class="svc-card feat anim ad1">
+                <div class="svc-badge"><span>Most Popular</span></div>
+                <div class="svc-icon">🤝</div><h3 class="svc-title">AI PARTNERSHIP</h3>
+                <p class="svc-desc">Ongoing strategic partnership to implement AI across your growth stack.</p>
+                <div class="svc-price">$8K-15K <span class="per">/month</span></div>
+                <ul class="svc-features"><li>Weekly strategy calls</li><li>AI system implementation</li><li>Team training</li><li>Performance monitoring</li><li>Priority support</li></ul>
+                <button class="svc-btn"><span>Apply Now</span></button>
+            </div>
+            <div class="svc-card anim ad2">
+                <div class="svc-icon">🎯</div><h3 class="svc-title">EXIT PREP</h3>
+                <p class="svc-desc">Comprehensive acquisition preparation including documentation and buyer outreach.</p>
+                <div class="svc-price">Custom</div>
+                <ul class="svc-features"><li>Valuation optimization</li><li>Documentation package</li><li>Buyer identification</li><li>Negotiation support</li></ul>
+                <button class="svc-btn"><span>Schedule Call</span></button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="final-cta" id="cta">
+    <div class="cta-blue"></div>
+    <div class="cta-red"></div>
+    <div class="cta-content">
+        <h2>READY TO<br>10X YOUR GROWTH?</h2>
+        <p>Book a free 30-minute strategy call. We'll diagnose your biggest growth opportunity and map out an AI-powered plan.</p>
+        <a href="#" class="btn-split fill" style="display:inline-block;"><span>Book Free Strategy Call →</span></a>
+        <div class="final-guarantee">★ No pitch, no pressure — just actionable insights</div>
+    </div>
+</section>
+
+<footer>
+    <div class="footer-grid">
+        <div><div class="footer-brand"><span class="fb">KA</span><span class="fr">MIL.</span></div><p class="footer-tagline">AI-Powered Growth Partner helping ambitious founders scale and build companies worth acquiring.</p></div>
+        <div class="footer-col"><div class="footer-col-title fc-blue">Services</div><ul><li><a href="#">Growth Audit</a></li><li><a href="#">AI Partnership</a></li><li><a href="#">Exit Prep</a></li></ul></div>
+        <div class="footer-col"><div class="footer-col-title fc-red">Resources</div><ul><li><a href="#">Case Studies</a></li><li><a href="#">AI Tools Guide</a></li><li><a href="#">Newsletter</a></li></ul></div>
+        <div class="footer-col"><div class="footer-col-title fc-blue">Connect</div><ul><li><a href="#">LinkedIn</a></li><li><a href="#">Twitter/X</a></li><li><a href="#">Email</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><span>© 2025 Kamil Skicki</span><span>Design 3 — Split Duality</span></div>
+</footer>
+
+<script>
+const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('on'); });
+}, {threshold: 0.1});
+document.querySelectorAll('.anim').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>

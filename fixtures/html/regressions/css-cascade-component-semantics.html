@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>CSS cascade and component semantics regression</title>
+    <style>
+        #inline-wins { color: #006600; }
+        .later-class { color: #0000cc; }
+        .important-wins { color: #2222aa !important; }
+        .inline-important { color: #aa2222 !important; }
+    </style>
+</head>
+<body>
+    <main>
+        <p id="inline-wins" class="later-class" style="color: #ff8800">INLINE_WINS</p>
+        <p class="important-wins" style="color: #ff8800">STYLESHEET_IMPORTANT_WINS</p>
+        <p class="inline-important" style="color: #008888 !important">INLINE_IMPORTANT_WINS</p>
+
+        <div class="account-summary"><h2>Account</h2><p>Balance</p></div>
+        <div class="legal-notice"><h2>Legal</h2><p>Terms</p></div>
+        <div class="hero-copy"><h2>Welcome</h2><p>Intro</p></div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MAXIMUS - Diagnostyka</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Noto+Serif:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-container": "#fecf93",
+                      "on-surface-variant": "#564240",
+                      "on-error-container": "#93000a",
+                      "inverse-surface": "#352f2c",
+                      "on-primary-fixed-variant": "#822622",
+                      "paper-soft": "#E8DED0",
+                      "on-secondary-fixed": "#291800",
+                      "on-tertiary-container": "#7cadc8",
+                      "tertiary-fixed-dim": "#9ccde9",
+                      "surface-container-highest": "#ece0db",
+                      "surface-bright": "#fff8f5",
+                      "oxblood-deep": "#4D0907",
+                      "inverse-primary": "#ffb3ac",
+                      "ink-black": "#17120F",
+                      "error": "#ba1a1a",
+                      "on-secondary-container": "#795726",
+                      "on-background": "#201a17",
+                      "secondary-fixed": "#ffddb4",
+                      "on-secondary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "ivory-base": "#F3EDE4",
+                      "tertiary": "#002a3a",
+                      "primary": "#540306",
+                      "on-tertiary-fixed": "#001e2b",
+                      "brass-accent": "#9A7440",
+                      "surface": "#fff8f5",
+                      "paper-bright": "#FCF9F4",
+                      "background": "#fff8f5",
+                      "secondary-fixed-dim": "#ecbf84",
+                      "oxblood-primary": "#731B19",
+                      "on-surface": "#201a17",
+                      "inverse-on-surface": "#faeee9",
+                      "outline-variant": "#ddc0bd",
+                      "error-container": "#ffdad6",
+                      "copper-highlight": "#BE8656",
+                      "primary-container": "#731b19",
+                      "on-primary-fixed": "#410003",
+                      "ink-soft": "#544B45",
+                      "on-tertiary": "#ffffff",
+                      "tertiary-fixed": "#c1e8ff",
+                      "surface-tint": "#a13d37",
+                      "surface-container-high": "#f2e6e0",
+                      "on-secondary-fixed-variant": "#604111",
+                      "tertiary-container": "#004158",
+                      "on-primary": "#ffffff",
+                      "surface-container-low": "#fdf1ec",
+                      "surface-variant": "#ece0db",
+                      "secondary": "#7a5827",
+                      "on-primary-container": "#fd8279",
+                      "outline": "#89716f",
+                      "surface-dim": "#e3d8d2",
+                      "on-tertiary-fixed-variant": "#144c63",
+                      "surface-container": "#f7ece6",
+                      "primary-fixed-dim": "#ffb3ac",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-fixed": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "section-gap": "120px",
+                      "gutter-grid": "24px",
+                      "component-padding": "16px",
+                      "unit": "8px",
+                      "margin-page": "64px"
+              },
+              "fontFamily": {
+                      "wordmark-aux": ["Noto Serif"],
+                      "body-main": ["Inter"],
+                      "section-headline": ["Noto Serif"],
+                      "metadata-label": ["Inter"],
+                      "hero-serif": ["Noto Serif"]
+              },
+              "fontSize": {
+                      "wordmark-aux": ["14px", { "lineHeight": "1", "letterSpacing": "0.2em", "fontWeight": "500" }],
+                      "body-main": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                      "section-headline": ["32px", { "lineHeight": "1.2", "fontWeight": "400" }],
+                      "metadata-label": ["12px", { "lineHeight": "1.4", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                      "hero-serif": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400" }]
+              }
+            }
+          }
+        };
+    </script>
+</head>
+<body class="bg-ivory-base text-on-background min-h-screen flex flex-col font-body-main selection:bg-primary-container selection:text-on-primary-container">
+<!-- Minimal Header (Transactional Intent: Suppress full nav) -->
+<header class="w-full py-8 px-8 md:px-12 flex justify-between items-center border-b border-outline-variant/30">
+<button class="font-metadata-label text-metadata-label text-ink-soft hover:text-primary transition-colors duration-300 flex items-center gap-2 uppercase tracking-widest">
+<span class="material-symbols-outlined text-[16px]">arrow_back</span>
+            Przerwij
+        </button>
+<span class="font-wordmark-aux text-wordmark-aux text-primary uppercase">Maximus</span>
+<div class="w-[100px] hidden md:block"></div> <!-- Spacer for perfect centering -->
+</header>
+<!-- Progress Visualization -->
+<div class="w-full max-w-4xl mx-auto px-8 pt-16 pb-12">
+<div class="relative flex justify-between items-center w-full">
+<!-- Connecting Line -->
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[1px] bg-outline-variant/40 -z-10"></div>
+<!-- Step 1: Active -->
+<div class="flex flex-col items-center gap-3 bg-ivory-base px-4">
+<div class="w-2.5 h-2.5 rounded-full bg-primary ring-[6px] ring-ivory-base"></div>
+<span class="font-metadata-label text-metadata-label text-primary uppercase">Diagnoza</span>
+</div>
+<!-- Step 2: Inactive -->
+<div class="flex flex-col items-center gap-3 bg-ivory-base px-4">
+<div class="w-2.5 h-2.5 rounded-full bg-outline-variant ring-[6px] ring-ivory-base"></div>
+<span class="font-metadata-label text-metadata-label text-outline uppercase">Rekomendacja</span>
+</div>
+<!-- Step 3: Inactive -->
+<div class="flex flex-col items-center gap-3 bg-ivory-base px-4">
+<div class="w-2.5 h-2.5 rounded-full bg-outline-variant ring-[6px] ring-ivory-base"></div>
+<span class="font-metadata-label text-metadata-label text-outline uppercase">Start</span>
+</div>
+</div>
+</div>
+<!-- Main Questionnaire Canvas -->
+<main class="flex-grow w-full max-w-3xl mx-auto px-8 pb-32">
+<div class="text-center mb-20">
+<h1 class="font-hero-serif text-hero-serif text-primary mb-6">Profilaktyka</h1>
+<p class="font-body-main text-body-main text-ink-soft max-w-lg mx-auto">
+                Aby zapewnić Ci najwyższy standard opieki i precyzję planowania, potrzebujemy poznać Twoje aktualne parametry oraz intencje treningowe.
+            </p>
+</div>
+<form class="flex flex-col gap-20">
+<!-- Question Block 1 -->
+<section>
+<div class="flex items-end gap-4 border-b border-outline-variant/40 pb-4 mb-8">
+<span class="font-metadata-label text-metadata-label text-outline">01.</span>
+<h2 class="font-metadata-label text-metadata-label text-oxblood-primary uppercase">Główny wektor adaptacji</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Option A: Unselected -->
+<label class="group relative block cursor-pointer">
+<input class="peer sr-only" name="goal" type="radio" value="strength"/>
+<div class="h-full border border-outline-variant bg-paper-soft p-8 transition-all duration-300 peer-checked:bg-primary peer-checked:border-primary peer-checked:text-on-primary hover:border-primary/50">
+<span class="material-symbols-outlined text-3xl mb-6 text-ink-soft peer-checked:text-on-primary group-hover:text-primary transition-colors">fitness_center</span>
+<h3 class="font-metadata-label text-metadata-label mb-2 uppercase group-hover:text-primary peer-checked:text-on-primary">Siła Absolutna</h3>
+<p class="font-body-main text-body-main text-sm text-ink-soft peer-checked:text-on-primary/80">Budowa masy mięśniowej i maksymalizacja parametrów siłowych.</p>
+</div>
+</label>
+<!-- Option B: Selected (Simulated via initial classes for preview, but relying on peer for interaction if it were functional) -->
+<label class="group relative block cursor-pointer">
+<input checked="" class="peer sr-only" name="goal" type="radio" value="conditioning"/>
+<div class="h-full border border-primary bg-primary text-on-primary p-8 transition-all duration-300">
+<span class="material-symbols-outlined text-3xl mb-6">directions_run</span>
+<h3 class="font-metadata-label text-metadata-label mb-2 uppercase">Kondycja &amp; Redukcja</h3>
+<p class="font-body-main text-body-main text-sm text-on-primary/80">Optymalizacja składu ciała i wydolności tlenowej.</p>
+</div>
+</label>
+<!-- Option C: Unselected -->
+<label class="group relative block cursor-pointer">
+<input class="peer sr-only" name="goal" type="radio" value="mobility"/>
+<div class="h-full border border-outline-variant bg-paper-soft p-8 transition-all duration-300 peer-checked:bg-primary peer-checked:border-primary peer-checked:text-on-primary hover:border-primary/50">
+<span class="material-symbols-outlined text-3xl mb-6 text-ink-soft group-hover:text-primary transition-colors">accessibility_new</span>
+<h3 class="font-metadata-label text-metadata-label mb-2 uppercase group-hover:text-primary">Mobilność &amp; Zdrowie</h3>
+<p class="font-body-main text-body-main text-sm text-ink-soft">Prewencja kontuzji, poprawa zakresu ruchu i ogólnej witalności.</p>
+</div>
+</label>
+<!-- Option D: Unselected -->
+<label class="group relative block cursor-pointer">
+<input class="peer sr-only" name="goal" type="radio" value="athletics"/>
+<div class="h-full border border-outline-variant bg-paper-soft p-8 transition-all duration-300 peer-checked:bg-primary peer-checked:border-primary peer-checked:text-on-primary hover:border-primary/50">
+<span class="material-symbols-outlined text-3xl mb-6 text-ink-soft group-hover:text-primary transition-colors">sports_martial_arts</span>
+<h3 class="font-metadata-label text-metadata-label mb-2 uppercase group-hover:text-primary">Motoryka</h3>
+<p class="font-body-main text-body-main text-sm text-ink-soft">Przygotowanie pod konkretną dyscyplinę sportową.</p>
+</div>
+</label>
+</div>
+</section>
+<!-- Question Block 2 -->
+<section>
+<div class="flex items-end gap-4 border-b border-outline-variant/40 pb-4 mb-8">
+<span class="font-metadata-label text-metadata-label text-outline">02.</span>
+<h2 class="font-metadata-label text-metadata-label text-oxblood-primary uppercase">Obecny status fizyczny</h2>
+</div>
+<div class="flex flex-col gap-3">
+<label class="group relative cursor-pointer">
+<input class="peer sr-only" name="level" type="radio" value="beginner"/>
+<div class="flex items-center justify-between border border-outline-variant bg-paper-soft px-6 py-5 transition-all duration-300 peer-checked:border-primary peer-checked:bg-primary/5 hover:border-primary/50">
+<span class="font-body-main text-body-main group-hover:text-primary peer-checked:text-primary peer-checked:font-semibold">Fundament (Początkujący)</span>
+<div class="w-5 h-5 rounded-full border border-outline-variant flex items-center justify-center peer-checked:border-primary">
+<div class="w-2.5 h-2.5 bg-primary rounded-full opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+</div>
+</div>
+</label>
+<label class="group relative cursor-pointer">
+<input checked="" class="peer sr-only" name="level" type="radio" value="intermediate"/>
+<div class="flex items-center justify-between border border-primary bg-primary/5 px-6 py-5 transition-all duration-300">
+<span class="font-body-main text-body-main text-primary font-semibold">Rozwój (Średniozaawansowany)</span>
+<div class="w-5 h-5 rounded-full border border-primary flex items-center justify-center">
+<div class="w-2.5 h-2.5 bg-primary rounded-full"></div>
+</div>
+</div>
+</label>
+<label class="group relative cursor-pointer">
+<input class="peer sr-only" name="level" type="radio" value="advanced"/>
+<div class="flex items-center justify-between border border-outline-variant bg-paper-soft px-6 py-5 transition-all duration-300 peer-checked:border-primary peer-checked:bg-primary/5 hover:border-primary/50">
+<span class="font-body-main text-body-main group-hover:text-primary peer-checked:text-primary peer-checked:font-semibold">Elita (Zaawansowany)</span>
+<div class="w-5 h-5 rounded-full border border-outline-variant flex items-center justify-center peer-checked:border-primary">
+<div class="w-2.5 h-2.5 bg-primary rounded-full opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+</div>
+</div>
+</label>
+</div>
+</section>
+<!-- Question Block 3 -->
+<section>
+<div class="flex items-end gap-4 border-b border-outline-variant/40 pb-4 mb-8">
+<span class="font-metadata-label text-metadata-label text-outline">03.</span>
+<h2 class="font-metadata-label text-metadata-label text-oxblood-primary uppercase">Dostępność czasowa</h2>
+</div>
+<div class="grid grid-cols-4 gap-2 md:gap-4">
+<label class="group relative cursor-pointer">
+<input class="peer sr-only" name="days" type="radio" value="2"/>
+<div class="border border-outline-variant bg-paper-soft py-6 text-center transition-all duration-300 hover:border-primary/50 peer-checked:bg-ink-black peer-checked:border-ink-black peer-checked:text-on-primary">
+<span class="font-section-headline text-section-headline block text-ink-soft peer-checked:text-on-primary mb-1">2</span>
+<span class="font-metadata-label text-metadata-label text-ink-soft peer-checked:text-on-primary/70 uppercase">Dni</span>
+</div>
+</label>
+<label class="group relative cursor-pointer">
+<input checked="" class="peer sr-only" name="days" type="radio" value="3"/>
+<div class="border border-ink-black bg-ink-black text-on-primary py-6 text-center transition-all duration-300">
+<span class="font-section-headline text-section-headline block mb-1">3</span>
+<span class="font-metadata-label text-metadata-label text-on-primary/70 uppercase">Dni</span>
+</div>
+</label>
+<label class="group relative cursor-pointer">
+<input class="peer sr-only" name="days" type="radio" value="4"/>
+<div class="border border-outline-variant bg-paper-soft py-6 text-center transition-all duration-300 hover:border-primary/50 peer-checked:bg-ink-black peer-checked:border-ink-black peer-checked:text-on-primary">
+<span class="font-section-headline text-section-headline block text-ink-soft peer-checked:text-on-primary mb-1">4</span>
+<span class="font-metadata-label text-metadata-label text-ink-soft peer-checked:text-on-primary/70 uppercase">Dni</span>
+</div>
+</label>
+<label class="group relative cursor-pointer">
+<input class="peer sr-only" name="days" type="radio" value="5"/>
+<div class="border border-outline-variant bg-paper-soft py-6 text-center transition-all duration-300 hover:border-primary/50 peer-checked:bg-ink-black peer-checked:border-ink-black peer-checked:text-on-primary">
+<span class="font-section-headline text-section-headline block text-ink-soft peer-checked:text-on-primary mb-1">5+</span>
+<span class="font-metadata-label text-metadata-label text-ink-soft peer-checked:text-on-primary/70 uppercase">Dni</span>
+</div>
+</label>
+</div>
+</section>
+<!-- Action Area -->
+<div class="pt-12 border-t border-outline-variant/40 flex justify-end">
+<button class="bg-oxblood-deep text-on-primary px-10 py-5 font-metadata-label text-metadata-label uppercase tracking-widest hover:bg-primary transition-colors flex items-center gap-4" type="button">
+                    Generuj Rekomendację
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</form>
+</main>
+</body></html>

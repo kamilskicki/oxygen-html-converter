@@ -1,0 +1,435 @@
+{
+  "version": 1,
+  "id": "m5-03-basic-site-kit",
+  "enableOxygenPartImports": true,
+  "pages": [
+    {
+      "id": "home",
+      "title": "Home",
+      "slug": "home",
+      "postStatus": "publish",
+      "documentTree": {
+        "root": {
+          "id": 0,
+          "data": {
+            "type": "root",
+            "properties": {}
+          },
+          "children": [
+            {
+              "id": 1,
+              "data": {
+                "type": "OxygenElements\\Container",
+                "properties": {
+                  "settings": {
+                    "advanced": {
+                      "tag": "header"
+                    }
+                  }
+                }
+              },
+              "children": [
+                {
+                  "id": 2,
+                  "data": {
+                    "type": "OxygenElements\\Text",
+                    "properties": {
+                      "content": {
+                        "content": {
+                          "text": "M5 Site Kit Home"
+                        }
+                      },
+                      "settings": {
+                        "advanced": {
+                          "tag": "h1"
+                        }
+                      }
+                    }
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        "_nextNodeId": 3,
+        "exportedLookupTable": {}
+      }
+    }
+  ],
+  "templates": [
+    {
+      "id": "single-post",
+      "title": "Single Post",
+      "documentTree": {
+        "root": {
+          "id": 0,
+          "data": {
+            "type": "root",
+            "properties": {}
+          },
+          "children": [
+            {
+              "id": 1,
+              "data": {
+                "type": "OxygenElements\\Text",
+                "properties": {
+                  "content": {
+                    "content": {
+                      "text": "M5 Site Kit Single Template"
+                    }
+                  },
+                  "settings": {
+                    "advanced": {
+                      "tag": "h1"
+                    }
+                  }
+                }
+              },
+              "children": []
+            }
+          ]
+        },
+        "_nextNodeId": 2,
+        "exportedLookupTable": {}
+      },
+      "templateSettings": {
+        "type": "all-singles",
+        "ruleGroups": [
+          [
+            {
+              "operand": "is one of",
+              "ruleCategorySlug": "singular",
+              "ruleSlug": "post-type",
+              "ruleDynamic": "",
+              "value": [
+                "post"
+              ]
+            }
+          ]
+        ],
+        "triggers": [],
+        "priority": 10000,
+        "fallback": false
+      }
+    },
+    {
+      "id": "archive-posts",
+      "title": "Posts Archive",
+      "documentTree": {
+        "root": {
+          "id": 0,
+          "data": {
+            "type": "root",
+            "properties": {}
+          },
+          "children": [
+            {
+              "id": 1,
+              "data": {
+                "type": "OxygenElements\\Text",
+                "properties": {
+                  "content": {
+                    "content": {
+                      "text": "M7 Site Kit Archive Template"
+                    }
+                  },
+                  "settings": {
+                    "advanced": {
+                      "tag": "h1"
+                    }
+                  }
+                }
+              },
+              "children": []
+            }
+          ]
+        },
+        "_nextNodeId": 2,
+        "exportedLookupTable": {}
+      },
+      "templateSettings": {
+        "type": "post-type-archive",
+        "ruleGroups": [
+          [
+            {
+              "operand": "is",
+              "ruleCategorySlug": "archive",
+              "ruleSlug": "post-type-archive",
+              "ruleDynamic": "",
+              "value": [
+                "post"
+              ]
+            }
+          ]
+        ],
+        "triggers": [],
+        "priority": 10000,
+        "fallback": false
+      }
+    }
+  ],
+  "headers": [
+    {
+      "id": "site-header",
+      "title": "Site Header",
+      "documentTree": {
+        "root": {
+          "id": 0,
+          "data": {
+            "type": "root",
+            "properties": {}
+          },
+          "children": [
+            {
+              "id": 1,
+              "data": {
+                "type": "OxygenElements\\Container",
+                "properties": {
+                  "settings": {
+                    "advanced": {
+                      "tag": "header"
+                    }
+                  }
+                }
+              },
+              "children": [
+                {
+                  "id": 2,
+                  "data": {
+                    "type": "OxygenElements\\Text",
+                    "properties": {
+                      "content": {
+                        "content": {
+                          "text": "M5 Site Kit Header"
+                        }
+                      },
+                      "settings": {
+                        "advanced": {
+                          "tag": "p"
+                        }
+                      }
+                    }
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        "_nextNodeId": 3,
+        "exportedLookupTable": {}
+      },
+      "templateSettings": {
+        "type": "everywhere",
+        "ruleGroups": [],
+        "triggers": [],
+        "priority": 10000,
+        "fallback": false
+      }
+    }
+  ],
+  "footers": [
+    {
+      "id": "site-footer",
+      "title": "Site Footer",
+      "documentTree": {
+        "root": {
+          "id": 0,
+          "data": {
+            "type": "root",
+            "properties": {}
+          },
+          "children": [
+            {
+              "id": 1,
+              "data": {
+                "type": "OxygenElements\\Container",
+                "properties": {
+                  "settings": {
+                    "advanced": {
+                      "tag": "footer"
+                    }
+                  }
+                }
+              },
+              "children": [
+                {
+                  "id": 2,
+                  "data": {
+                    "type": "OxygenElements\\Text",
+                    "properties": {
+                      "content": {
+                        "content": {
+                          "text": "M5 Site Kit Footer"
+                        }
+                      },
+                      "settings": {
+                        "advanced": {
+                          "tag": "p"
+                        }
+                      }
+                    }
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        "_nextNodeId": 3,
+        "exportedLookupTable": {}
+      },
+      "templateSettings": {
+        "type": "everywhere",
+        "ruleGroups": [],
+        "triggers": [],
+        "priority": 10000,
+        "fallback": false
+      }
+    }
+  ],
+  "parts": [
+    {
+      "id": "reusable-cta",
+      "title": "Reusable CTA",
+      "documentTree": {
+        "root": {
+          "id": 0,
+          "data": {
+            "type": "root",
+            "properties": {}
+          },
+          "children": [
+            {
+              "id": 1,
+              "data": {
+                "type": "OxygenElements\\Container",
+                "properties": {
+                  "settings": {
+                    "advanced": {
+                      "tag": "section"
+                    }
+                  }
+                }
+              },
+              "children": []
+            }
+          ]
+        },
+        "_nextNodeId": 2,
+        "exportedLookupTable": {}
+      },
+      "templateSettings": null
+    }
+  ],
+  "homepage": {
+    "pageId": "home",
+    "slug": "home"
+  },
+  "menus": [
+    {
+      "id": "primary",
+      "name": "Primary",
+      "location": "primary",
+      "items": [
+        {
+          "label": "Home",
+          "targetPageId": "home"
+        }
+      ]
+    }
+  ],
+  "tokens": {
+    "colors": [
+      {
+        "value": "#731B19",
+        "uses": 2,
+        "suggestedName": "color-731b19"
+      }
+    ],
+    "spacing": [
+      {
+        "value": "24px",
+        "uses": 1,
+        "suggestedName": "space-24px"
+      }
+    ],
+    "fonts": [
+      {
+        "value": "Inter",
+        "uses": 1,
+        "suggestedName": "font-inter"
+      }
+    ]
+  },
+  "globalSettings": {
+    "settings": {
+      "typography": {
+        "body": {
+          "fontFamily": "Inter"
+        }
+      }
+    }
+  },
+  "selectors": [
+    {
+      "id": "selector-site-kit-hero",
+      "name": "site-kit-hero",
+      "collection": "Site Kit",
+      "locked": false,
+      "children": [],
+      "properties": {
+        "breakpoint_base": {
+          "typography": {
+            "color": "#731B19"
+          }
+        }
+      }
+    }
+  ],
+  "collections": [
+    "Site Kit"
+  ],
+  "fallbackCss": ".site-kit-fallback { display: grid; gap: 24px; }",
+  "assets": [
+    {
+      "id": "hero-image",
+      "type": "image",
+      "source": "fixtures/html/site-kit/hero.jpg",
+      "status": "referenced"
+    }
+  ],
+  "unsupportedItems": [
+    {
+      "id": "external-form",
+      "type": "form",
+      "status": "deferred",
+      "reason": "M7 dynamic/form scope"
+    },
+    {
+      "id": "post-title-binding",
+      "operation": "dynamic_bindings",
+      "type": "dynamic_data",
+      "status": "pro",
+      "extensionPoint": "oxy_html_converter_pro_dynamic_binding_mapper",
+      "reason": "CMS dynamic binding examples are reported as Pro scope in Core."
+    },
+    {
+      "id": "latest-posts-loop",
+      "operation": "loops",
+      "type": "query_loop",
+      "status": "pro",
+      "extensionPoint": "oxy_html_converter_pro_loop_mapper",
+      "reason": "Query loop examples are reported as Pro scope in Core."
+    },
+    {
+      "id": "product-card-area",
+      "operation": "woocommerce",
+      "type": "woocommerce",
+      "status": "pro",
+      "extensionPoint": "oxy_html_converter_pro_woocommerce_mapper",
+      "reason": "WooCommerce product areas are reported as Pro scope in Core."
+    }
+  ]
+}

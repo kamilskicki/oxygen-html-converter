@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dziedzictwo Maximus</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Noto+Serif:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#564240",
+                        "ink-black": "#17120F",
+                        "tertiary": "#002a3a",
+                        "tertiary-container": "#004158",
+                        "oxblood-primary": "#731B19",
+                        "tertiary-fixed-dim": "#9ccde9",
+                        "on-primary-container": "#fd8279",
+                        "inverse-primary": "#ffb3ac",
+                        "brass-accent": "#9A7440",
+                        "secondary-container": "#fecf93",
+                        "on-surface": "#201a17",
+                        "copper-highlight": "#BE8656",
+                        "surface-bright": "#fff8f5",
+                        "on-background": "#201a17",
+                        "outline-variant": "#ddc0bd",
+                        "on-error-container": "#93000a",
+                        "surface-container": "#f7ece6",
+                        "on-primary-fixed-variant": "#822622",
+                        "inverse-on-surface": "#faeee9",
+                        "surface-container-highest": "#ece0db",
+                        "on-secondary-fixed-variant": "#604111",
+                        "primary-container": "#731b19",
+                        "tertiary-fixed": "#c1e8ff",
+                        "surface-container-lowest": "#ffffff",
+                        "outline": "#89716f",
+                        "ivory-base": "#F3EDE4",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#7cadc8",
+                        "on-tertiary-fixed-variant": "#144c63",
+                        "on-secondary-container": "#795726",
+                        "surface-container-high": "#f2e6e0",
+                        "paper-soft": "#E8DED0",
+                        "secondary": "#7a5827",
+                        "surface-tint": "#a13d37",
+                        "primary": "#540306",
+                        "primary-fixed-dim": "#ffb3ac",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#410003",
+                        "secondary-fixed": "#ffddb4",
+                        "error-container": "#ffdad6",
+                        "surface": "#fff8f5",
+                        "oxblood-deep": "#4D0907",
+                        "inverse-surface": "#352f2c",
+                        "on-secondary-fixed": "#291800",
+                        "surface-variant": "#ece0db",
+                        "surface-container-low": "#fdf1ec",
+                        "paper-bright": "#FCF9F4",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#ecbf84",
+                        "ink-soft": "#544B45",
+                        "background": "#fff8f5",
+                        "primary-fixed": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#e3d8d2",
+                        "on-tertiary-fixed": "#001e2b",
+                        "on-primary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-page": "64px",
+                        "component-padding": "16px",
+                        "section-gap": "120px",
+                        "unit": "8px",
+                        "gutter-grid": "24px"
+                    },
+                    "fontFamily": {
+                        "wordmark-aux": ["Noto Serif"],
+                        "hero-serif": ["Noto Serif"],
+                        "metadata-label": ["Inter"],
+                        "body-main": ["Inter"],
+                        "section-headline": ["Noto Serif"]
+                    },
+                    "fontSize": {
+                        "wordmark-aux": ["14px", { "lineHeight": "1", "letterSpacing": "0.2em", "fontWeight": "500" }],
+                        "hero-serif": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+                        "metadata-label": ["12px", { "lineHeight": "1.4", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                        "body-main": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "section-headline": ["32px", { "lineHeight": "1.2", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-ivory-base text-ink-black font-body-main antialiased selection:bg-oxblood-primary selection:text-ivory-base">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-ivory-base dark:bg-ink-black border-b border-brass-accent/20">
+<div class="flex justify-between items-center h-20 px-margin-page w-full max-w-full">
+<div class="font-hero-serif text-section-headline font-bold text-oxblood-deep dark:text-primary-fixed uppercase tracking-tight">
+                PHYSICAL CULTURE
+            </div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="font-wordmark-aux text-wordmark-aux uppercase tracking-widest text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300 scale-95 duration-200 ease-in-out" href="#">Dla kogo</a>
+<a class="font-wordmark-aux text-wordmark-aux uppercase tracking-widest text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300 scale-95 duration-200 ease-in-out" href="#">Programy</a>
+<a class="font-wordmark-aux text-wordmark-aux uppercase tracking-widest text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300 scale-95 duration-200 ease-in-out" href="#">Startery</a>
+<a class="font-wordmark-aux text-wordmark-aux uppercase tracking-widest text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300 scale-95 duration-200 ease-in-out" href="#">Memberships</a>
+<a class="font-wordmark-aux text-wordmark-aux uppercase tracking-widest text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300 scale-95 duration-200 ease-in-out" href="#">Premium</a>
+<a class="font-wordmark-aux text-wordmark-aux uppercase tracking-widest text-ink-soft dark:text-outline-variant hover:text-oxblood-primary dark:hover:text-primary-fixed transition-colors duration-300 scale-95 duration-200 ease-in-out" href="#">Lokalizacje</a>
+</div>
+<div class="hidden md:block">
+<button class="font-metadata-label text-metadata-label uppercase px-6 py-3 bg-oxblood-primary text-ivory-base hover:bg-oxblood-deep transition-colors duration-300 tracking-wider">Dołącz</button>
+</div>
+<button class="md:hidden text-ink-black dark:text-ivory-base">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="pt-32 pb-section-gap px-margin-page">
+<!-- Hero Section: Dziedzictwo Maximus -->
+<section class="max-w-7xl mx-auto mb-section-gap grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid items-center">
+<div class="lg:col-span-6 lg:pr-12">
+<h1 class="font-hero-serif text-hero-serif text-oxblood-deep mb-8 leading-tight">Dziedzictwo<br/>Maximus</h1>
+<div class="w-16 h-[2px] bg-brass-accent mb-8"></div>
+<p class="font-body-main text-body-main text-ink-soft mb-8 max-w-lg">
+                    Siła, dyscyplina i prestiż. Od MMVII roku definiujemy standardy kultury fizycznej. Nie jesteśmy miejscem przelotnych trendów, lecz instytucją, która pielęgnuje etos pracy i najwyższą jakość rzemiosła treningowego.
+                </p>
+</div>
+<div class="lg:col-span-6 h-[600px] relative">
+<img alt="Maximus Heritage" class="w-full h-full object-cover grayscale opacity-90" data-alt="A moody, high-contrast photograph of an elegant, vintage-style gym weight plate resting on a dark wooden floor. The lighting is cinematic, casting deep shadows and highlighting the texture of the iron and wood. The atmosphere conveys a sense of heritage, discipline, and premium athletic craftsmanship, aligned with an editorial, minimalist aesthetic featuring deep blacks, oxblood tones, and ivory highlights." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7SMLNdLMb_V2PC7G4OPRwuBufqKulBQWOXpT0tGtVndLK7LHkSFaNBQYF32KLszpwGXpi_1II7hZCTCENhAXbOvwOam7_hvKqxDBPi2Tl1P1JeF_SrKhbfeJ_hhU6z_Ve1tI4x03ABBXQe9rakdxBWxfwZXLi1lNve6brRerl_dnHnhWEXrIkB-qTY-DM6WUjsiLLbqxundvtvK0Wbf3N2D4gHDBnhHRGONYHc04E5Qff3-67aCJrbr-r2OJs75fBSkoDjQauOUo"/>
+<div class="absolute inset-0 bg-oxblood-deep/10 mix-blend-multiply"></div>
+</div>
+</section>
+<!-- Section: Standard Maximus -->
+<section class="max-w-7xl mx-auto mb-section-gap bg-paper-soft p-12 lg:p-24 relative">
+<div class="absolute top-0 right-12 w-[1px] h-24 bg-oxblood-primary"></div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid">
+<div class="lg:col-span-4">
+<h2 class="font-section-headline text-section-headline text-oxblood-deep mb-6">Standard<br/>Maximus</h2>
+<p class="font-metadata-label text-metadata-label text-brass-accent uppercase tracking-widest mb-4">Bez Kompromisów</p>
+</div>
+<div class="lg:col-span-8">
+<p class="font-body-main text-body-main text-ink-black text-lg leading-relaxed mb-8">
+                        Każdy detal przestrzeni klubowej jest starannie wyselekcjonowany, by wspierać koncentrację. Sprzęt nie jest tylko narzędziem – jest świadectwem inżynieryjnej perfekcji. Oczekujemy od naszych członków szacunku do otoczenia, współtworząc atmosferę ekskluzywnego skupienia.
+                    </p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<img alt="Equipment Detail" class="w-full h-64 object-cover grayscale" data-alt="A detailed close-up of polished steel and black leather on premium fitness equipment. The image is sharply focused with a shallow depth of field, emphasizing the high-quality materials and craftsmanship. The lighting is stark and directional, creating a sense of authority and quiet power in an elegant, minimalist setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCz118nrufv9dZTdV2cEYGb2WVERVjn0H3qEUdN26nKyW2XbuwSlLLlOYG1IivQRD2EwtbnVcz5qZrChb0m3G_QwBiZrF3re0GByiGhKE9Os-Xjqh_bX2Ss5LjG_L53zT67mA4IZHPvX5IBCVD4fw0nIs8dBIrqf9fi_9PUSFfDnvAbFsITv9BG-n2te9oCTaFWPL8XD0Ys1arWWzyFEQKzOTaw_hYs1BxtxSLNHWzt-kCPGHaJmfDvKk9CMicaQIGFBXDW3F5ZNhE"/>
+<img alt="Training Hall" class="w-full h-64 object-cover grayscale" data-alt="A wide, architectural shot of an expansive, empty training hall with high ceilings and tall windows. Soft, natural light streams in, highlighting the pristine hardwood floors and symmetrically arranged heavy bags. The space feels solemn, prestigious, and deeply atmospheric, capturing the essence of heritage minimalism and disciplined focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCta0wPsRZaD1rMsrZdSVt5jYWvpMdktNKpyocYYEhnMqfO99SQR_hhALBCAT5Fx42SA7qbpndQqmZAvBY9V1-iR-9TRl1AlpBtkHUGx1R4T2ycMxEQsyX9Ps6T86b8w9uCdkQpUrBM1bZNtO8eC-ymCdHBqVRJJaNghkrWF9NtrDGkMGiybAlLATuNfdW2mUDKx_eGwmpqcXyBYirqKAl0U3UTp-d2WiAYoCRXIoIoC8H4ryllRxQF3QuZ8tKeQF-wnlc1P7WXtkw"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: Nasza Metoda -->
+<section class="max-w-7xl mx-auto mb-section-gap grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid items-center">
+<div class="lg:col-span-5 order-2 lg:order-1 h-[500px]">
+<img alt="Focus and Discipline" class="w-full h-full object-cover grayscale" data-alt="A striking portrait of an athlete in a moment of intense concentration before a lift. The background is completely dark, isolating the subject in a dramatic pool of white light. The image exudes discipline, mental fortitude, and premium editorial prestige, utilizing deep shadows to emphasize physical and mental strength." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBx7ihIUA6EhUxWJFfNpbYW0ZEptLob-NA7ffKwXNU_y3_qkI4J2waVh1d6ApbR2AgM_3UQRcQwFAvULTp-LackgZonos41daB5X_V5pDJKlMWFaM6CbCbW8TNhppS7YK4HGzsyFn5mHvqr-qABRcLnfSZ0j4d-YhKS-5CI-sk4zHGT5Lj-cCuoPEoon4ncCRLdsCNHz6YrcVFjXnIaHP7CPS2a0B6ilw4--vDNjVD-I0EUPbyFkl8cIVbZPes0QkviSKjVhG0SlVU"/>
+</div>
+<div class="lg:col-span-6 lg:col-start-7 order-1 lg:order-2 bg-oxblood-primary text-ivory-base p-12 lg:p-16 relative">
+<span class="material-symbols-outlined text-4xl mb-6 text-brass-accent">shield</span>
+<h2 class="font-section-headline text-section-headline mb-6">Nasza Metoda</h2>
+<p class="font-body-main text-body-main opacity-90 leading-relaxed">
+                    Opieramy się na fundamentalnych zasadach biomechaniki i fizjologii. Odrzucamy powierzchowne rozwiązania na rzecz głębokiej, metodycznej pracy. Proces wymaga czasu, cierpliwości i absolutnego poświęcenia. To droga dla tych, którzy rozumieją, że prawdziwa transformacja zachodzi w ciszy i wysiłku.
+                </p>
+<div class="mt-8 border-t border-brass-accent/30 pt-6">
+<p class="font-metadata-label text-metadata-label uppercase tracking-widest text-brass-accent">Dyscyplina. Fundament. Wynik.</p>
+</div>
+</div>
+</section>
+<!-- Section: Ludzie -->
+<section class="max-w-7xl mx-auto mb-section-gap">
+<div class="text-center mb-16">
+<h2 class="font-hero-serif text-section-headline text-oxblood-deep mb-4">Ludzie</h2>
+<div class="w-12 h-[1px] bg-brass-accent mx-auto"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter-grid">
+<div class="border border-ink-soft/20 p-8 hover:bg-paper-soft transition-colors duration-300">
+<p class="font-metadata-label text-metadata-label text-oxblood-primary uppercase tracking-widest mb-6">Mistrzowie Rzemiosła</p>
+<p class="font-body-main text-body-main text-ink-black leading-relaxed">
+                        Nasi trenerzy to wyselekcjonowani specjaliści, łączący akademicką wiedzę z latami praktyki. Ich autorytet opiera się na wymiernych rezultatach.
+                    </p>
+</div>
+<div class="border border-ink-soft/20 p-8 hover:bg-paper-soft transition-colors duration-300">
+<p class="font-metadata-label text-metadata-label text-oxblood-primary uppercase tracking-widest mb-6">Społeczność</p>
+<p class="font-body-main text-body-main text-ink-black leading-relaxed">
+                        Członkowie Maximus to jednostki zdeterminowane, dążące do perfekcji w każdej dziedzinie życia. Wspólnie tworzymy kulturę wymagań.
+                    </p>
+</div>
+<div class="border border-ink-soft/20 p-8 hover:bg-paper-soft transition-colors duration-300">
+<p class="font-metadata-label text-metadata-label text-oxblood-primary uppercase tracking-widest mb-6">Wzór Postępowania</p>
+<p class="font-body-main text-body-main text-ink-black leading-relaxed">
+                        Honorujemy punktualność, zaangażowanie i szacunek. Wzajemnie inspirujemy się do przekraczania własnych granic w absolutnej ciszy skupienia.
+                    </p>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full bg-paper-soft dark:bg-ink-black border-t border-brass-accent/10">
+<div class="flex flex-col md:flex-row justify-between items-center py-section-gap px-margin-page gap-gutter-grid max-w-7xl mx-auto">
+<div class="font-hero-serif text-section-headline text-oxblood-primary uppercase tracking-tight">
+                PHYSICAL CULTURE
+            </div>
+<div class="flex flex-wrap justify-center gap-8">
+<a class="font-metadata-label text-metadata-label uppercase text-ink-soft dark:text-outline-variant hover:text-brass-accent transition-colors duration-300 opacity-80 hover:opacity-100" href="#">Regulamin</a>
+<a class="font-metadata-label text-metadata-label uppercase text-ink-soft dark:text-outline-variant hover:text-brass-accent transition-colors duration-300 opacity-80 hover:opacity-100" href="#">Polityka Prywatności</a>
+<a class="font-metadata-label text-metadata-label uppercase text-ink-soft dark:text-outline-variant hover:text-brass-accent transition-colors duration-300 opacity-80 hover:opacity-100" href="#">Kontakt</a>
+<a class="font-metadata-label text-metadata-label uppercase text-ink-soft dark:text-outline-variant hover:text-brass-accent transition-colors duration-300 opacity-80 hover:opacity-100" href="#">FAQ</a>
+</div>
+<div class="font-metadata-label text-metadata-label uppercase text-ink-black dark:text-ivory-base">
+                © 2024 PHYSICAL CULTURE CLUB. ALL RIGHTS RESERVED.
+            </div>
+</div>
+</footer>
+</body></html>

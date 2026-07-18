@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kamil Skicki | Design 1 — Editorial Brutalist</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900;1,6..96,400;1,6..96,700&family=JetBrains+Mono:wght@300;400;500;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #D41920;
+            --blue: #0A2463;
+            --bone: #F5F0E8;
+            --ink: #1A1A1A;
+            --paper: #EDE8DD;
+        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Libre Baskerville', serif;
+            background: var(--bone);
+            color: var(--ink);
+            overflow-x: hidden;
+        }
+
+        /* ── NOISE TEXTURE ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1.5rem 3rem;
+            background: var(--bone);
+            border-bottom: 3px solid var(--ink);
+            mix-blend-mode: normal;
+        }
+        .logo {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 2rem; font-weight: 900;
+            letter-spacing: -0.04em;
+        }
+        .logo span { color: var(--red); }
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+        .nav-links a {
+            text-decoration: none; color: var(--ink);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.15em; font-weight: 500;
+            position: relative;
+        }
+        .nav-links a::after {
+            content: ''; position: absolute; bottom: -4px; left: 0;
+            width: 0; height: 2px; background: var(--red);
+            transition: width 0.3s;
+        }
+        .nav-links a:hover::after { width: 100%; }
+        .nav-cta {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.1em; font-weight: 700;
+            padding: 0.75rem 1.5rem;
+            background: var(--red); color: white;
+            text-decoration: none; border: none;
+            transition: all 0.3s;
+        }
+        .nav-cta:hover { background: var(--blue); }
+
+        /* ── HERO ── */
+        .hero {
+            min-height: 100vh;
+            padding: 10rem 3rem 6rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            position: relative;
+            border-bottom: 3px solid var(--ink);
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%; bottom: 0;
+            width: 3px;
+            background: var(--ink);
+        }
+        .hero-left {
+            padding-right: 4rem;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+        .hero-right {
+            padding-left: 4rem;
+            display: flex; flex-direction: column; justify-content: center;
+            position: relative;
+        }
+        .hero-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.2em; color: var(--red);
+            border: 1px solid var(--red);
+            padding: 0.4rem 1rem;
+            display: inline-block; width: fit-content;
+            margin-bottom: 2rem;
+        }
+        .hero h1 {
+            font-family: 'Bodoni Moda', serif;
+            font-size: clamp(3.5rem, 7vw, 7rem);
+            font-weight: 900;
+            line-height: 0.92;
+            letter-spacing: -0.04em;
+            margin-bottom: 2rem;
+        }
+        .hero h1 em {
+            font-style: italic;
+            color: var(--red);
+        }
+        .hero h1 .blue { color: var(--blue); }
+        .hero-sub {
+            font-size: 1.15rem; line-height: 1.8;
+            color: #555; max-width: 480px;
+            margin-bottom: 2.5rem;
+        }
+        .hero-ctas { display: flex; gap: 1rem; }
+        .btn-brutalist {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; text-transform: uppercase;
+            letter-spacing: 0.12em; font-weight: 700;
+            padding: 1rem 2rem;
+            text-decoration: none; border: 3px solid var(--ink);
+            color: var(--ink); background: transparent;
+            position: relative; transition: all 0.3s;
+            cursor: pointer;
+        }
+        .btn-brutalist:hover { background: var(--ink); color: var(--bone); }
+        .btn-brutalist.fill {
+            background: var(--red); color: white; border-color: var(--red);
+        }
+        .btn-brutalist.fill:hover { background: var(--blue); border-color: var(--blue); }
+
+        /* Stats column */
+        .hero-stats {
+            display: flex; flex-direction: column; gap: 3rem;
+        }
+        .stat-block { position: relative; }
+        .stat-block::before {
+            content: '';
+            position: absolute; left: -4rem; top: 0;
+            width: 40px; height: 3px;
+            background: var(--red);
+        }
+        .stat-number {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 5rem; font-weight: 900;
+            line-height: 1; letter-spacing: -0.04em;
+        }
+        .stat-number.red { color: var(--red); }
+        .stat-number.blue { color: var(--blue); }
+        .stat-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.15em; color: #888;
+            margin-top: 0.5rem;
+        }
+
+        /* ── MARQUEE ── */
+        .marquee-bar {
+            background: var(--ink); color: var(--bone);
+            padding: 1rem 0; overflow: hidden;
+            border-bottom: 3px solid var(--ink);
+        }
+        .marquee-track {
+            display: flex; animation: scroll 20s linear infinite;
+        }
+        .marquee-content {
+            display: flex; flex-shrink: 0; gap: 3rem;
+            padding: 0 1.5rem;
+        }
+        .marquee-content span {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 1.1rem; font-weight: 700;
+            white-space: nowrap; letter-spacing: 0.05em;
+        }
+        .marquee-content span::after {
+            content: ' ✦'; color: var(--red);
+        }
+        @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        /* ── PHILOSOPHY SECTION ── */
+        .philosophy {
+            padding: 8rem 3rem;
+            border-bottom: 3px solid var(--ink);
+        }
+        .section-header {
+            margin-bottom: 5rem;
+        }
+        .section-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.25em; color: var(--blue);
+            margin-bottom: 1rem; display: block;
+        }
+        .section-title {
+            font-family: 'Bodoni Moda', serif;
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 900; line-height: 1;
+            letter-spacing: -0.03em;
+        }
+        .section-title .red { color: var(--red); }
+        .section-title .blue { color: var(--blue); }
+
+        .philosophy-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+        }
+        .phil-card {
+            padding: 3rem;
+            border: 2px solid var(--ink);
+            position: relative;
+            transition: all 0.4s;
+        }
+        .phil-card:hover { background: var(--ink); color: var(--bone); }
+        .phil-card:nth-child(1) { border-right: none; }
+        .phil-card:nth-child(2) { border-right: none; }
+        .phil-card-icon {
+            font-size: 2rem; margin-bottom: 1.5rem;
+            display: block;
+        }
+        .phil-card h3 {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 1.8rem; font-weight: 900;
+            margin-bottom: 1rem;
+        }
+        .phil-card:nth-child(1) h3 { color: var(--blue); }
+        .phil-card:nth-child(2) h3 { color: var(--red); }
+        .phil-card:nth-child(3) h3 { color: #C9A84C; }
+        .phil-card:hover h3 { color: inherit; }
+        .phil-card p {
+            font-size: 0.95rem; line-height: 1.8;
+            color: #666; margin-bottom: 1.5rem;
+        }
+        .phil-card:hover p { color: #aaa; }
+        .phil-list { list-style: none; }
+        .phil-list li {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; padding: 0.6rem 0;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: #777;
+        }
+        .phil-card:hover .phil-list li { border-color: rgba(255,255,255,0.15); color: #999; }
+        .phil-list li::before { content: '→ '; color: var(--red); font-weight: bold; }
+
+        /* ── CASE STUDIES ── */
+        .cases {
+            padding: 8rem 3rem;
+            background: var(--ink); color: var(--bone);
+            position: relative;
+        }
+        .cases .section-tag { color: var(--red); }
+        .cases .section-title .red { color: var(--red); }
+        .case-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            margin-top: 5rem;
+        }
+        .case-card {
+            aspect-ratio: 3/4;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .case-bg {
+            position: absolute; inset: 0;
+            transition: transform 0.6s;
+        }
+        .case-card:nth-child(1) .case-bg { background: linear-gradient(160deg, #0A2463 0%, #1B4D8E 100%); }
+        .case-card:nth-child(2) .case-bg { background: linear-gradient(160deg, #D41920 0%, #8B1015 100%); }
+        .case-card:nth-child(3) .case-bg { background: linear-gradient(160deg, #2D2D2D 0%, #0A0A0A 100%); }
+        .case-card:hover .case-bg { transform: scale(1.05); }
+        .case-content {
+            position: absolute; inset: 0;
+            padding: 2.5rem;
+            display: flex; flex-direction: column;
+            justify-content: flex-end;
+            z-index: 2;
+        }
+        .case-number {
+            position: absolute; top: 1.5rem; left: 2.5rem;
+            font-family: 'Bodoni Moda', serif;
+            font-size: 8rem; font-weight: 900;
+            opacity: 0.1; line-height: 1;
+        }
+        .case-tag-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.2em;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.3rem 0.8rem;
+            display: inline-block; width: fit-content;
+            margin-bottom: 1rem; color: rgba(255,255,255,0.8);
+        }
+        .case-name {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 2.2rem; font-weight: 900;
+            margin-bottom: 0.75rem;
+        }
+        .case-desc {
+            font-size: 0.9rem; line-height: 1.6;
+            opacity: 0.7; margin-bottom: 1.5rem;
+        }
+        .case-stats-row { display: flex; gap: 2rem; }
+        .case-stat-val {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 1.5rem; font-weight: 900;
+        }
+        .case-stat-lbl {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.1em; opacity: 0.5;
+        }
+
+        /* ── SERVICES ── */
+        .services {
+            padding: 8rem 3rem;
+            border-bottom: 3px solid var(--ink);
+        }
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+            margin-top: 5rem;
+        }
+        .service-card {
+            padding: 3rem;
+            border: 2px solid var(--ink);
+            position: relative;
+            transition: all 0.4s;
+        }
+        .service-card:not(:last-child) { border-right: none; }
+        .service-card.featured {
+            background: var(--ink); color: var(--bone);
+        }
+        .service-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.15em;
+            background: var(--red); color: white;
+            padding: 0.3rem 0.8rem;
+            position: absolute; top: 0; right: 2rem;
+        }
+        .service-icon { font-size: 2rem; margin-bottom: 1.5rem; }
+        .service-title {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 2rem; font-weight: 900;
+            margin-bottom: 1rem;
+        }
+        .service-desc {
+            font-size: 0.95rem; line-height: 1.8;
+            color: #666; margin-bottom: 2rem;
+        }
+        .service-card.featured .service-desc { color: #aaa; }
+        .service-price {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 2.5rem; font-weight: 900;
+            margin-bottom: 0.5rem;
+        }
+        .service-price .old {
+            font-size: 1.2rem; text-decoration: line-through;
+            opacity: 0.4; margin-left: 0.5rem;
+        }
+        .service-price .period {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.1em; opacity: 0.5;
+        }
+        .service-features {
+            list-style: none; margin: 1.5rem 0 2rem;
+        }
+        .service-features li {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem; padding: 0.6rem 0;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            text-transform: uppercase; letter-spacing: 0.06em;
+            color: #777;
+        }
+        .service-card.featured .service-features li {
+            border-color: rgba(255,255,255,0.1); color: #999;
+        }
+        .service-btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem; text-transform: uppercase;
+            letter-spacing: 0.12em; font-weight: 700;
+            padding: 1rem 2rem; width: 100%;
+            border: 2px solid var(--ink); background: transparent;
+            color: var(--ink); cursor: pointer;
+            transition: all 0.3s;
+        }
+        .service-btn:hover { background: var(--red); color: white; border-color: var(--red); }
+        .service-card.featured .service-btn {
+            border-color: var(--bone); color: var(--bone);
+        }
+        .service-card.featured .service-btn:hover {
+            background: var(--red); border-color: var(--red);
+        }
+
+        /* ── FINAL CTA ── */
+        .final-cta {
+            padding: 10rem 3rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            background: var(--paper);
+            border-bottom: 3px solid var(--ink);
+        }
+        .final-cta::before {
+            content: 'GROWTH';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Bodoni Moda', serif;
+            font-size: 18vw; font-weight: 900;
+            color: var(--ink); opacity: 0.03;
+            white-space: nowrap;
+        }
+        .final-cta h2 {
+            font-family: 'Bodoni Moda', serif;
+            font-size: clamp(3rem, 6vw, 6rem);
+            font-weight: 900; line-height: 1;
+            letter-spacing: -0.04em;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        .final-cta h2 em { color: var(--red); font-style: italic; }
+        .final-cta p {
+            font-size: 1.1rem; line-height: 1.8;
+            color: #666; max-width: 560px;
+            margin: 0 auto 3rem;
+            position: relative;
+        }
+        .final-guarantee {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.15em; color: #888;
+            margin-top: 2rem; position: relative;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            background: var(--ink); color: var(--bone);
+            padding: 5rem 3rem 2rem;
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem; margin-bottom: 4rem;
+        }
+        .footer-brand-name {
+            font-family: 'Bodoni Moda', serif;
+            font-size: 2.5rem; font-weight: 900;
+            margin-bottom: 1rem;
+        }
+        .footer-brand-name span { color: var(--red); }
+        .footer-tagline {
+            font-size: 0.9rem; line-height: 1.8;
+            color: #888; max-width: 350px;
+        }
+        .footer-col-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.2em; color: var(--red);
+            margin-bottom: 1.5rem;
+        }
+        .footer-col ul { list-style: none; }
+        .footer-col li { margin-bottom: 0.75rem; }
+        .footer-col a {
+            color: #888; text-decoration: none;
+            font-size: 0.9rem; transition: color 0.3s;
+        }
+        .footer-col a:hover { color: var(--bone); }
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 2rem;
+            display: flex; justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem; text-transform: uppercase;
+            letter-spacing: 0.1em; color: #666;
+        }
+
+        /* ── ANIMATIONS ── */
+        .reveal {
+            opacity: 0; transform: translateY(30px);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal.visible { opacity: 1; transform: none; }
+        .delay-1 { transition-delay: 0.1s; }
+        .delay-2 { transition-delay: 0.2s; }
+        .delay-3 { transition-delay: 0.3s; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 1024px) {
+            .hero { grid-template-columns: 1fr; }
+            .hero::before { display: none; }
+            .hero-left { padding-right: 0; }
+            .hero-right { padding-left: 0; padding-top: 3rem; }
+            .philosophy-grid, .case-grid, .services-grid { grid-template-columns: 1fr; }
+            .phil-card, .service-card { border-right: 2px solid var(--ink) !important; border-bottom: none; }
+            .phil-card:last-child, .service-card:last-child { border-bottom: 2px solid var(--ink); }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            nav { padding: 1rem 1.5rem; }
+            .nav-links { display: none; }
+            .hero { padding: 8rem 1.5rem 4rem; }
+            .hero h1 { font-size: 3rem; }
+            .philosophy, .cases, .services, .final-cta { padding: 5rem 1.5rem; }
+            footer { padding: 3rem 1.5rem 1.5rem; }
+            .footer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="logo">Kamil<span>.</span></div>
+    <ul class="nav-links">
+        <li><a href="#philosophy">Philosophy</a></li>
+        <li><a href="#cases">Case Studies</a></li>
+        <li><a href="#services">Services</a></li>
+    </ul>
+    <a href="#cta" class="nav-cta">Book Strategy Call</a>
+</nav>
+
+<section class="hero">
+    <div class="hero-left">
+        <div class="hero-badge reveal">★ Trusted by 50+ Founders</div>
+        <h1 class="reveal delay-1">AI-Powered<br>Growth for<br><em>Ambitious</em><br>Founders<span class="blue">.</span></h1>
+        <p class="hero-sub reveal delay-2">From first customer to exit strategy. I help founders leverage AI to scale faster, work smarter, and build companies worth acquiring.</p>
+        <div class="hero-ctas reveal delay-3">
+            <a href="#cta" class="btn-brutalist fill">Book Free Call</a>
+            <a href="#cases" class="btn-brutalist">Case Studies</a>
+        </div>
+    </div>
+    <div class="hero-right">
+        <div class="hero-stats">
+            <div class="stat-block reveal">
+                <div class="stat-number red">$4.5M</div>
+                <div class="stat-label">Exit Value Created</div>
+            </div>
+            <div class="stat-block reveal delay-1">
+                <div class="stat-number blue">2000%</div>
+                <div class="stat-label">Peak ROAS Achieved</div>
+            </div>
+            <div class="stat-block reveal delay-2">
+                <div class="stat-number red">84%</div>
+                <div class="stat-label">Email Open Rate</div>
+            </div>
+            <div class="stat-block reveal delay-3">
+                <div class="stat-number blue">50+</div>
+                <div class="stat-label">Founders Helped</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="marquee-bar">
+    <div class="marquee-track">
+        <div class="marquee-content">
+            <span>$4.5M Exits</span><span>2000% ROAS</span><span>84% Open Rate</span><span>50+ Founders</span><span>AI-Powered Growth</span><span>$100K Pipeline/Mo</span>
+        </div>
+        <div class="marquee-content">
+            <span>$4.5M Exits</span><span>2000% ROAS</span><span>84% Open Rate</span><span>50+ Founders</span><span>AI-Powered Growth</span><span>$100K Pipeline/Mo</span>
+        </div>
+    </div>
+</div>
+
+<section class="philosophy" id="philosophy">
+    <div class="section-header reveal">
+        <span class="section-tag">The Philosophy</span>
+        <h2 class="section-title">Theory <span class="red">vs</span> Practice</h2>
+    </div>
+    <div class="philosophy-grid">
+        <div class="phil-card reveal">
+            <span class="phil-card-icon">🛡️</span>
+            <h3>The Skeptic</h3>
+            <p>"Most AI tools are overhyped. Most growth tactics fail. Most founders chase shiny objects instead of fundamentals."</p>
+            <ul class="phil-list">
+                <li>Ruthless prioritization</li>
+                <li>Data over intuition</li>
+                <li>Risk mitigation first</li>
+            </ul>
+        </div>
+        <div class="phil-card reveal delay-1">
+            <span class="phil-card-icon">🚀</span>
+            <h3>The Optimist</h3>
+            <p>"AI is the biggest leverage point in human history. Bold moves create breakout success. Speed beats perfection."</p>
+            <ul class="phil-list">
+                <li>First-mover advantage</li>
+                <li>Experiment aggressively</li>
+                <li>Think in 10x, not 10%</li>
+            </ul>
+        </div>
+        <div class="phil-card reveal delay-2">
+            <span class="phil-card-icon">⚖️</span>
+            <h3>The Synthesis</h3>
+            <p>"Use AI to amplify what works. Test boldly, but measure ruthlessly. Move fast, but don't break the core."</p>
+            <ul class="phil-list">
+                <li>Validated learning loops</li>
+                <li>Strategic AI integration</li>
+                <li>Sustainable acceleration</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="cases" id="cases">
+    <div class="section-header reveal">
+        <span class="section-tag">Proof of Work</span>
+        <h2 class="section-title">Case <span class="red">Studies</span></h2>
+    </div>
+    <div class="case-grid">
+        <div class="case-card reveal">
+            <div class="case-bg"></div>
+            <div class="case-content">
+                <div class="case-number">01</div>
+                <span class="case-tag-label">E-commerce</span>
+                <h3 class="case-name">Nature Queen</h3>
+                <p class="case-desc">AI-powered retention system that transformed customer LTV</p>
+                <div class="case-stats-row">
+                    <div><div class="case-stat-val">3.2x</div><div class="case-stat-lbl">LTV Increase</div></div>
+                    <div><div class="case-stat-val">84%</div><div class="case-stat-lbl">Open Rate</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="case-card reveal delay-1">
+            <div class="case-bg"></div>
+            <div class="case-content">
+                <div class="case-number">02</div>
+                <span class="case-tag-label">B2B SaaS</span>
+                <h3 class="case-name">StoneCo</h3>
+                <p class="case-desc">Automated pipeline generation with AI SDRs and personalization</p>
+                <div class="case-stats-row">
+                    <div><div class="case-stat-val">$100K</div><div class="case-stat-lbl">Pipeline/Mo</div></div>
+                    <div><div class="case-stat-val">40%</div><div class="case-stat-lbl">Cost Reduction</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="case-card reveal delay-2">
+            <div class="case-bg"></div>
+            <div class="case-content">
+                <div class="case-number">03</div>
+                <span class="case-tag-label">Growth Agency</span>
+                <h3 class="case-name">Wave Growth</h3>
+                <p class="case-desc">Complete AI transformation and exit preparation</p>
+                <div class="case-stats-row">
+                    <div><div class="case-stat-val">2000%</div><div class="case-stat-lbl">Peak ROAS</div></div>
+                    <div><div class="case-stat-val">$4.5M</div><div class="case-stat-lbl">Exit Value</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="services" id="services">
+    <div class="section-header reveal">
+        <span class="section-tag">How I Help</span>
+        <h2 class="section-title">Growth <span class="red">Partnerships</span></h2>
+    </div>
+    <div class="services-grid">
+        <div class="service-card reveal">
+            <div class="service-icon">🔍</div>
+            <h3 class="service-title">Growth Audit</h3>
+            <p class="service-desc">A comprehensive analysis of your current growth engine with actionable AI integration roadmap.</p>
+            <div class="service-price">$2,500 <span class="old">$5,000</span></div>
+            <ul class="service-features">
+                <li>2-week deep dive</li>
+                <li>AI opportunity scan</li>
+                <li>90-day action plan</li>
+                <li>1-hour strategy call</li>
+            </ul>
+            <button class="service-btn">Get Started</button>
+        </div>
+        <div class="service-card featured reveal delay-1">
+            <span class="service-badge">Most Popular</span>
+            <div class="service-icon">🤝</div>
+            <h3 class="service-title">AI Partnership</h3>
+            <p class="service-desc">Ongoing strategic partnership to implement AI across your growth stack and optimize continuously.</p>
+            <div class="service-price">$8K-15K <span class="period">/month</span></div>
+            <ul class="service-features">
+                <li>Weekly strategy calls</li>
+                <li>AI system implementation</li>
+                <li>Team training & enablement</li>
+                <li>Performance monitoring</li>
+                <li>Priority support</li>
+            </ul>
+            <button class="service-btn">Apply Now</button>
+        </div>
+        <div class="service-card reveal delay-2">
+            <div class="service-icon">🎯</div>
+            <h3 class="service-title">Exit Prep</h3>
+            <p class="service-desc">Comprehensive preparation for acquisition including documentation, positioning, and buyer outreach.</p>
+            <div class="service-price">Custom</div>
+            <ul class="service-features">
+                <li>Valuation optimization</li>
+                <li>Documentation package</li>
+                <li>Buyer identification</li>
+                <li>Negotiation support</li>
+            </ul>
+            <button class="service-btn">Schedule Call</button>
+        </div>
+    </div>
+</section>
+
+<section class="final-cta" id="cta">
+    <h2 class="reveal">Ready to<br><em>10x Your Growth</em>?</h2>
+    <p class="reveal delay-1">Book a free 30-minute strategy call. We'll diagnose your biggest growth opportunity and map out an AI-powered plan to capture it.</p>
+    <a href="#" class="btn-brutalist fill reveal delay-2" style="display:inline-block;">Book Free Strategy Call →</a>
+    <div class="final-guarantee reveal delay-3">★ No pitch, no pressure — just actionable insights you can use immediately</div>
+</section>
+
+<footer>
+    <div class="footer-grid">
+        <div>
+            <div class="footer-brand-name">Kamil<span>.</span></div>
+            <p class="footer-tagline">AI-Powered Growth Partner helping ambitious founders scale faster, work smarter, and build companies worth acquiring.</p>
+        </div>
+        <div class="footer-col">
+            <div class="footer-col-title">Services</div>
+            <ul><li><a href="#">Growth Audit</a></li><li><a href="#">AI Partnership</a></li><li><a href="#">Exit Preparation</a></li></ul>
+        </div>
+        <div class="footer-col">
+            <div class="footer-col-title">Resources</div>
+            <ul><li><a href="#">Case Studies</a></li><li><a href="#">AI Tools Guide</a></li><li><a href="#">Newsletter</a></li></ul>
+        </div>
+        <div class="footer-col">
+            <div class="footer-col-title">Connect</div>
+            <ul><li><a href="#">LinkedIn</a></li><li><a href="#">Twitter/X</a></li><li><a href="#">Email</a></li></ul>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <span>© 2025 Kamil Skicki. All rights reserved.</span>
+        <span>Design 1 — Editorial Brutalist</span>
+    </div>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>

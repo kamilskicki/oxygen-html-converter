@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lokalizacje - MAXIMUS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Noto+Serif:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-container": "#fecf93",
+                        "on-surface-variant": "#564240",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#352f2c",
+                        "on-primary-fixed-variant": "#822622",
+                        "paper-soft": "#E8DED0",
+                        "on-secondary-fixed": "#291800",
+                        "on-tertiary-container": "#7cadc8",
+                        "tertiary-fixed-dim": "#9ccde9",
+                        "surface-container-highest": "#ece0db",
+                        "surface-bright": "#fff8f5",
+                        "oxblood-deep": "#4D0907",
+                        "inverse-primary": "#ffb3ac",
+                        "ink-black": "#17120F",
+                        "error": "#ba1a1a",
+                        "on-secondary-container": "#795726",
+                        "on-background": "#201a17",
+                        "secondary-fixed": "#ffddb4",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "ivory-base": "#F3EDE4",
+                        "tertiary": "#002a3a",
+                        "primary": "#540306",
+                        "on-tertiary-fixed": "#001e2b",
+                        "brass-accent": "#9A7440",
+                        "surface": "#fff8f5",
+                        "paper-bright": "#FCF9F4",
+                        "background": "#fff8f5",
+                        "secondary-fixed-dim": "#ecbf84",
+                        "oxblood-primary": "#731B19",
+                        "on-surface": "#201a17",
+                        "inverse-on-surface": "#faeee9",
+                        "outline-variant": "#ddc0bd",
+                        "error-container": "#ffdad6",
+                        "copper-highlight": "#BE8656",
+                        "primary-container": "#731b19",
+                        "on-primary-fixed": "#410003",
+                        "ink-soft": "#544B45",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#c1e8ff",
+                        "surface-tint": "#a13d37",
+                        "surface-container-high": "#f2e6e0",
+                        "on-secondary-fixed-variant": "#604111",
+                        "tertiary-container": "#004158",
+                        "on-primary": "#ffffff",
+                        "surface-container-low": "#fdf1ec",
+                        "surface-variant": "#ece0db",
+                        "secondary": "#7a5827",
+                        "on-primary-container": "#fd8279",
+                        "outline": "#89716f",
+                        "surface-dim": "#e3d8d2",
+                        "on-tertiary-fixed-variant": "#144c63",
+                        "surface-container": "#f7ece6",
+                        "primary-fixed-dim": "#ffb3ac",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#ffdad6"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "section-gap": "120px",
+                        "gutter-grid": "24px",
+                        "component-padding": "16px",
+                        "unit": "8px",
+                        "margin-page": "64px"
+                    },
+                    fontFamily: {
+                        "wordmark-aux": ["Noto Serif", "serif"],
+                        "body-main": ["Inter", "sans-serif"],
+                        "section-headline": ["Noto Serif", "serif"],
+                        "metadata-label": ["Inter", "sans-serif"],
+                        "hero-serif": ["Noto Serif", "serif"]
+                    },
+                    fontSize: {
+                        "wordmark-aux": ["14px", { lineHeight: "1", letterSpacing: "0.2em", fontWeight: "500" }],
+                        "body-main": ["16px", { lineHeight: "1.6", fontWeight: "400" }],
+                        "section-headline": ["32px", { lineHeight: "1.2", fontWeight: "400" }],
+                        "metadata-label": ["12px", { lineHeight: "1.4", letterSpacing: "0.1em", fontWeight: "600" }],
+                        "hero-serif": ["64px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #fff8f5; } /* fallback surface */
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-main antialiased selection:bg-brass-accent selection:text-white flex flex-col min-h-screen">
+<!-- TopNavBar Shared Component -->
+<header class="bg-stone-50 dark:bg-stone-950 docked full-width top-0 z-50 border-b border-red-900/10 dark:border-red-900/20 flat no shadows sticky">
+<div class="flex justify-between items-center w-full px-8 py-6 max-w-screen-2xl mx-auto">
+<!-- Brand Logo -->
+<a class="text-2xl font-bold tracking-[0.2em] text-red-900 dark:text-red-700 font-serif" href="#">
+                MAXIMUS
+            </a>
+<!-- Navigation Links (Desktop) -->
+<nav class="hidden md:flex gap-8">
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Dla kogo
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Programy
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Startery
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Memberships
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-stone-500 dark:text-stone-400 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300" href="#">
+                    Premium
+                </a>
+<a class="font-serif tracking-tight text-sm uppercase text-red-900 dark:text-red-600 border-b border-red-900 pb-1 hover:text-red-800 dark:hover:text-red-500 transition-colors duration-300 opacity-70 transition-opacity" href="#">
+                    Lokalizacje
+                </a>
+</nav>
+<!-- Actions -->
+<div class="flex items-center gap-6">
+<button class="hidden lg:block font-serif tracking-tight text-sm uppercase text-red-900 dark:text-red-700 font-bold border border-red-900 px-6 py-2 hover:bg-red-900 hover:text-white transition-colors">
+                    DOŁĄCZ
+                </button>
+<div class="flex gap-4 text-red-900 dark:text-red-700">
+<button aria-label="person" class="hover:text-red-800 transition-colors">
+<span class="material-symbols-outlined">person</span>
+</button>
+<button aria-label="menu" class="md:hidden hover:text-red-800 transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="w-full pt-32 pb-24 px-8 border-b border-ink-soft/20 relative overflow-hidden bg-ivory-base">
+<div class="absolute top-0 right-0 w-1/3 h-full bg-paper-soft -skew-x-12 translate-x-20 opacity-50"></div>
+<div class="max-w-7xl mx-auto relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid items-end">
+<div class="lg:col-span-8">
+<span class="font-metadata-label text-metadata-label text-brass-accent uppercase tracking-widest block mb-6">Nasze Przestrzenie</span>
+<h1 class="font-hero-serif text-hero-serif text-ink-black mb-8">Dwa Adresy.<br/>Jeden Standard.</h1>
+<p class="font-body-main text-body-main text-ink-soft max-w-xl">
+                        Odkryj przestrzenie zaprojektowane dla tych, którzy wymagają więcej. Heritage Minimalism w architekturze spotyka się z bezkompromisowym wyposażeniem. Wybierz swoją strefę siły.
+                    </p>
+</div>
+<div class="lg:col-span-4 hidden lg:flex justify-end pb-4">
+<span class="material-symbols-outlined text-6xl text-brass-accent opacity-20">location_city</span>
+</div>
+</div>
+</section>
+<!-- Location 1: Maximus Nowa Huta -->
+<section class="py-section-gap px-8 bg-background">
+<div class="max-w-7xl mx-auto">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid items-center">
+<!-- Image -->
+<div class="lg:col-span-7 relative h-[600px] border border-ink-soft/20 bg-paper-soft p-2">
+<div class="w-full h-full bg-ink-black relative overflow-hidden">
+<img alt="Nowa Huta Gym Interior" class="object-cover w-full h-full opacity-90 hover:scale-105 transition-transform duration-1000" data-alt="high-end minimalist gym interior with dark walls warm amber lighting brass accents and perfectly aligned premium black fitness equipment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPxx9k_qiOYxB2hqQ2pPL2E1MOb8dS2XjbdrhHVCpPCve_AmeKHXGCwKz1zEgNZuBA2oS2ByOHL8yUk456BYh80nMhCfq-9YLTQtexDmM0unUs2i97YVkl3-Ln-U3HHvNRqo9LJX_J8fIZ8b_WqCdYSlhJ_q24U21lJ1tvKCigoh_2xl2PSX5zRF8s9MjV9yy5eFwREnxtN8qx1PBiKJa31wseVf2YOgoErC7L_yqFGBGNtD5s1ii6kJpW-7IzCWEsDpiXMedjkz0"/>
+</div>
+<div class="absolute -bottom-6 -right-6 w-32 h-32 bg-oxblood-primary flex items-center justify-center text-white p-6 rounded-none z-10 hidden md:flex">
+<span class="font-section-headline text-2xl text-center leading-none">NH<br/><span class="text-sm font-body-main opacity-70">KRK</span></span>
+</div>
+</div>
+<!-- Content -->
+<div class="lg:col-span-5 lg:pl-16 mt-12 lg:mt-0">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-brass-accent">map</span>
+<span class="font-metadata-label text-metadata-label text-ink-soft uppercase tracking-widest">Kraków, Nowa Huta</span>
+</div>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-8 border-b border-brass-accent/30 pb-6">
+                            Maximus<br/>Nowa Huta
+                        </h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8">
+                            Nasz flagowy klub, w którym surowość nowohuckiej architektury spotyka się z dębowym drewnem i mosiężnymi detalami. Przestrzeń o powierzchni 1200m², dedykowana treningowi siłowemu i funkcjonalnemu na najwyższym poziomie.
+                        </p>
+<ul class="space-y-4 mb-12">
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-brass-accent mt-1">fitness_center</span>
+<div>
+<h4 class="font-metadata-label text-metadata-label text-ink-black uppercase">Strefa Wolnych Ciężarów</h4>
+<p class="font-body-main text-sm text-ink-soft">Sprzęt premium, dedykowane pomosty dębowe.</p>
+</div>
+</li>
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-brass-accent mt-1">coffee</span>
+<div>
+<h4 class="font-metadata-label text-metadata-label text-ink-black uppercase">Lounge &amp; Recovery</h4>
+<p class="font-body-main text-sm text-ink-soft">Kawa specialty, sauna sucha, strefa ciszy.</p>
+</div>
+</li>
+</ul>
+<button class="bg-oxblood-primary text-white font-metadata-label text-metadata-label uppercase tracking-widest px-8 py-4 hover:bg-ink-black transition-colors duration-300 w-full sm:w-auto text-center border border-oxblood-deep">
+                            Zapisz się lokalnie
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Location 2: Gortat -->
+<section class="py-section-gap px-8 bg-paper-soft border-y border-ink-soft/10">
+<div class="max-w-7xl mx-auto">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid items-center">
+<!-- Content -->
+<div class="lg:col-span-5 lg:pr-16 order-2 lg:order-1 mt-12 lg:mt-0">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-brass-accent">map</span>
+<span class="font-metadata-label text-metadata-label text-ink-soft uppercase tracking-widest">Kraków, Grzegórzki</span>
+</div>
+<h2 class="font-section-headline text-section-headline text-ink-black mb-8 border-b border-brass-accent/30 pb-6">
+                            Maximus<br/>Gortat
+                        </h2>
+<p class="font-body-main text-body-main text-ink-soft mb-8">
+                            Kameralna, ekskluzywna przestrzeń zaprojektowana z myślą o treningu personalnym i zorganizowanych grupach premium. Wnętrze nawiązujące do klasycznych klubów dżentelmeńskich z akcentami w kolorze głębokiej czerwieni.
+                        </p>
+<ul class="space-y-4 mb-12">
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-brass-accent mt-1">sports_martial_arts</span>
+<div>
+<h4 class="font-metadata-label text-metadata-label text-ink-black uppercase">Studio Personalne</h4>
+<p class="font-body-main text-sm text-ink-soft">Pełna prywatność, sprzęt kalisteniczny, klatki treningowe.</p>
+</div>
+</li>
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-brass-accent mt-1">local_mall</span>
+<div>
+<h4 class="font-metadata-label text-metadata-label text-ink-black uppercase">Concept Store</h4>
+<p class="font-body-main text-sm text-ink-soft">Odzież techniczna, suplementacja premium.</p>
+</div>
+</li>
+</ul>
+<button class="bg-transparent text-oxblood-primary border border-oxblood-primary font-metadata-label text-metadata-label uppercase tracking-widest px-8 py-4 hover:bg-oxblood-primary hover:text-white transition-colors duration-300 w-full sm:w-auto text-center">
+                            Zapisz się lokalnie
+                        </button>
+</div>
+<!-- Image -->
+<div class="lg:col-span-7 relative h-[600px] border border-ink-soft/20 bg-ivory-base p-2 order-1 lg:order-2">
+<div class="w-full h-full bg-ink-black relative overflow-hidden">
+<img alt="Gortat Gym Interior" class="object-cover w-full h-full opacity-90 hover:scale-105 transition-transform duration-1000" data-alt="exclusive boutique gym studio with dark wood paneling oxblood leather accents vintage medicine balls and warm spotlighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLlT1vlaEhMEu38kHSV9c-L_5of1GAXLxaH0GbY7rg_CH9WJGPKUCEV2fqwWtQQO4g07gkkgdodkxtM_oZQTbg8bJwyXjcHJEVJfa4qnOk5zeBfIoZ2WCY5af_nyjan3BGu4OrDhl0kK_Z7wUVAo-polPGX3JUsDMQnh8-I6ShUYViqHTuGtHN9ZrJskELV_Xm1iYykBLtlnPBOLGE7Y0J9pFvfsyADJ6KRY6CPT97NniuQVrJqoY0vhzYeRIR0ieI1Jxe4_M_e0Q"/>
+</div>
+<div class="absolute -top-6 -left-6 w-32 h-32 bg-ink-black flex items-center justify-center text-white p-6 rounded-none z-10 hidden md:flex border border-ink-soft">
+<span class="font-section-headline text-2xl text-center leading-none text-brass-accent">GRT<br/><span class="text-sm font-body-main opacity-70 text-white">KRK</span></span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Map Section -->
+<section class="py-section-gap px-8 bg-ivory-base">
+<div class="max-w-7xl mx-auto text-center mb-16">
+<span class="material-symbols-outlined text-brass-accent text-4xl mb-4 block">explore</span>
+<h3 class="font-section-headline text-section-headline text-ink-black">Znajdź nas na mapie</h3>
+<div class="w-12 h-px bg-brass-accent mx-auto mt-6"></div>
+</div>
+<div class="max-w-5xl mx-auto h-[500px] bg-paper-soft border border-ink-soft/20 relative overflow-hidden flex items-center justify-center p-2">
+<div class="w-full h-full bg-surface-variant relative">
+<!-- Map Image Placeholder -->
+<img alt="Map of Krakow Locations" class="object-cover w-full h-full opacity-60 grayscale sepia-[0.3]" data-alt="minimalist architectural map of krakow city center in neutral beige and grey tones with soft lighting and subtle street lines" data-location="Kraków, Poland" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCVbFOKn64kUBJesX3fRF6PqjKitqc_1LGNUbs0M2aof-CC7RDzoi2lj28qxlyisYe0JbKybrXKa172Bvdq623ylu4c31qNfX5FhscnYHqoqt71MvicAgi2khCOYSjmPTArg6D-YbJFmhksAW70QXB4BGG3OEFOsrM3LhCJebjwiX_pI7IJEHbhwuFTcFxZInWDecB0mWuakdZ4Ap-FzL55e5yp8qCEQhS7k-b6s53j2110avF39br5sn6Uh_JG9sSQLd7QINTtwc"/>
+<!-- Map Markers (Decorative) -->
+<div class="absolute top-1/3 left-1/4 flex flex-col items-center group cursor-pointer">
+<span class="material-symbols-outlined text-oxblood-primary text-4xl icon-fill drop-shadow-md group-hover:-translate-y-2 transition-transform">location_on</span>
+<div class="bg-ink-black text-white font-metadata-label text-xs px-3 py-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Nowa Huta</div>
+</div>
+<div class="absolute bottom-1/3 right-1/3 flex flex-col items-center group cursor-pointer">
+<span class="material-symbols-outlined text-oxblood-primary text-4xl icon-fill drop-shadow-md group-hover:-translate-y-2 transition-transform">location_on</span>
+<div class="bg-ink-black text-white font-metadata-label text-xs px-3 py-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Gortat</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Shared Component -->
+<footer class="bg-stone-50 dark:bg-stone-950 full-width py-12 border-t border-red-900/10 flat no shadows mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center px-8 w-full max-w-7xl mx-auto gap-8 md:gap-0">
+<!-- Copyright -->
+<div class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 order-3 md:order-1 text-center md:text-left">
+                © 2024 MAXIMUS. HERITAGE MINIMALISM.
+            </div>
+<!-- Brand Logo -->
+<div class="text-lg font-bold text-red-900 dark:text-red-700 order-1 md:order-2">
+                MAXIMUS
+            </div>
+<!-- Links -->
+<div class="flex flex-wrap justify-center gap-6 order-2 md:order-3">
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">
+                    Polityka prywatności
+                </a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">
+                    Regulamin
+                </a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">
+                    Kontakt
+                </a>
+<a class="font-serif text-xs tracking-widest uppercase text-stone-400 dark:text-stone-600 hover:text-red-900 dark:hover:text-red-500 transition-colors" href="#">
+                    Kariera
+                </a>
+</div>
+</div>
+</footer>
+</body></html>

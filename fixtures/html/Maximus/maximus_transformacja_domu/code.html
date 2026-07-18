@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html lang="pl"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Maximus Physical Culture Club</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Serif:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#fecf93",
+                        "surface-container-low": "#fdf1ec",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#ece0db",
+                        "error-container": "#ffdad6",
+                        "surface": "#fff8f5",
+                        "paper-bright": "#FCF9F4",
+                        "on-tertiary-container": "#7cadc8",
+                        "surface-bright": "#fff8f5",
+                        "paper-soft": "#E8DED0",
+                        "on-tertiary-fixed": "#001e2b",
+                        "tertiary-fixed": "#c1e8ff",
+                        "primary-container": "#731b19",
+                        "tertiary-fixed-dim": "#9ccde9",
+                        "tertiary-container": "#004158",
+                        "surface-tint": "#a13d37",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#352f2c",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#410003",
+                        "brass-accent": "#9A7440",
+                        "on-primary-fixed-variant": "#822622",
+                        "on-background": "#201a17",
+                        "secondary-fixed": "#ffddb4",
+                        "tertiary": "#002a3a",
+                        "secondary-fixed-dim": "#ecbf84",
+                        "surface-dim": "#e3d8d2",
+                        "secondary": "#7a5827",
+                        "ink-black": "#17120F",
+                        "on-secondary-container": "#795726",
+                        "surface-variant": "#ece0db",
+                        "surface-container-high": "#f2e6e0",
+                        "on-tertiary": "#ffffff",
+                        "primary": "#540306",
+                        "oxblood-deep": "#4D0907",
+                        "ink-soft": "#544B45",
+                        "copper-highlight": "#BE8656",
+                        "on-secondary-fixed": "#291800",
+                        "outline": "#89716f",
+                        "background": "#fff8f5",
+                        "on-secondary-fixed-variant": "#604111",
+                        "inverse-primary": "#ffb3ac",
+                        "on-tertiary-fixed-variant": "#144c63",
+                        "primary-fixed": "#ffdad6",
+                        "on-surface-variant": "#564240",
+                        "inverse-on-surface": "#faeee9",
+                        "outline-variant": "#ddc0bd",
+                        "ivory-base": "#F3EDE4",
+                        "error": "#ba1a1a",
+                        "on-surface": "#201a17",
+                        "oxblood-primary": "#731B19",
+                        "on-error": "#ffffff",
+                        "on-primary-container": "#fd8279",
+                        "primary-fixed-dim": "#ffb3ac",
+                        "surface-container": "#f7ece6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "section-gap": "120px",
+                        "unit": "8px",
+                        "component-padding": "16px",
+                        "gutter-grid": "24px",
+                        "margin-page": "64px"
+                    },
+                    "fontFamily": {
+                        "hero-serif": ["Noto Serif", "serif"],
+                        "wordmark-aux": ["Noto Serif", "serif"],
+                        "body-main": ["Inter", "sans-serif"],
+                        "section-headline": ["Noto Serif", "serif"],
+                        "metadata-label": ["Inter", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "hero-serif": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+                        "wordmark-aux": ["14px", { "lineHeight": "1", "letterSpacing": "0.2em", "fontWeight": "500" }],
+                        "body-main": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "section-headline": ["32px", { "lineHeight": "1.2", "fontWeight": "400" }],
+                        "metadata-label": ["12px", { "lineHeight": "1.4", "letterSpacing": "0.1em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .symbol-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-ivory-base text-on-surface font-body-main antialiased selection:bg-oxblood-primary selection:text-white flex flex-col min-h-screen">
+<!-- TopNavBar (Shared Component JSON) -->
+<header class="docked full-width top-0 border-b z-50 border-stone-200 dark:border-stone-800 flat no shadows bg-[#fdfcfb] dark:bg-stone-950 sticky">
+<div class="flex justify-between items-center w-full px-8 py-6 max-w-screen-2xl mx-auto">
+<div class="font-serif text-3xl font-black tracking-tighter text-[#731B19] dark:text-red-600">MAXIMUS</div>
+<nav class="hidden md:flex gap-8 items-center font-serif tracking-tight uppercase text-xs md:text-sm font-medium">
+<!-- Assuming "Dziedzictwo" might be loosely active for a landing page, or none. We will leave inactive for a general landing. -->
+<a class="text-stone-500 dark:text-stone-400 hover:text-[#731B19] transition-colors hover:opacity-80 transition-opacity duration-300" href="#">Transformacja</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-[#731B19] transition-colors hover:opacity-80 transition-opacity duration-300" href="#">System Rodzinny</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-[#731B19] transition-colors hover:opacity-80 transition-opacity duration-300" href="#">AutyzmUP</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-[#731B19] transition-colors hover:opacity-80 transition-opacity duration-300" href="#">Dziedzictwo</a>
+</nav>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-metadata-label text-metadata-label uppercase text-oxblood-primary hover:text-ink-black transition-colors" href="#">Diagnoza</a>
+<a class="bg-oxblood-primary text-on-primary font-metadata-label text-metadata-label uppercase py-3 px-6 hover:bg-ink-black transition-colors rounded-none" href="#">Umów konsultację</a>
+</div>
+<!-- Mobile Menu Icon (Generic representation as JSON didn't specify mobile nav icon, but layout logic requires responsiveness) -->
+<button class="md:hidden text-oxblood-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="menu">menu</span>
+</button>
+</div>
+</header>
+<main class="flex-grow flex flex-col">
+<!-- Hero Section -->
+<section class="relative min-h-[870px] flex items-center bg-paper-bright border-b border-paper-soft overflow-hidden">
+<!-- Subtle background texture/image representation -->
+<div class="absolute inset-0 z-0">
+<img alt="Cinematic black and white photography of a well-equipped premium training space, dramatic lighting, high-end editorial feel" class="w-full h-full object-cover opacity-20 mix-blend-multiply" data-alt="Cinematic black and white photography of a well-equipped premium training space, dramatic lighting, high-end editorial feel" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIwKUCC-ywUmdEH2y5-lXf8MyEDknO-fQfcEp0UmPq0BOFhUnyAHniCccKD9f_rDs0Fzbjxiy7DpTgLn7X3tJurWMW9RePduSJIamI696gPdWKTzr-pXvK9teQyeCsQPWURJ4vVzcXpVUZcH-nvAJ0rO3UvG1Gp9fA3Nm93XuhgYg34fhKUmckKI68A5I8Fl-0sMSgCsiEhmjdrmaevO9u9AKqOgPJd06du3kcz3uuEqecPOBt_lzzDCPdn8WnnCjXjMt0_gBq2Ak"/>
+</div>
+<div class="max-w-screen-2xl mx-auto px-8 w-full z-10 grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid py-24">
+<div class="lg:col-span-8 lg:col-start-1 flex flex-col justify-center">
+<p class="font-wordmark-aux text-wordmark-aux text-oxblood-primary mb-6 flex items-center gap-4">
+<span class="w-12 h-px bg-oxblood-primary"></span>
+                        KULTURA FIZYCZNA
+                    </p>
+<h1 class="font-hero-serif text-hero-serif text-ink-black mb-8 max-w-4xl">
+                        Silniejszy ruch. Jasna droga. Jeden system dla całego domu.
+                    </h1>
+<p class="font-body-main text-body-main text-ink-soft max-w-2xl mb-12 text-lg">
+                        Pomagamy dzieciom, rodzicom i aktywnym dorosłym wejść w dobrze dobrany program. Najpierw diagnozujemy potrzebę, potem rekomendujemy ścieżkę.
+                    </p>
+<div class="flex flex-wrap gap-6 items-center">
+<a class="bg-ink-black text-white font-metadata-label text-metadata-label uppercase py-4 px-8 hover:bg-oxblood-primary transition-colors tracking-widest inline-flex items-center gap-3" href="#">
+                            Umów diagnozę startową
+                            <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</a>
+<a class="text-ink-black font-metadata-label text-metadata-label uppercase hover:text-oxblood-primary transition-colors border-b border-ink-soft pb-1" href="#">
+                            Wybierz swój program
+                        </a>
+</div>
+</div>
+</div>
+</section>
+<!-- Diagnoza Section -->
+<section class="py-section-gap bg-ivory-base">
+<div class="max-w-screen-2xl mx-auto px-8">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-grid items-center">
+<div class="lg:col-span-5 lg:col-start-2">
+<h2 class="font-section-headline text-section-headline text-ink-black mb-6">Diagnoza zamiast zgadywania.</h2>
+<div class="w-16 h-px bg-brass-accent mb-8"></div>
+<p class="font-body-main text-body-main text-ink-soft mb-8">
+                            Nie oferujemy uniwersalnych rozwiązań. Rozpoczynamy od precyzyjnej oceny funkcjonalnej, rozumiejąc historię Twojego ciała, ograniczenia i cele. To fundament, na którym budujemy bezpieczną i skuteczną strategię rozwoju.
+                        </p>
+<ul class="space-y-4 font-body-main text-body-main text-ink-black">
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-brass-accent mt-1" data-icon="check">check</span>
+<span>Ocena mobilności i stabilności</span>
+</li>
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-brass-accent mt-1" data-icon="check">check</span>
+<span>Analiza wzorców ruchowych</span>
+</li>
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-brass-accent mt-1" data-icon="check">check</span>
+<span>Indywidualny plan postępowania</span>
+</li>
+</ul>
+</div>
+<div class="lg:col-span-5 lg:col-start-8 mt-12 lg:mt-0 relative">
+<div class="absolute -inset-4 border border-brass-accent opacity-30 transform translate-x-4 translate-y-4"></div>
+<img alt="Professional trainer assessing a client's movement pattern in a minimal, bright space, editorial lighting" class="w-full h-[500px] object-cover relative z-10 grayscale contrast-125" data-alt="Professional trainer assessing a client's movement pattern in a minimal, bright space, editorial lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd05vckhpfufFpO4u1wcvYn9KEolqXm_59EJ6payN-hWIidJCXlB516U6snJ5DRuR_HSmd0preBf1y4uPiEKyn4xKtOtUL3MsCE8w42qBdTut7oQ92SZV4IQhakzKKwesGKdzvVjBSZzuQHeA7oyDCz4XDuLTjV4MCZLeEDiZ1ogwEV9F-WGh5SIVaGsvADjIfKX--k51TEYUFvjHeuGJpx3aPTMvM3unvRmxqg8eiZTC8p2dmKIXHiA67uW2lFE24raH-c5iQ86w"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Three Paths Bento Grid -->
+<section class="py-section-gap bg-paper-bright border-y border-paper-soft">
+<div class="max-w-screen-2xl mx-auto px-8">
+<div class="text-center mb-16">
+<span class="font-wordmark-aux text-wordmark-aux text-oxblood-primary block mb-4">ŚCIEŻKI ROZWOJU</span>
+<h2 class="font-section-headline text-section-headline text-ink-black">Wybierz swój kierunek</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Path 1 -->
+<div class="bg-ivory-base p-10 border border-paper-soft hover:border-brass-accent transition-colors group flex flex-col h-full">
+<div class="mb-8">
+<span class="material-symbols-outlined text-4xl text-oxblood-primary mb-4 block" data-icon="child_care">child_care</span>
+<h3 class="font-section-headline text-2xl text-ink-black mb-2">Program</h3>
+<span class="font-metadata-label text-metadata-label text-ink-soft uppercase tracking-widest block mb-4">Dla Dzieci</span>
+<div class="w-8 h-px bg-brass-accent group-hover:w-16 transition-all duration-300"></div>
+</div>
+<p class="font-body-main text-body-main text-ink-soft mb-8 flex-grow">
+                            Kształtowanie prawidłowych nawyków ruchowych od najmłodszych lat. Budujemy fundamenty siły, koordynacji i pewności siebie w kontrolowanym środowisku.
+                        </p>
+<a class="font-metadata-label text-metadata-label text-ink-black uppercase flex items-center gap-2 group-hover:text-oxblood-primary transition-colors mt-auto pt-6 border-t border-paper-soft" href="#">
+                            Poznaj szczegóły
+                            <span class="material-symbols-outlined text-sm" data-icon="arrow_right_alt">arrow_right_alt</span>
+</a>
+</div>
+<!-- Path 2 -->
+<div class="bg-oxblood-primary text-on-primary p-10 border border-oxblood-deep shadow-2xl relative overflow-hidden group flex flex-col h-full transform md:-translate-y-4">
+<div class="absolute top-0 right-0 p-6 opacity-10">
+<span class="material-symbols-outlined text-8xl" data-icon="fitness_center">fitness_center</span>
+</div>
+<div class="mb-8 relative z-10">
+<span class="material-symbols-outlined text-4xl text-brass-accent mb-4 block" data-icon="bolt">bolt</span>
+<h3 class="font-section-headline text-2xl mb-2">Starter</h3>
+<span class="font-metadata-label text-metadata-label text-surface-container-highest uppercase tracking-widest block mb-4">Performance</span>
+<div class="w-8 h-px bg-brass-accent group-hover:w-16 transition-all duration-300"></div>
+</div>
+<p class="font-body-main text-body-main text-surface-container-high mb-8 flex-grow relative z-10">
+                            Zoptymalizowany trening dla aktywnych dorosłych. Skupiamy się na wydajności, prewencji kontuzji i przekraczaniu własnych barier z maksymalnym bezpieczeństwem.
+                        </p>
+<a class="font-metadata-label text-metadata-label text-brass-accent uppercase flex items-center gap-2 group-hover:text-white transition-colors mt-auto pt-6 border-t border-oxblood-deep relative z-10" href="#">
+                            Aplikuj o miejsce
+                            <span class="material-symbols-outlined text-sm" data-icon="arrow_right_alt">arrow_right_alt</span>
+</a>
+</div>
+<!-- Path 3 -->
+<div class="bg-ivory-base p-10 border border-paper-soft hover:border-brass-accent transition-colors group flex flex-col h-full">
+<div class="mb-8">
+<span class="material-symbols-outlined text-4xl text-oxblood-primary mb-4 block" data-icon="diversity_1">diversity_1</span>
+<h3 class="font-section-headline text-2xl text-ink-black mb-2">Członkostwo</h3>
+<span class="font-metadata-label text-metadata-label text-ink-soft uppercase tracking-widest block mb-4">Ciągłość Rodzinna</span>
+<div class="w-8 h-px bg-brass-accent group-hover:w-16 transition-all duration-300"></div>
+</div>
+<p class="font-body-main text-body-main text-ink-soft mb-8 flex-grow">
+                            Kompleksowa opieka dla całej rodziny. Tworzymy kulturę fizyczną w domu, integrując trening z codziennym życiem dla długoterminowego zdrowia.
+                        </p>
+<a class="font-metadata-label text-metadata-label text-ink-black uppercase flex items-center gap-2 group-hover:text-oxblood-primary transition-colors mt-auto pt-6 border-t border-paper-soft" href="#">
+                            Zasady członkostwa
+                            <span class="material-symbols-outlined text-sm" data-icon="arrow_right_alt">arrow_right_alt</span>
+</a>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer (Shared Component JSON) -->
+<footer class="w-full border-t mt-auto border-stone-300 dark:border-stone-700 flat no shadows bg-stone-100 dark:bg-stone-900">
+<div class="flex flex-col md:flex-row justify-between items-center px-12 py-16 w-full max-w-screen-2xl mx-auto gap-8">
+<div class="font-serif text-xl font-bold text-stone-800 dark:text-stone-200">MAXIMUS</div>
+<nav class="flex flex-wrap gap-6 justify-center font-serif text-[10px] tracking-[0.2em] uppercase">
+<a class="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors" href="#">Dziedzictwo</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors" href="#">Diagnoza</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors" href="#">System Rodzinny</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors" href="#">Polityka Prywatności</a>
+</nav>
+<div class="text-[#731B19] dark:text-red-600 font-serif text-[10px] tracking-[0.2em] uppercase text-center md:text-right">
+                © 2024 MAXIMUS PHYSICAL CULTURE CLUB. WSZELKIE PRAWA ZASTRZEŻONE.
+            </div>
+</div>
+</footer>
+</body></html>
