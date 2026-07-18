@@ -387,7 +387,7 @@ class DesignDocumentBuilder
             if ($signature !== '') {
                 $classes = array_slice($this->classesForTreeNode($node), 0, 5);
                 $role = $this->componentRoleForClasses($classes);
-                $structureKey = $this->componentStructureKey($signature, $role);
+                $structureKey = $this->componentStructureKey($signature, $role, $classes);
                 $tag = explode('[', $signature)[0];
                 if (!isset($structures[$structureKey])) {
                     $structures[$structureKey] = [
@@ -474,9 +474,22 @@ class DesignDocumentBuilder
         return $tag . '[' . implode(',', $childTags) . ']';
     }
 
-    private function componentStructureKey(string $signature, string $role): string
+    /**
+     * @param list<string> $classes
+     */
+    private function componentStructureKey(string $signature, string $role, array $classes): string
     {
-        return $role === '' ? $signature : $signature . '|role:' . $role;
+        if ($role !== '') {
+            return $signature . '|role:' . $role;
+        }
+
+        if ($classes === []) {
+            return $signature;
+        }
+
+        sort($classes, SORT_STRING);
+
+        return $signature . '|classes:' . implode('.', $classes);
     }
 
     /**

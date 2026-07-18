@@ -326,6 +326,27 @@ HTML;
         $this->assertSame([1, 3, 5], array_column($candidate['instances'], 'nodeId'));
     }
 
+    public function testBuildDoesNotMergeStructurallySimilarNodesWithDifferentSemanticClasses(): void
+    {
+        $html = <<<'HTML'
+<section>
+    <div class="account-summary"><h3>Account</h3><p>Balance</p><a href="#">Open</a></div>
+    <div class="legal-notice"><h3>Legal</h3><p>Terms</p><a href="#">Read</a></div>
+    <div class="hero-copy"><h3>Welcome</h3><p>Intro</p><a href="#">Start</a></div>
+</section>
+HTML;
+
+        $document = (new DesignDocumentBuilder())->build($html, $this->resultFixture([
+            'element' => $this->convertedFeatureCardsElement([
+                ['class' => 'account-summary', 'title' => 'Account', 'copy' => 'Balance', 'label' => 'Open'],
+                ['class' => 'legal-notice', 'title' => 'Legal', 'copy' => 'Terms', 'label' => 'Read'],
+                ['class' => 'hero-copy', 'title' => 'Welcome', 'copy' => 'Intro', 'label' => 'Start'],
+            ]),
+        ]));
+
+        $this->assertSame([], $document['componentCandidates']);
+    }
+
     public function testBuildReportsSemanticClassMapAndApplications(): void
     {
         $html = <<<'HTML'
@@ -565,7 +586,7 @@ HTML;
                     'settings' => [
                         'advanced' => [
                             'tag' => 'div',
-                            'classes' => ['feature-card'],
+                            'classes' => [$card['class'] ?? 'feature-card'],
                         ],
                     ],
                 ],
