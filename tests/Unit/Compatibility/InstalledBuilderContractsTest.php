@@ -29,6 +29,11 @@ class InstalledBuilderContractsTest extends TestCase
 
     private function resolveWorkspaceRoot(): string
     {
+        $configuredOxygenDir = getenv('OXY_HTML_CONVERTER_OXYGEN_DIR');
+        if (is_string($configuredOxygenDir) && trim($configuredOxygenDir) !== '') {
+            return dirname(rtrim($configuredOxygenDir, "\\/"));
+        }
+
         return dirname(__DIR__, 6);
     }
 

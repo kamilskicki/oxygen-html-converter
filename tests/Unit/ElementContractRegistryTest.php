@@ -46,8 +46,11 @@ class ElementContractRegistryTest extends TestCase
      */
     private static function stableOxygenElementSlugs(): array
     {
-        $elementsDir = dirname(__DIR__, 5)
-            . DIRECTORY_SEPARATOR . 'oxygen'
+        $configuredDir = getenv('OXY_HTML_CONVERTER_OXYGEN_DIR');
+        $oxygenDir = is_string($configuredDir) && trim($configuredDir) !== ''
+            ? rtrim($configuredDir, "\\/")
+            : dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'oxygen';
+        $elementsDir = $oxygenDir
             . DIRECTORY_SEPARATOR . 'subplugins'
             . DIRECTORY_SEPARATOR . 'oxygen-elements'
             . DIRECTORY_SEPARATOR . 'elements';

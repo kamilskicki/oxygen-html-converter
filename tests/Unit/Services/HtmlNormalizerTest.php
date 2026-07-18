@@ -176,7 +176,11 @@ class HtmlNormalizerTest extends TestCase
      */
     private static function loadFixture(): array
     {
-        $dir = dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'html'
+        $configuredRoot = getenv('OXY_HTML_CONVERTER_DEV_ROOT');
+        $devRoot = is_string($configuredRoot) && trim($configuredRoot) !== ''
+            ? rtrim($configuredRoot, "\\/")
+            : dirname(__DIR__, 5);
+        $dir = $devRoot . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'html'
             . DIRECTORY_SEPARATOR . 'source-normalization';
         $manifestJson = file_get_contents($dir . DIRECTORY_SEPARATOR . 'manifest.json');
         if (!is_string($manifestJson)) {

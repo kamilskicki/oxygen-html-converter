@@ -2173,7 +2173,11 @@ class OxygenPageImporterTest extends TestCase
      */
     private function loadSiteKitManifestFixture(): array
     {
-        $path = dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'html'
+        $configuredRoot = getenv('OXY_HTML_CONVERTER_DEV_ROOT');
+        $devRoot = is_string($configuredRoot) && trim($configuredRoot) !== ''
+            ? rtrim($configuredRoot, "\\/")
+            : dirname(__DIR__, 5);
+        $path = $devRoot . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'html'
             . DIRECTORY_SEPARATOR . 'site-kit' . DIRECTORY_SEPARATOR . 'manifest.json';
         $json = file_get_contents($path);
         $this->assertIsString($json);

@@ -39,7 +39,7 @@ final class FixtureIndexTest extends TestCase
 
     public function testFixtureIndexListsAllStableHtmlFixturesAndGapCoverage(): void
     {
-        $devRoot = dirname(__DIR__, 4);
+        $devRoot = self::devRoot();
         $fixtureRoot = $devRoot . '/fixtures/html';
         $indexPath = $fixtureRoot . '/fixture-index.json';
 
@@ -217,7 +217,17 @@ final class FixtureIndexTest extends TestCase
 
     private static function fixtureRoot(): string
     {
-        return dirname(__DIR__, 4) . '/fixtures/html';
+        return self::devRoot() . '/fixtures/html';
+    }
+
+    private static function devRoot(): string
+    {
+        $configuredRoot = getenv('OXY_HTML_CONVERTER_DEV_ROOT');
+        if (is_string($configuredRoot) && trim($configuredRoot) !== '') {
+            return rtrim($configuredRoot, "\\/");
+        }
+
+        return dirname(__DIR__, 4);
     }
 
     /**
