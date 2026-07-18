@@ -25,6 +25,22 @@ module.exports = async function runFixtureBaselineTests() {
   assert.ok(parityArgs.includes("--page-slug=fixture-slug"));
   assert.ok(parityArgs.includes("--page-title=Fixture title"));
 
+  const sshCommand = fixtureBaseline.buildParitySshCommand(
+    {
+      wordpressRoot: "/var/www/wordpress",
+      remoteRunnerPath: "/tmp/fixture-page-parity.php",
+      remoteArtifactsDir: "/tmp/parity output",
+    },
+    "/tmp/fixtures/fixture.html",
+    "fixture-slug",
+    "Fixture title"
+  );
+
+  assert.match(sshCommand, /sudo -u www-data/);
+  assert.match(sshCommand, /OXY_HTML_CONVERTER_WP_ROOT='\/var\/www\/wordpress'/);
+  assert.match(sshCommand, /'\/tmp\/fixture-page-parity\.php'/);
+  assert.match(sshCommand, /'--page-slug=fixture-slug'/);
+
   const fixtureIndex = {
     failures: [],
     stableHtmlFixtures: [

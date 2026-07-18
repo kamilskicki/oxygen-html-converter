@@ -3,8 +3,14 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const DEFAULT_CONTAINER = process.env.OXY_HTML_CONVERTER_DOCKER_CONTAINER || "oxyconvo6-wordpress-1";
-const DEFAULT_FIXTURE_DIR = process.env.OXY_HTML_CONVERTER_FIXTURE_DIR || "/var/www/html/Import_Tests";
+const DEFAULT_SSH_HOST = process.env.OXY_HTML_CONVERTER_SSH_HOST || "";
+const DEFAULT_WORDPRESS_ROOT = process.env.OXY_HTML_CONVERTER_WORDPRESS_ROOT || "/var/www/html";
+const DEFAULT_FIXTURE_DIR =
+  process.env.OXY_HTML_CONVERTER_FIXTURE_DIR ||
+  (DEFAULT_SSH_HOST ? "/tmp/oxy-html-converter-fixtures" : "/var/www/html/Import_Tests");
 const DEFAULT_REMOTE_ARTIFACTS = process.env.OXY_HTML_CONVERTER_REMOTE_ARTIFACTS || "/tmp/oxy-parity-suite";
+const DEFAULT_REMOTE_RUNNER =
+  process.env.OXY_HTML_CONVERTER_REMOTE_RUNNER || "/tmp/fixture-page-parity.php";
 const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "artifacts", "fixture-baseline");
 const DEFAULT_SLUG_PREFIX = process.env.OXY_HTML_CONVERTER_BASELINE_SLUG_PREFIX || "perf-";
 const DEFAULT_DOCKER_PHP_USER =
@@ -30,6 +36,9 @@ const DEFAULT_LOCAL_FIXTURE_DIR = resolveDefaultLocalFixtureDir();
 function parseArgs(argv) {
   const options = {
     container: DEFAULT_CONTAINER,
+    sshHost: DEFAULT_SSH_HOST,
+    wordpressRoot: DEFAULT_WORDPRESS_ROOT,
+    remoteRunnerPath: DEFAULT_REMOTE_RUNNER,
     fixtureDir: DEFAULT_FIXTURE_DIR,
     remoteArtifactsDir: DEFAULT_REMOTE_ARTIFACTS,
     outputDir: DEFAULT_OUTPUT_DIR,
@@ -56,6 +65,12 @@ function parseArgs(argv) {
 
     if (rawKey === "container") {
       options.container = value;
+    } else if (rawKey === "ssh-host") {
+      options.sshHost = value;
+    } else if (rawKey === "wordpress-root") {
+      options.wordpressRoot = value;
+    } else if (rawKey === "remote-runner") {
+      options.remoteRunnerPath = value;
     } else if (rawKey === "fixture-dir") {
       options.fixtureDir = value;
     } else if (rawKey === "remote-artifacts-dir") {
@@ -88,7 +103,49 @@ function runDocker(args) {
   });
 }
 
+function isSshTarget(options) {
+  return typeof options.sshHost === "string" && options.sshHost.trim() !== "";
+}
+
+function runSsh(options, command) {
+  return execFileSync("ssh", [options.sshHost, command], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+function runRemoteShell(options, command) {
+  if (isSshTarget(options)) {
+    return runSsh(options, command);
+  }
+
+  return runDocker(["exec", options.container, "sh", "-lc", command]);
+}
+
+function copyToRemote(options, localPath, remotePath) {
+  if (isSshTarget(options)) {
+    return execFileSync("scp", [localPath, `${options.sshHost}:${remotePath}`], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  }
+
+  return runDocker(["cp", localPath, `${options.container}:${remotePath}`]);
+}
+
 function runDockerPhp(options, code) {
+  if (isSshTarget(options)) {
+    const wordpressRoot = String(options.wordpressRoot || DEFAULT_WORDPRESS_ROOT).replace(/\/+$/, "");
+    const normalizedCode = String(code).replaceAll("/var/www/html", wordpressRoot);
+    const encoded = Buffer.from(normalizedCode, "utf8").toString("base64");
+    return runSsh(
+      options,
+      `sudo -u www-data php -r ${shellQuote(`eval(base64_decode('${encoded}'));`)}`
+    ).trim();
+  }
+
   return runDocker(["exec", options.container, "php", "-r", code]).trim();
 }
 
@@ -120,8 +177,8 @@ function ensureFixtureInContainer(options, relativeFixture) {
 
   const remotePath = remoteFixturePath(options, relativeFixture);
   const remoteDir = path.posix.dirname(remotePath);
-  runDocker(["exec", options.container, "sh", "-lc", `mkdir -p ${shellQuote(remoteDir)}`]);
-  runDocker(["cp", localPath, `${options.container}:${remotePath}`]);
+  runRemoteShell(options, `mkdir -p ${shellQuote(remoteDir)}`);
+  copyToRemote(options, localPath, remotePath);
 
   return remotePath;
 }
@@ -132,7 +189,7 @@ function ensureParityScriptInContainer(options) {
     throw new Error(`Local parity script does not exist: ${localPath}`);
   }
 
-  runDocker(["cp", localPath, `${options.container}:/var/www/html/fixture-page-parity.php`]);
+  copyToRemote(options, localPath, options.remoteRunnerPath);
 }
 
 function listFixtures(options, nativeNoCodeContract = null, fixtureIndex = null) {
@@ -141,13 +198,10 @@ function listFixtures(options, nativeNoCodeContract = null, fixtureIndex = null)
   }
 
   const maxDepth = options.includeNested ? "" : "-maxdepth 1 ";
-  const output = runDocker([
-    "exec",
-    options.container,
-    "sh",
-    "-lc",
-    `find ${shellQuote(options.fixtureDir)} ${maxDepth}-type f -name '*.html' | sort`,
-  ]);
+  const output = runRemoteShell(
+    options,
+    `find ${shellQuote(options.fixtureDir)} ${maxDepth}-type f -name '*.html' | sort`
+  );
 
   const fixtures = output
     .split(/\r?\n/)
@@ -197,17 +251,15 @@ function buildSlug(baseName, slugPrefix = DEFAULT_SLUG_PREFIX) {
 }
 
 function prepareRemoteArtifactsDir(options) {
-  runDocker([
-    "exec",
-    options.container,
-    "sh",
-    "-lc",
+  const owner = isSshTarget(options) ? "www-data:www-data" : options.dockerPhpUser;
+  runRemoteShell(
+    options,
     [
       `mkdir -p ${shellQuote(options.remoteArtifactsDir)}`,
-      `chown -R ${shellQuote(options.dockerPhpUser)} ${shellQuote(options.remoteArtifactsDir)}`,
+      `chown -R ${shellQuote(owner)} ${shellQuote(options.remoteArtifactsDir)}`,
       `chmod 775 ${shellQuote(options.remoteArtifactsDir)}`,
-    ].join(" && "),
-  ]);
+    ].join(" && ")
+  );
 }
 
 function buildParityDockerArgs(options, fixturePath, slug, title) {
@@ -227,6 +279,25 @@ function buildParityDockerArgs(options, fixturePath, slug, title) {
   ];
 }
 
+function buildParitySshCommand(options, fixturePath, slug, title) {
+  const args = [
+    options.remoteRunnerPath,
+    fixturePath,
+    options.remoteArtifactsDir,
+    "--keep-post",
+    "--replace-post",
+    `--page-slug=${slug}`,
+    `--page-title=${title}`,
+  ];
+
+  return [
+    "sudo -u www-data",
+    `OXY_HTML_CONVERTER_WP_ROOT=${shellQuote(options.wordpressRoot)}`,
+    "php",
+    ...args.map(shellQuote),
+  ].join(" ");
+}
+
 function loadReport(options, fixturePath) {
   const relativeFixture = relativeFixturePath(options, fixturePath);
   const fixtureName = fixtureNameForSlug(relativeFixture);
@@ -234,18 +305,12 @@ function loadReport(options, fixturePath) {
   const title = `Fixture ${fixtureName}`;
 
   prepareRemoteArtifactsDir(options);
-  const output = runDocker(
-    buildParityDockerArgs(options, fixturePath, slug, title)
-  );
+  const output = isSshTarget(options)
+    ? runSsh(options, buildParitySshCommand(options, fixturePath, slug, title))
+    : runDocker(buildParityDockerArgs(options, fixturePath, slug, title));
 
   const result = JSON.parse(output);
-  const reportJson = runDocker([
-    "exec",
-    options.container,
-    "sh",
-    "-lc",
-    `cat ${shellQuote(result.reportPath)}`,
-  ]);
+  const reportJson = runRemoteShell(options, `cat ${shellQuote(result.reportPath)}`);
 
   return {
     fixturePath,
@@ -887,6 +952,7 @@ if (require.main === module) {
 } else {
   module.exports = {
     buildParityDockerArgs,
+    buildParitySshCommand,
     buildFixtureIndexFailures,
     summarizeEntry,
   };

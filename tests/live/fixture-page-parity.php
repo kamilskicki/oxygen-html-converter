@@ -18,12 +18,14 @@ ob_start();
 $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_HOST'] ?? '127.0.0.1';
 $_SERVER['REQUEST_METHOD'] = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-require_once '/var/www/html/wp-load.php';
-require_once '/var/www/html/wp-content/plugins/oxygen-html-converter/src/polyfills.php';
+$wordpressRoot = rtrim((string) (getenv('OXY_HTML_CONVERTER_WP_ROOT') ?: '/var/www/html'), '/\\');
 
-spl_autoload_register(function ($class) {
+require_once $wordpressRoot . '/wp-load.php';
+require_once $wordpressRoot . '/wp-content/plugins/oxygen-html-converter/src/polyfills.php';
+
+spl_autoload_register(function ($class) use ($wordpressRoot) {
     $prefix = 'OxyHtmlConverter\\';
-    $baseDir = '/var/www/html/wp-content/plugins/oxygen-html-converter/src/';
+    $baseDir = $wordpressRoot . '/wp-content/plugins/oxygen-html-converter/src/';
 
     $len = strlen($prefix);
     if (strncmp($prefix, $class, $len) !== 0) {
@@ -38,7 +40,7 @@ spl_autoload_register(function ($class) {
     }
 });
 
-$inputFile = $argv[1] ?? '/var/www/html/Import_Tests/Kamil.html';
+$inputFile = $argv[1] ?? $wordpressRoot . '/Import_Tests/Kamil.html';
 $artifactsDir = $argv[2] ?? '/tmp/oxy-parity';
 $cliOptions = parseCliOptions(array_slice($argv, 3));
 $pageOptions = [
