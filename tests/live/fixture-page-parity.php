@@ -618,11 +618,9 @@ function normalizeSelectorRecordsForParity($records): array
 
 function getExistingOxySelectorsForParity(): array
 {
-    if (function_exists('\\Breakdance\\BreakdanceOxygen\\Selectors\\getOxySelectors')) {
-        $selectors = \Breakdance\BreakdanceOxygen\Selectors\getOxySelectors();
-        return is_array($selectors) ? normalizeSelectorRecordsForParity($selectors) : [];
-    }
-
+    // Prefer the raw data API. getOxySelectors() keeps a request-local static
+    // cache which would otherwise remain stale when this process persists new
+    // selectors and immediately regenerates the global Oxygen stylesheet.
     if (function_exists('\\Breakdance\\Data\\get_global_option')) {
         $selectors = \Breakdance\Data\get_global_option('oxy_selectors_json_string');
         if (is_string($selectors)) {
@@ -631,6 +629,11 @@ function getExistingOxySelectorsForParity(): array
         if (is_array($selectors)) {
             return normalizeSelectorRecordsForParity($selectors);
         }
+    }
+
+    if (function_exists('\\Breakdance\\BreakdanceOxygen\\Selectors\\getOxySelectors')) {
+        $selectors = \Breakdance\BreakdanceOxygen\Selectors\getOxySelectors();
+        return is_array($selectors) ? normalizeSelectorRecordsForParity($selectors) : [];
     }
 
     $raw = get_option('oxygen_oxy_selectors_json_string', '[]');
@@ -683,6 +686,7 @@ function persistOxySelectorsForParity(array $selectors, array $collections): voi
             'collections' => $collections,
         ]));
         persistBreakdanceClassesPayloadForParity($breakdanceClassesPayload);
+        regenerateOxygenGlobalCssForParity();
         return;
     }
 
@@ -690,12 +694,21 @@ function persistOxySelectorsForParity(array $selectors, array $collections): voi
         \Breakdance\Data\set_global_option('oxy_selectors_collections_json_string', $collections);
         \Breakdance\Data\set_global_option('oxy_selectors_json_string', $selectors);
         \Breakdance\Data\set_global_option('breakdance_classes_json_string', $breakdanceClassesPayload);
+        regenerateOxygenGlobalCssForParity();
         return;
     }
 
     update_option('oxygen_oxy_selectors_collections_json_string', encodeJsonForParity($collections));
     update_option('oxygen_oxy_selectors_json_string', encodeJsonForParity($selectors));
     update_option('breakdance_classes_json_string', $breakdanceClassesPayload);
+    regenerateOxygenGlobalCssForParity();
+}
+
+function regenerateOxygenGlobalCssForParity(): void
+{
+    if (is_callable('\\Breakdance\\Render\\generateCacheForGlobalSettings')) {
+        \Breakdance\Render\generateCacheForGlobalSettings();
+    }
 }
 
 function persistBreakdanceClassesPayloadForParity(string $payloadJson): void
