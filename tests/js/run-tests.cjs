@@ -6,6 +6,7 @@ const tests = [
   ["builder-editability", require("./builder-editability.test.cjs")],
   ["live-gate", require("./live-gate.test.cjs")],
   ["fixture-baseline", require("./fixture-baseline.test.cjs")],
+  ["staging-browser-e2e", require("./staging-browser-e2e.test.cjs")],
   ["converter", require("./converter.test.cjs")],
   ["builder-modal", require("./builder-modal.test.cjs")],
   ["admin-request-client", require("./admin-request-client.test.cjs")],

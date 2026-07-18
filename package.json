@@ -19,6 +19,7 @@
     "test:visual": "node tests/live/run-visual-review.cjs",
     "test:visual:maximus": "node tests/live/run-visual-review.cjs --fixture=Maximus/maximus_transformacja_domu/code.html",
     "test:visual:maximus:windpress": "node tests/live/run-visual-review.cjs --class-mode=windpress --fixture=Maximus/maximus_transformacja_domu/code.html",
+    "test:staging:browser": "node tests/live/run-staging-browser-e2e.cjs",
     "test:maximus:matrix": "node tests/live/run-maximus-matrix.cjs",
     "test:maximus:matrix:full-live": "node tests/live/run-maximus-matrix.cjs --live=all",
     "install:zip": "node tests/live/install-zip-via-admin.cjs",
@@ -34,5 +35,8 @@
     "i18n:make-pot:docker": "docker run --rm -v %cd%:/app -w /app wordpress:cli wp i18n make-pot . languages/oxygen-html-converter.pot --domain=oxygen-html-converter --exclude=node_modules,vendor,tests,tests/live,artifacts,.git,.worktrees --allow-root",
     "check": "npm run check:release-hygiene && npm run test:js && composer lint:phpcs && composer lint:phpstan && composer test",
     "test": "npm run test:js && npm run test:php"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
   }
 }

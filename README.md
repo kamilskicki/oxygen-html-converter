@@ -79,14 +79,18 @@ More detail:
 
 ## Testing
 
+- Canonical reproducible inputs and their stable contract: `fixtures/html/fixture-index.json`
 - Fast gate: `npm run check`
 - PHP unit gate: `composer test`
 - JS tests: `npm run test:js`
-- Local live gate: `npm run test:live`
-- Install latest ZIP via wp-admin on the local Oxygen stack: `npm run install:zip`
-- Artifact live gate against the installed ZIP: `npm run test:live:artifact`
-- Maintained fixture screenshot pairs and frontend smoke: `npm run test:visual`
-- Full artifact gate after `npm run build:zip`: `npm run test:artifact`
+- Hermetic fixture gate: `npm run test:fixtures:local`
+- Build and hash the exact release artifact: `npm run build:zip`
+- Install that explicit ZIP on the maintained SSH staging target using the
+  commands in `docs/RELEASE_CHECKLIST.md`
+- Focused staging fixture gate: `npm run test:fixtures -- --ssh-host=oxyconvo6.mylab --wordpress-root=/var/www/wordpress`
+- Staging browser round-trip: `npm run test:staging:browser -- --base-url=https://oxyconvo6.mylab --page-id=<id>`
+- Docker-only legacy live helpers remain available for isolated local debugging;
+  they are not the canonical release target
 - Release verification: `npm run release:verify`
 - Build release ZIP: `npm run build:zip`
 

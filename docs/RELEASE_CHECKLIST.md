@@ -39,6 +39,9 @@ npm run test:fixtures:local
 npm run check
 ```
 
+All commands above resolve maintained fixtures from `fixtures/html` inside this
+repository. A release gate must not depend on a sibling workspace directory.
+
 Expected:
 
 - Composer exits 0; existing Legacy/test-bootstrap PSR-4 warnings are allowed only while non-growing and documented.
@@ -58,20 +61,32 @@ npm run test:visual
 Current maintained target:
 
 ```text
-http://oxyconvo6.localhost
-oxyconvo6-wordpress-1
+https://oxyconvo6.mylab
+SSH alias: oxyconvo6.mylab
+WordPress root: /var/www/wordpress
 ```
 
-Note: in this workspace, the maintained and verified M8 target is `http://oxyconvo6.localhost` with Docker container `oxyconvo6-wordpress-1`; use that target unless the environment is deliberately reconfigured.
+The `*.localhost` Docker target is retained only for isolated legacy debugging.
+It is not the canonical artifact or browser E2E target.
 
 Confirm the run covers:
 
-- plugin sync into the maintained local WordPress/Oxygen container
+- exact release ZIP installation on the maintained SSH staging target
 - fixture import with current `fixture-index.json` expectations
 - frontend nonblank render and visual smoke
 - Builder open, import/save, reopen, and editability smoke
 - selectors/classes/variables/templates/components/site-kit checks where relevant
 - failure artifacts under `artifacts/live-gate`, `artifacts/visual-review`, or `artifacts/visual-review/capture-failures`
+
+For the maintained staging target, run the focused P0 fixture baseline and then
+the browser round-trip against the same installed ZIP:
+
+```powershell
+$env:OXY_HTML_CONVERTER_SSH_HOST = 'oxyconvo6.mylab'
+$env:OXY_HTML_CONVERTER_WORDPRESS_ROOT = '/var/www/wordpress'
+node tests/live/run-fixture-baseline.cjs --fixture=regressions/css-cascade-component-semantics.html --slug-prefix=codex-e2e-
+npm run test:staging:browser -- --base-url=https://oxyconvo6.mylab --page-id=9
+```
 
 ## Release Verify Gate
 
@@ -94,22 +109,23 @@ Run before publishing a ZIP:
 
 ```powershell
 npm run build:zip
-npm run install:zip -- --zip=artifacts/release/oxygen-html-converter-0.9.0-beta.zip --base-url=http://oxyconvo6.localhost
-npm run test:live:artifact -- --base-url=http://oxyconvo6.localhost --output-dir=artifacts/release-smoke/rel05-live-gate
-npm run test:visual
+$zip = Resolve-Path artifacts/release/oxygen-html-converter-0.9.0-beta.zip
+$sha = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+scp $zip oxyconvo6.mylab:/tmp/oxygen-html-converter-$sha.zip
+ssh oxyconvo6.mylab "cd /var/www/wordpress && wp plugin install /tmp/oxygen-html-converter-$sha.zip --force --activate --allow-root"
+$env:OXY_HTML_CONVERTER_SSH_HOST = 'oxyconvo6.mylab'
+$env:OXY_HTML_CONVERTER_WORDPRESS_ROOT = '/var/www/wordpress'
+node tests/live/run-fixture-baseline.cjs --fixture=regressions/css-cascade-component-semantics.html --slug-prefix=codex-e2e-
+npm run test:staging:browser -- --base-url=https://oxyconvo6.mylab --page-id=<fixture-page-id> --artifact-sha256=$sha --commit=(git rev-parse HEAD)
 ```
 
-Always pass the exact ZIP path to `install:zip`; its unqualified fallback selects
-the newest matching artifact by modification time and is not sufficient hash
-proof. Record the ZIP SHA256 before installation and confirm the installed file
-manifest matches the ZIP manifest.
+Always pass the explicit, SHA-named ZIP to staging. An unqualified "latest ZIP"
+selection is not sufficient hash proof. Record the local and uploaded SHA256 and
+confirm the installed file manifest matches the ZIP manifest.
 
-`install:zip` reports the development-copy `backupPath`. Keep that backup until
-the artifact gate finishes. In a failure-safe cleanup step, move the installed
-release copy to the run's evidence directory, restore the reported development
-copy to the canonical plugin path, normalize ownership/modes, compare the
-pre/post path-and-content manifest hashes, and confirm the plugin is active and
-loaded. Do this cleanup on both pass and failure paths.
+Before replacing an existing staging installation, retain a recoverable backup
+until the artifact and browser gates finish. Confirm the plugin remains active
+and loaded after installation.
 
 Confirm:
 
