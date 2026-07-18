@@ -181,8 +181,11 @@ final class NativeCssMaterializer
 
         $matchedCount = 0;
         $jsFinalStateBaseSelectors = $this->buildJsFinalStateBaseSelectorLookup($cssRules);
+        $winningDeclarations = [];
+        $sourceOrder = 0;
 
         foreach ($cssRules as $rule) {
+            $sourceOrder++;
             $selector = trim((string) $rule['selector']);
             if ($selector === '') {
                 continue;
@@ -232,28 +235,138 @@ final class NativeCssMaterializer
             if ($declarations === []) {
                 continue;
             }
-            $expandedDeclarations = $this->expandShorthandProperties($declarations);
-            $materializedDeclarations = $this->filterNeutralFallbackDeclarations($expandedDeclarations);
-            $convertedStyles = $this->styleExtractor->toOxygenProperties($materializedDeclarations);
-
-            if ($convertedStyles === []) {
-                continue;
-            }
-
-            $this->logDebug(sprintf('Applying styles: %s', json_encode($convertedStyles)));
-
-            $element['data']['properties'] = $this->mergeAssociativeProperties(
-                $element['data']['properties'],
-                ['design' => $convertedStyles]
+            $this->mergeCascadeDeclarations(
+                $winningDeclarations,
+                $declarations,
+                is_array($rule['importantDeclarations'] ?? null) ? $rule['importantDeclarations'] : [],
+                $this->selectorSpecificity($selector),
+                $sourceOrder
             );
             $this->trackConsumedCssDeclarations($selector, $declarations);
+            $expandedDeclarations = $this->expandShorthandProperties($declarations);
+            $materializedDeclarations = $this->filterNeutralFallbackDeclarations($expandedDeclarations);
             if ($this->styleExtractor->supportsDeclarationsFully($materializedDeclarations)) {
                 $this->markConsumedCssSelector($selector);
             }
             $matchedCount++;
         }
 
+        $inlineStyle = trim($node->getAttribute('style'));
+        if ($inlineStyle !== '') {
+            $this->mergeCascadeDeclarations(
+                $winningDeclarations,
+                $this->cssParser->parseDeclarations($inlineStyle),
+                $this->cssParser->parseImportantDeclarations($inlineStyle),
+                [1, 0, 0, 0],
+                PHP_INT_MAX
+            );
+        }
+
+        $resolvedDeclarations = [];
+        foreach ($winningDeclarations as $property => $candidate) {
+            $resolvedDeclarations[$property] = $candidate['value'];
+        }
+        $materializedDeclarations = $this->filterNeutralFallbackDeclarations($resolvedDeclarations);
+        $convertedStyles = $this->styleExtractor->toOxygenProperties($materializedDeclarations);
+
+        if ($convertedStyles !== []) {
+            $this->logDebug(sprintf('Applying cascade-resolved styles: %s', json_encode($convertedStyles)));
+            $element['data']['properties'] = $this->mergeAssociativeProperties(
+                $element['data']['properties'],
+                ['design' => $convertedStyles]
+            );
+        }
+
         $this->logDebug("Total rules matched: $matchedCount");
+    }
+
+    /**
+     * @param array<string,array{value:string,important:bool,specificity:array{int,int,int,int},sourceOrder:int}> $winners
+     * @param array<string,string> $declarations
+     * @param array<string,bool> $importantDeclarations
+     * @param array{int,int,int,int} $specificity
+     */
+    private function mergeCascadeDeclarations(
+        array &$winners,
+        array $declarations,
+        array $importantDeclarations,
+        array $specificity,
+        int $sourceOrder
+    ): void {
+        foreach ($declarations as $property => $value) {
+            $property = strtolower(trim((string) $property));
+            if ($property === '' || !is_scalar($value)) {
+                continue;
+            }
+
+            $expanded = $this->expandShorthandProperties([$property => (string) $value]);
+            foreach ($expanded as $expandedProperty => $expandedValue) {
+                $candidate = [
+                    'value' => (string) $expandedValue,
+                    'important' => !empty($importantDeclarations[$property]),
+                    'specificity' => $specificity,
+                    'sourceOrder' => $sourceOrder,
+                ];
+
+                if (!isset($winners[$expandedProperty]) || $this->cascadeCandidateWins($candidate, $winners[$expandedProperty])) {
+                    $winners[$expandedProperty] = $candidate;
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array{value:string,important:bool,specificity:array{int,int,int,int},sourceOrder:int} $candidate
+     * @param array{value:string,important:bool,specificity:array{int,int,int,int},sourceOrder:int} $current
+     */
+    private function cascadeCandidateWins(array $candidate, array $current): bool
+    {
+        if ($candidate['important'] !== $current['important']) {
+            return $candidate['important'];
+        }
+
+        for ($index = 0; $index < 4; $index++) {
+            if ($candidate['specificity'][$index] === $current['specificity'][$index]) {
+                continue;
+            }
+
+            return $candidate['specificity'][$index] > $current['specificity'][$index];
+        }
+
+        return $candidate['sourceOrder'] >= $current['sourceOrder'];
+    }
+
+    /**
+     * Calculate author-selector specificity as [inline, ids, class-like, types].
+     *
+     * @return array{int,int,int,int}
+     */
+    private function selectorSpecificity(string $selector): array
+    {
+        $withoutWhere = preg_replace('/:where\([^)]*\)/i', '', $selector);
+        $selector = is_string($withoutWhere) ? $withoutWhere : $selector;
+
+        $idCount = preg_match_all('/#[A-Za-z_][A-Za-z0-9_-]*/', $selector);
+        $classCount = preg_match_all('/\.[A-Za-z_][A-Za-z0-9_-]*/', $selector);
+        $attributeCount = preg_match_all('/\[[^\]]+\]/', $selector);
+        $pseudoClassCount = preg_match_all('/:(?!:)[A-Za-z_-][A-Za-z0-9_-]*/', $selector);
+        $pseudoElementCount = preg_match_all('/::[A-Za-z_-][A-Za-z0-9_-]*/', $selector);
+
+        $typeCount = 0;
+        if (preg_match_all('/(?:^|[\s>+~,(])([A-Za-z][A-Za-z0-9_-]*|\*)/', $selector, $matches) > 0) {
+            foreach ($matches[1] as $type) {
+                if ($type !== '*') {
+                    $typeCount++;
+                }
+            }
+        }
+
+        return [
+            0,
+            (int) $idCount,
+            (int) $classCount + (int) $attributeCount + (int) $pseudoClassCount,
+            $typeCount + (int) $pseudoElementCount,
+        ];
     }
 
     /**

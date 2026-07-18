@@ -89,7 +89,8 @@ class CssParser
                 continue;
             }
 
-            $declarations = $this->parseDeclarations($block);
+            $declarationMetadata = $this->parseDeclarationsWithImportance($block);
+            $declarations = $declarationMetadata['declarations'];
             foreach (explode(',', $selector) as $sel) {
                 $sel = trim($sel);
                 if ($sel === '') {
@@ -100,6 +101,10 @@ class CssParser
                     'selector' => $sel,
                     'declarations' => $declarations,
                 ];
+
+                if ($declarationMetadata['important'] !== []) {
+                    $rule['importantDeclarations'] = $declarationMetadata['important'];
+                }
 
                 if ($media !== null && $media !== '') {
                     $rule['media'] = $media;
@@ -133,13 +138,17 @@ class CssParser
      */
     public function parseDeclarations(string $declarationsRaw): array
     {
-        $declarations = [];
+        return $this->parseDeclarationsWithImportance($declarationsRaw)['declarations'];
+    }
 
-        foreach ($this->parseDeclarationList($declarationsRaw) as $declaration) {
-            $declarations[$declaration['property']] = $declaration['value'];
-        }
-
-        return $declarations;
+    /**
+     * Return the declarations whose winning value in the block is marked !important.
+     *
+     * @return array<string, bool>
+     */
+    public function parseImportantDeclarations(string $declarationsRaw): array
+    {
+        return $this->parseDeclarationsWithImportance($declarationsRaw)['important'];
     }
 
     /**
@@ -169,6 +178,49 @@ class CssParser
         }
 
         return $declarations;
+    }
+
+    /**
+     * Resolve duplicate declarations inside one block while retaining importance.
+     *
+     * @return array{declarations:array<string,string>, important:array<string,bool>}
+     */
+    private function parseDeclarationsWithImportance(string $declarationsRaw): array
+    {
+        $declarations = [];
+        $important = [];
+
+        foreach ($this->splitDeclarations($declarationsRaw) as $part) {
+            $parsed = $this->splitPropertyValue($part);
+            if ($parsed === null) {
+                continue;
+            }
+
+            [$property, $rawValue] = $parsed;
+            $property = strtolower(trim($property));
+            $isImportant = preg_match('/\s*!\s*important\s*$/i', $rawValue) === 1;
+            $value = $this->stripImportant($rawValue);
+
+            if ($property === '' || $value === '') {
+                continue;
+            }
+
+            if (($important[$property] ?? false) && !$isImportant) {
+                continue;
+            }
+
+            $declarations[$property] = $value;
+            if ($isImportant) {
+                $important[$property] = true;
+            } else {
+                unset($important[$property]);
+            }
+        }
+
+        return [
+            'declarations' => $declarations,
+            'important' => $important,
+        ];
     }
 
     /**

@@ -66,7 +66,17 @@ CSS;
         $this->assertSame('image-set(url("a;b.png") 1x)', $rules[0]['declarations']['mask-image']);
         $this->assertSame('"/* keep; not comment */"', $rules[0]['declarations']['content']);
         $this->assertSame('blue', $rules[0]['declarations']['color']);
+        $this->assertTrue($rules[0]['importantDeclarations']['color']);
         $this->assertArrayNotHasKey('ignored', $rules[0]['declarations']);
+    }
+
+    public function testImportantDeclarationSurvivesLaterNormalDuplicate(): void
+    {
+        $rules = $this->parser->parse('.x { color: red !important; color: blue; }');
+
+        $this->assertSame('red', $rules[0]['declarations']['color']);
+        $this->assertTrue($rules[0]['importantDeclarations']['color']);
+        $this->assertTrue($this->parser->parseImportantDeclarations('color: red !important;')['color']);
     }
 
     public function testParseDeclarationsRecoversMalformedTrailingDeclaration(): void

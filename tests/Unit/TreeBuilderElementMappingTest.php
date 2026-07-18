@@ -536,6 +536,66 @@ class TreeBuilderElementMappingTest extends TestCase
         $this->assertArrayNotHasKey('typography', $properties);
     }
 
+    public function testInlineStyleWinsOverStylesheetIdAndClassRules(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert(
+            '<style>#target { color: #0000ff; } .card { color: #ff0000; }</style>'
+            . '<p id="target" class="card" style="color: #008000;">Copy</p>'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('#008000FF', $result['element']['data']['properties']['design']['typography']['color']);
+    }
+
+    public function testIdSelectorWinsOverLaterClassRule(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert(
+            '<style>#target { color: #0000ff; } .card { color: #ff0000; }</style>'
+            . '<p id="target" class="card">Copy</p>'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('#0000FFFF', $result['element']['data']['properties']['design']['typography']['color']);
+    }
+
+    public function testLaterRuleWinsWhenSpecificityIsEqual(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert(
+            '<style>.card { color: #0000ff; } .card { color: #ff0000; }</style>'
+            . '<p class="card">Copy</p>'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('#FF0000FF', $result['element']['data']['properties']['design']['typography']['color']);
+    }
+
+    public function testImportantStylesheetRuleWinsOverNormalInlineStyle(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert(
+            '<style>.card { color: #ff0000 !important; }</style>'
+            . '<p class="card" style="color: #008000;">Copy</p>'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('#FF0000FF', $result['element']['data']['properties']['design']['typography']['color']);
+    }
+
+    public function testImportantInlineStyleWinsOverImportantStylesheetRule(): void
+    {
+        $builder = new TreeBuilder();
+        $result = $builder->convert(
+            '<style>#target { color: #ff0000 !important; }</style>'
+            . '<p id="target" style="color: #008000 !important;">Copy</p>'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('#008000FF', $result['element']['data']['properties']['design']['typography']['color']);
+    }
+
     public function testInvalidSupportedCssValueIsRemovedFromFallbackCss(): void
     {
         $builder = new TreeBuilder();
