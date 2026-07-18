@@ -12,6 +12,9 @@
  * breakdance_classes_json_string, _oxygen_data, Oxygen templates, imported
  * pages, or plugin import/rollback post meta. Those records represent user
  * content or host-builder storage, not disposable plugin settings.
+ * Converter page CSS in _oxy_html_converter_page_styles is also retained, but
+ * the plugin emits that CSS at runtime. Pages that rely on it can lose styling
+ * after deactivation or uninstall unless the CSS is migrated first.
  *
  * No plugin-owned transients were found in src/ for this release. The
  * oxymade_selectors_option_cache transient is owned by the host/OxyMade
@@ -31,6 +34,7 @@ $oxy_html_converter_delete_owned_data = static function (): void {
         'oxy_html_converter_heuristics',
         'oxy_html_converter_brand_library',
         'oxy_html_converter_global_styles',
+        'oxy_html_converter_cache_refresh_notice',
     ];
 
     foreach ($oxy_html_converter_options as $oxy_html_converter_option) {

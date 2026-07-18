@@ -323,13 +323,18 @@ if (!function_exists('absint')) {
 if (!function_exists('get_option')) {
     function get_option($option, $default = false)
     {
-        return $GLOBALS['__wp_options'][$option] ?? $default;
+        $value = $GLOBALS['__wp_options'][$option] ?? $default;
+
+        return function_exists('apply_filters')
+            ? apply_filters('option_' . (string) $option, $value, (string) $option)
+            : $value;
     }
 }
 
 if (!function_exists('update_option')) {
-    function update_option($option, $value)
+    function update_option($option, $value, $autoload = null)
     {
+        unset($autoload);
         $option = (string) $option;
         $oldExists = array_key_exists($option, $GLOBALS['__wp_options']);
         $oldValue = $oldExists ? $GLOBALS['__wp_options'][$option] : null;

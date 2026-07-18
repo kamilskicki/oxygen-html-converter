@@ -23,6 +23,11 @@ class AjaxEndpointBehaviorTest extends TestCase
         $GLOBALS['__wp_options'] = [];
         $GLOBALS['__wp_next_post_id'] = 1;
         $GLOBALS['__wp_cleaned_post_cache'] = [];
+        $GLOBALS['__wp_nav_menus'] = [];
+        $GLOBALS['__wp_nav_menu_items'] = [];
+        $GLOBALS['__wp_next_nav_menu_id'] = 1;
+        $GLOBALS['__wp_next_nav_menu_item_id'] = 1000;
+        $GLOBALS['__wp_theme_mods'] = [];
         unset(
             $GLOBALS['__wp_current_user_can_last_capability'],
             $GLOBALS['__wp_apply_unslash'],
@@ -442,8 +447,9 @@ class AjaxEndpointBehaviorTest extends TestCase
             /** @var array<string, mixed> */
             public array $receivedPayload = [];
 
-            public function import(array $payload): array
+            public function import(array $payload, bool $allowUnsafeCode = false): array
             {
+                unset($allowUnsafeCode);
                 $this->receivedPayload = $payload;
 
                 return [
@@ -535,6 +541,76 @@ class AjaxEndpointBehaviorTest extends TestCase
         $this->assertTrue($response['data']['rollbackRestored']);
         $this->assertSame('previous-oxygen-payload', $GLOBALS['__wp_post_meta'][(int) $postId]['_oxygen_data']);
         $this->assertArrayNotHasKey('_oxy_html_converter_previous_oxygen_data', $GLOBALS['__wp_post_meta'][(int) $postId]);
+    }
+
+    public function testRollbackImportEndpointAcceptsSecondarySiteKitPageId(): void
+    {
+        $tree = [
+            'root' => [
+                'id' => 0,
+                'data' => ['type' => 'root', 'properties' => []],
+                'children' => [[
+                    'id' => 1,
+                    'data' => ['type' => ElementTypes::CONTAINER, 'properties' => []],
+                    'children' => [],
+                ]],
+            ],
+            '_nextNodeId' => 2,
+            'exportedLookupTable' => [],
+        ];
+        $importer = new \OxyHtmlConverter\Services\OxygenPageImporter();
+        $import = $importer->importSiteKit([
+            'id' => 'endpoint-two-page-kit',
+            'pages' => [
+                ['id' => 'home', 'title' => 'Home', 'documentTree' => $tree],
+                ['id' => 'about', 'title' => 'About', 'documentTree' => $tree],
+            ],
+        ]);
+        $this->assertTrue($import['success'], implode(' ', $import['errors'] ?? []));
+        $secondaryPageId = (int) $import['objects']['pages'][1]['postId'];
+        $ajax = new Ajax(null, null, null, null, null, null, null, null, $importer);
+        $_POST = [
+            'nonce' => 'n',
+            'postId' => (string) $secondaryPageId,
+        ];
+
+        $ajax->handleRollbackImport();
+
+        $response = $GLOBALS['__wp_send_json_last'];
+        $this->assertTrue($response['success']);
+        $this->assertSame($secondaryPageId, $response['data']['postId']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testRollbackImportEndpointAcceptsRollbackIdForSiteConfigurationOnlyKit(): void
+    {
+        $importer = new \OxyHtmlConverter\Services\OxygenPageImporter();
+        $import = $importer->importSiteKit([
+            'id' => 'endpoint-configuration-kit',
+            'menus' => [[
+                'id' => 'resources',
+                'name' => 'Resources',
+                'items' => [[
+                    'label' => 'Docs',
+                    'url' => 'https://example.test/docs',
+                ]],
+            ]],
+        ]);
+        $this->assertTrue($import['success'], implode(' ', $import['errors'] ?? []));
+        $this->assertCount(1, $GLOBALS['__wp_nav_menus']);
+        $ajax = new Ajax(null, null, null, null, null, null, null, null, $importer);
+        $_POST = [
+            'nonce' => 'n',
+            'rollbackId' => (string) $import['rollbackId'],
+        ];
+
+        $ajax->handleRollbackImport();
+
+        $response = $GLOBALS['__wp_send_json_last'];
+        $this->assertTrue($response['success']);
+        $this->assertSame($import['rollbackId'], $response['data']['rollbackId']);
+        $this->assertSame([], $GLOBALS['__wp_nav_menus']);
+        $this->assertSame([], $GLOBALS['__wp_nav_menu_items']);
     }
 
     public function testSaveBrandLibraryEndpointPersistsTokensAndComponents(): void

@@ -10,6 +10,7 @@ use OxyHtmlConverter\Services\OxygenPageImporter;
 use OxyHtmlConverter\Services\OxygenVariableRepository;
 use OxyHtmlConverter\Services\PageStyleRepository;
 use OxyHtmlConverter\Services\WindPressCacheResetService;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 class OxygenPageImporterTest extends TestCase
@@ -644,7 +645,7 @@ class OxygenPageImporterTest extends TestCase
                 'canImport' => true,
                 'nativeCoverage' => ['percent' => 100],
             ],
-        ]);
+        ], true);
 
         $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
         $this->assertSame(3, $result['componentInstances']['replaced']);
@@ -1219,7 +1220,90 @@ class OxygenPageImporterTest extends TestCase
         $this->assertArrayHasKey('adapterSnapshot', $storedManifest['rollback']['snapshot']);
     }
 
-    public function testImportSiteKitManifestTemporarilyEnablesOxygenPartGateWithJsonEncodedOption(): void
+    public function testImportSiteKitRejectsUnsafeCodeNodesByDefaultBeforePersistence(): void
+    {
+        $javascriptManifest = [
+            'id' => 'unsafe-javascript-site-kit',
+            'pages' => [[
+                'id' => 'home',
+                'title' => 'Home',
+                'documentTree' => $this->treeWithCodeNode(
+                    ElementTypes::JAVASCRIPT_CODE,
+                    'javascript_code',
+                    'document.cookie = "stolen";'
+                ),
+            ]],
+        ];
+
+        $javascriptResult = (new OxygenPageImporter())->importSiteKit($javascriptManifest);
+
+        $this->assertFalse($javascriptResult['success']);
+        $this->assertSame(403, $javascriptResult['status']);
+        $this->assertStringContainsString('explicitly authorized', implode(' ', $javascriptResult['errors']));
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
+
+        $cssManifest = [
+            'id' => 'unsafe-css-site-kit',
+            'pages' => [[
+                'id' => 'home',
+                'title' => 'Home',
+                'documentTree' => $this->treeWithCodeNode(
+                    ElementTypes::CSS_CODE,
+                    'css_code',
+                    '.hero { background-image: url(javascript:alert(1)); }'
+                ),
+            ]],
+        ];
+
+        $cssResult = (new OxygenPageImporter())->importSiteKit($cssManifest);
+
+        $this->assertFalse($cssResult['success']);
+        $this->assertSame(403, $cssResult['status']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
+    }
+
+    public function testImportSiteKitPersistsUnsafeCodeOnlyWithExplicitAuthorizedOptIn(): void
+    {
+        $manifest = [
+            'id' => 'authorized-unsafe-site-kit',
+            'pages' => [[
+                'id' => 'home',
+                'title' => 'Home',
+                'documentTree' => $this->treeWithCodeNode(
+                    ElementTypes::JAVASCRIPT_CODE,
+                    'javascript_code',
+                    'console.log("authorized");'
+                ),
+            ]],
+        ];
+
+        $result = (new OxygenPageImporter())->importSiteKit($manifest, true);
+
+        $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
+        $tree = $this->decodeStoredOxygenTree((int) $result['objects']['pages'][0]['postId']);
+        $this->assertSame(ElementTypes::JAVASCRIPT_CODE, $tree['root']['children'][0]['data']['type']);
+    }
+
+    public function testDirectPageImportAlsoRejectsUnsafeCodeWithoutAuthorizedOptIn(): void
+    {
+        $result = (new OxygenPageImporter())->import([
+            'title' => 'Unsafe Direct Page',
+            'documentTree' => $this->treeWithCodeNode(
+                ElementTypes::JAVASCRIPT_CODE,
+                'javascript_code',
+                'console.log("denied");'
+            ),
+        ]);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(403, $result['status']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
+    }
+
+    public function testImportSiteKitRejectsMidRequestOxygenPartEnablementBeforeWrite(): void
     {
         $GLOBALS['__wp_options']['oxygen_is_copy_from_frontend_enabled'] = '';
         $manifest = $this->loadSiteKitManifestFixture();
@@ -1227,9 +1311,155 @@ class OxygenPageImporterTest extends TestCase
 
         $result = (new OxygenPageImporter())->importSiteKit($manifest);
 
-        $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
-        $this->assertSame('oxygen_part', $GLOBALS['__wp_posts'][6]->post_type);
+        $this->assertFalse($result['success']);
+        $this->assertSame(422, $result['status']);
+        $this->assertStringContainsString('Turn This Website Into a Design Set', implode(' ', $result['errors']));
+        $this->assertStringContainsString('new request', implode(' ', $result['errors']));
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
         $this->assertSame('', $GLOBALS['__wp_options']['oxygen_is_copy_from_frontend_enabled']);
+    }
+
+    #[RunInSeparateProcess]
+    public function testImportSiteKitRejectsOxygenPartWhenRuntimeConstantsWereBuiltWithoutIt(): void
+    {
+        define('BREAKDANCE_ALL_TEMPLATE_POST_TYPES', ['oxygen_template', 'oxygen_header', 'oxygen_footer']);
+        define('BREAKDANCE_ALL_EDITABLE_POST_TYPES', ['oxygen_template', 'oxygen_header', 'oxygen_footer', 'oxygen_block']);
+
+        $result = (new OxygenPageImporter())->importSiteKit($this->loadSiteKitManifestFixture());
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(422, $result['status']);
+        $this->assertStringContainsString('new request', implode(' ', $result['errors']));
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertSame([], $GLOBALS['__wp_post_meta']);
+    }
+
+    public function testTemplateOnlySiteKitPersistsManifestAndRollsBackFromCreatedObject(): void
+    {
+        $manifest = [
+            'id' => 'template-only-site-kit',
+            'templates' => [[
+                'id' => 'single',
+                'title' => 'Single Template',
+                'documentTree' => $this->minimalTreeWithSemanticTag('main'),
+                'templateSettings' => [
+                    'type' => 'all-singles',
+                    'ruleGroups' => [],
+                ],
+            ]],
+        ];
+        $importer = new OxygenPageImporter();
+
+        $result = $importer->importSiteKit($manifest);
+
+        $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
+        $templateId = (int) $result['objects']['templates'][0]['postId'];
+        $this->assertGreaterThan(0, $templateId);
+        $this->assertArrayHasKey(OxygenPageImporter::MANIFEST_META_KEY, $GLOBALS['__wp_post_meta'][$templateId]);
+        $registry = get_option('oxy_html_converter_site_kit_manifests', []);
+        $this->assertSame($result['rollbackId'], $registry['manifests'][$result['rollbackId']]['rollbackId']);
+
+        $rollback = $importer->rollback($templateId);
+
+        $this->assertTrue($rollback['success'], implode(' ', $rollback['errors'] ?? []));
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testComponentOnlySiteKitPersistsManifestOnCreatedBlockAndRollsBack(): void
+    {
+        $manifest = [
+            'id' => 'component-only-site-kit',
+            'designDocument' => [
+                'componentCandidates' => [[
+                    'signature' => 'div[h3,p,a]',
+                    'tag' => 'div',
+                    'count' => 3,
+                    'confidence' => 1.0,
+                    'suggestedName' => 'feature-card',
+                    'classes' => ['feature-card'],
+                    'documentTree' => $this->featureCardDocumentTree(1),
+                ]],
+            ],
+            'importPlan' => [
+                'status' => 'ready',
+                'canImport' => true,
+                'nativeCoverage' => ['percent' => 100],
+            ],
+        ];
+        $importer = new OxygenPageImporter();
+
+        $import = $importer->importSiteKit($manifest);
+
+        $this->assertTrue($import['success'], implode(' ', $import['errors'] ?? []));
+        $this->assertSame(1, $import['componentPersistence']['created']);
+        $blockId = (int) $import['componentPersistence']['createdBlocks'][0]['postId'];
+        $this->assertSame('oxygen_block', $GLOBALS['__wp_posts'][$blockId]->post_type);
+        $this->assertArrayHasKey(OxygenPageImporter::MANIFEST_META_KEY, $GLOBALS['__wp_post_meta'][$blockId]);
+
+        $rollback = $importer->rollback($blockId);
+
+        $this->assertTrue($rollback['success'], implode(' ', $rollback['errors'] ?? []));
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testSiteKitRollbackResolvesManifestFromSecondaryPageId(): void
+    {
+        $manifest = [
+            'id' => 'two-page-site-kit',
+            'pages' => [
+                [
+                    'id' => 'home',
+                    'title' => 'Home',
+                    'documentTree' => $this->minimalTreeWithSemanticTag('main'),
+                ],
+                [
+                    'id' => 'about',
+                    'title' => 'About',
+                    'documentTree' => $this->minimalTreeWithSemanticTag('main'),
+                ],
+            ],
+        ];
+        $importer = new OxygenPageImporter();
+        $import = $importer->importSiteKit($manifest);
+        $this->assertTrue($import['success'], implode(' ', $import['errors'] ?? []));
+        $secondaryPageId = (int) $import['objects']['pages'][1]['postId'];
+
+        $rollback = $importer->rollback($secondaryPageId);
+
+        $this->assertTrue($rollback['success'], implode(' ', $rollback['errors'] ?? []));
+        $this->assertSame($secondaryPageId, $rollback['postId']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testSiteConfigurationOnlySiteKitRollsBackByDedicatedRollbackId(): void
+    {
+        $manifest = [
+            'id' => 'configuration-only-site-kit',
+            'menus' => [[
+                'id' => 'resources',
+                'name' => 'Resources',
+                'items' => [[
+                    'label' => 'Docs',
+                    'url' => 'https://example.test/docs',
+                ]],
+            ]],
+        ];
+        $importer = new OxygenPageImporter();
+
+        $import = $importer->importSiteKit($manifest);
+
+        $this->assertTrue($import['success'], implode(' ', $import['errors'] ?? []));
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertCount(1, $GLOBALS['__wp_nav_menus']);
+        $registry = get_option('oxy_html_converter_site_kit_manifests', []);
+        $this->assertArrayHasKey($import['rollbackId'], $registry['manifests']);
+
+        $rollback = $importer->rollback(0, (string) $import['rollbackId']);
+
+        $this->assertTrue($rollback['success'], implode(' ', $rollback['errors'] ?? []));
+        $this->assertSame([], $GLOBALS['__wp_nav_menus']);
+        $this->assertSame([], $GLOBALS['__wp_nav_menu_items']);
     }
 
     public function testImportSiteKitManifestRejectsUnknownSectionsBeforeWrite(): void
@@ -1320,10 +1550,8 @@ class OxygenPageImporterTest extends TestCase
         $this->assertCount(1, $GLOBALS['__wp_nav_menus']);
         $this->assertArrayHasKey(1, $GLOBALS['__wp_posts']);
 
-        $storedManifest = json_decode(
-            stripslashes((string) $GLOBALS['__wp_post_meta'][1][OxygenPageImporter::MANIFEST_META_KEY]),
-            true
-        );
+        $registry = get_option(OxygenPageImporter::SITE_KIT_MANIFESTS_OPTION, []);
+        $storedManifest = $registry['manifests'][$import['rollbackId']] ?? null;
         $this->assertIsArray($storedManifest);
         $storedManifest['rollback']['snapshot']['stores'] = [[
             'storeType' => 'unknown',
@@ -1334,7 +1562,8 @@ class OxygenPageImporterTest extends TestCase
             'newExists' => true,
             'newValue' => 'corrupt',
         ]];
-        update_post_meta(1, OxygenPageImporter::MANIFEST_META_KEY, wp_slash(wp_json_encode($storedManifest)));
+        $registry['manifests'][$import['rollbackId']] = $storedManifest;
+        update_option(OxygenPageImporter::SITE_KIT_MANIFESTS_OPTION, $registry);
 
         $rollback = $importer->rollback(1);
 
@@ -1983,6 +2212,39 @@ class OxygenPageImporterTest extends TestCase
             ],
             '_nextNodeId' => 2,
             'exportedLookupTable' => [],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function treeWithCodeNode(string $type, string $field, string $code): array
+    {
+        return [
+            'root' => [
+                'id' => 0,
+                'data' => [
+                    'type' => 'root',
+                    'properties' => [],
+                ],
+                'children' => [[
+                    'id' => 1,
+                    'data' => [
+                        'type' => $type,
+                        'properties' => [
+                            'content' => [
+                                'content' => [
+                                    $field => $code,
+                                ],
+                            ],
+                        ],
+                    ],
+                    'children' => [],
+                ]],
+            ],
+            '_nextNodeId' => 2,
+            'exportedLookupTable' => [],
+            'status' => 'exported',
         ];
     }
 

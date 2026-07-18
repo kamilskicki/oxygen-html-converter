@@ -229,6 +229,28 @@ class OxygenStorageAdapterTest extends TestCase
         $this->assertTrue($adapter->supports('6.1.0'));
     }
 
+    #[RunInSeparateProcess]
+    public function testFactoryRejectsDetectedLegacyCtRuntimeVersion(): void
+    {
+        define('CT_VERSION', '4.9');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Unsupported Oxygen runtime version "4.9"');
+
+        (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+    }
+
+    #[RunInSeparateProcess]
+    public function testFactoryDetectsStableOxygenVersionConstant(): void
+    {
+        define('__BREAKDANCE_VERSION', '6.1.0');
+
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+
+        $this->assertSame('oxygen6', $adapter->getAdapterId());
+        $this->assertSame('6.1.0', $adapter->getContractVersion());
+    }
+
     public function testFactorySupportsOnlyPinnedOxygenVersion(): void
     {
         $factory = new OxygenStorageAdapterFactory(null, $this->fixtureDir());

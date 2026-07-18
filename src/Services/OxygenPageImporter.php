@@ -12,6 +12,7 @@ class OxygenPageImporter
     public const MANIFEST_META_KEY = '_oxy_html_converter_import_manifest';
     public const ROLLBACK_META_KEY = '_oxy_html_converter_previous_oxygen_data';
     public const CACHE_REFRESH_NOTICE_OPTION = 'oxy_html_converter_cache_refresh_notice';
+    public const SITE_KIT_MANIFESTS_OPTION = 'oxy_html_converter_site_kit_manifests';
     private const OXYGEN_PART_GATE_OPTION_NAME = 'oxygen_is_copy_from_frontend_enabled';
 
     /**
@@ -127,7 +128,7 @@ class OxygenPageImporter
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    public function import(array $payload): array
+    public function import(array $payload, bool $allowUnsafeCode = false): array
     {
         $importPlan = is_array($payload['importPlan'] ?? null) ? $payload['importPlan'] : [];
 
@@ -138,6 +139,20 @@ class OxygenPageImporter
                 'message' => __('Import plan is blocked. Resolve blockers before creating a page.', 'oxygen-html-converter'),
                 'errors' => $this->normalizeMessages($importPlan['blockers'] ?? []),
             ];
+        }
+
+        if (!$allowUnsafeCode) {
+            $unsafeContentErrors = $this->unsafePersistenceErrors($payload);
+            if ($unsafeContentErrors !== []) {
+                return [
+                    'success' => false,
+                    'status' => 403,
+                    'message' => __('Unsafe executable content was denied before page persistence.', 'oxygen-html-converter'),
+                    'errors' => array_merge([
+                        'Unsafe code persistence must be explicitly authorized by a trusted caller after capability checks.',
+                    ], $unsafeContentErrors),
+                ];
+            }
         }
 
         try {
@@ -302,13 +317,20 @@ class OxygenPageImporter
      * @param array<string, mixed> $manifest
      * @return array<string, mixed>
      */
-    public function importSiteKit(array $manifest): array
+    public function importSiteKit(array $manifest, bool $allowUnsafeCode = false): array
     {
-        $managedPartGate = $this->enableManagedOxygenPartImports($manifest);
+        $partPreflight = $this->preflightOxygenPartImports($manifest);
+        if (!$partPreflight['valid']) {
+            return [
+                'success' => false,
+                'status' => 422,
+                'message' => __('Oxygen parts are not available in this request.', 'oxygen-html-converter'),
+                'errors' => $partPreflight['errors'],
+            ];
+        }
+
         $validation = $this->validateSiteKitManifest($manifest);
         if (!$validation['valid']) {
-            $this->restoreManagedOxygenPartImports($managedPartGate);
-
             return [
                 'success' => false,
                 'status' => 422,
@@ -317,20 +339,30 @@ class OxygenPageImporter
             ];
         }
 
+        if (!$allowUnsafeCode) {
+            $unsafeContentErrors = $this->unsafePersistenceErrors($manifest);
+            if ($unsafeContentErrors !== []) {
+                return [
+                    'success' => false,
+                    'status' => 403,
+                    'message' => __('Unsafe executable content was denied before site-kit persistence.', 'oxygen-html-converter'),
+                    'errors' => array_merge([
+                        'Unsafe code persistence must be explicitly authorized by a trusted caller after capability checks.',
+                    ], $unsafeContentErrors),
+                ];
+            }
+        }
+
         foreach ($this->siteKitSectionRecords($manifest, 'pages') as $indexedRecord) {
             $record = $indexedRecord['record'];
             $tree = $this->extractSiteKitDocumentTree($record);
             $authorization = $this->authorizeImport($this->siteKitPagePayload($record, $indexedRecord['index'], $tree ?? []));
             if (empty($authorization['success'])) {
-                $this->restoreManagedOxygenPartImports($managedPartGate);
-
                 return $authorization;
             }
         }
 
         if (!$this->currentUserCan('edit_pages')) {
-            $this->restoreManagedOxygenPartImports($managedPartGate);
-
             return [
                 'success' => false,
                 'status' => 403,
@@ -347,9 +379,8 @@ class OxygenPageImporter
             'global_styles',
             'brand_library',
         ]);
-        $rollbackBaseline = is_array($managedPartGate['snapshot'] ?? null) ? [$managedPartGate['snapshot']] : [];
+        $rollbackBaseline = [];
         $objects = $this->emptySiteKitObjectReport();
-        $firstPageId = 0;
         $selectorPersistence = ['saved' => 0, 'total' => 0, 'collections' => []];
         $globalStylePersistence = ['saved' => false, 'changes' => 0];
         $pageStylePersistence = ['saved' => false, 'bytes' => 0, 'hash' => ''];
@@ -391,9 +422,6 @@ class OxygenPageImporter
                     $pageStylePersistence,
                     is_array($page['pageStylePersistence'] ?? null) ? $page['pageStylePersistence'] : []
                 );
-                if ($firstPageId < 1) {
-                    $firstPageId = (int) $page['postId'];
-                }
             }
 
             $templateRepository = new OxygenTemplateRepository($this->getStorageAdapter());
@@ -466,10 +494,15 @@ class OxygenPageImporter
                 $rollbackSnapshot
             );
 
-            if ($firstPageId > 0) {
-                $this->persistManifest($firstPageId, $report);
+            $postIds = $this->siteKitManifestPostIds($report);
+            $report['rollback']['postIds'] = $postIds;
+            $report['rollback']['primaryPostId'] = $postIds[0] ?? 0;
+            $this->persistSiteKitManifest($report);
+
+            $primaryPostId = (int) ($report['rollback']['primaryPostId'] ?? 0);
+            if ($primaryPostId > 0) {
+                $this->persistManifest($primaryPostId, $report);
             }
-            $this->restoreManagedOxygenPartImports($managedPartGate);
         } catch (\Throwable $e) {
             $siteConfigurationRestore = $siteConfigurationRollback !== []
                 ? (new SiteConfigurationImporter())->restore($siteConfigurationRollback)
@@ -512,9 +545,19 @@ class OxygenPageImporter
     /**
      * @return array<string, mixed>
      */
-    public function rollback(int $postId): array
+    public function rollback(int $postId, string $rollbackId = ''): array
     {
-        if ($postId < 1) {
+        $rollbackId = trim($rollbackId);
+        if ($rollbackId !== '' && preg_match('/^[a-f0-9]{16}$/', $rollbackId) !== 1) {
+            return [
+                'success' => false,
+                'status' => 400,
+                'message' => __('Invalid rollback ID.', 'oxygen-html-converter'),
+                'errors' => [],
+            ];
+        }
+
+        if ($postId < 1 && $rollbackId === '') {
             return [
                 'success' => false,
                 'status' => 400,
@@ -523,7 +566,9 @@ class OxygenPageImporter
             ];
         }
 
-        if (!$this->currentUserCan('edit_post', $postId)) {
+        if (($postId > 0 && !$this->currentUserCan('edit_post', $postId))
+            || ($postId < 1 && !$this->currentUserCan('edit_pages'))
+        ) {
             return [
                 'success' => false,
                 'status' => 403,
@@ -532,11 +577,36 @@ class OxygenPageImporter
             ];
         }
 
-        $manifest = $this->loadManifest($postId);
+        $manifest = $this->loadRollbackManifest($postId, $rollbackId);
+        if ($manifest !== [] && !$this->currentUserCanRollbackSiteKitManifest($manifest)) {
+            return [
+                'success' => false,
+                'status' => 403,
+                'message' => __('You are not allowed to rollback every object in this site kit.', 'oxygen-html-converter'),
+                'errors' => ['edit_post capability is required for every existing site-kit object.'],
+            ];
+        }
+
+        if (($manifest['kind'] ?? '') === 'site-kit'
+            && isset($manifest['rollback']['available'])
+            && empty($manifest['rollback']['available'])
+        ) {
+            return [
+                'success' => false,
+                'status' => 404,
+                'message' => __('No rollback payload is available for this site kit.', 'oxygen-html-converter'),
+                'errors' => [],
+            ];
+        }
+
         $snapshot = is_array($manifest['rollback']['snapshot'] ?? null) ? $manifest['rollback']['snapshot'] : [];
         $siteConfigurationSnapshot = is_array($manifest['siteConfigurationPersistence']['rollback'] ?? null)
             ? $manifest['siteConfigurationPersistence']['rollback']
             : [];
+        $siteKitPostIds = $this->siteKitManifestPostIds($manifest);
+        $manifestRollbackId = is_string($manifest['rollbackId'] ?? null)
+            ? (string) $manifest['rollbackId']
+            : $rollbackId;
 
         if ($snapshot !== []) {
             $restore = $this->restoreRollbackSnapshot($snapshot);
@@ -569,11 +639,25 @@ class OxygenPageImporter
                 }
             }
 
-            if ($this->postExists($postId)) {
+            $isSiteKitManifest = ($manifest['kind'] ?? '') === 'site-kit';
+            if (!$isSiteKitManifest && $this->postExists($postId)) {
                 delete_post_meta($postId, self::ROLLBACK_META_KEY);
                 $this->markManifestRolledBack($postId);
             }
-            $this->refreshRenderCache($postId);
+            $primaryPostId = (int) ($manifest['rollback']['primaryPostId'] ?? 0);
+            if (!$isSiteKitManifest
+                && $primaryPostId > 0
+                && $primaryPostId !== $postId
+                && $this->postExists($primaryPostId)
+            ) {
+                $this->markManifestRolledBack($primaryPostId);
+            }
+            if ($manifestRollbackId !== '') {
+                $this->markSiteKitManifestRolledBack($manifestRollbackId);
+            }
+            foreach ($siteKitPostIds as $siteKitPostId) {
+                $this->refreshRenderCache($siteKitPostId);
+            }
 
             return [
                 'success' => true,
@@ -584,6 +668,7 @@ class OxygenPageImporter
                 'restoredStores' => (int) ($restore['restored'] ?? 0),
                 'siteConfigurationRestore' => $siteConfigurationRestore,
                 'restoredSiteConfigurationStores' => (int) ($siteConfigurationRestore['restored'] ?? 0),
+                'rollbackId' => $manifestRollbackId,
             ];
         }
 
@@ -677,80 +762,318 @@ class OxygenPageImporter
     }
 
     /**
+     * Oxygen builds its editable/template post-type constants once during plugin load.
+     * Changing the Design Library option here cannot safely rebuild those constants or
+     * re-run the post-type registration lifecycle, so part imports fail before writes.
+     *
      * @param array<string, mixed> $manifest
-     * @return array{enabled: bool, snapshot: array<string, mixed>|null}
+     * @return array{valid: bool, errors: list<string>}
      */
-    private function enableManagedOxygenPartImports(array $manifest): array
+    private function preflightOxygenPartImports(array $manifest): array
     {
         $records = is_array($manifest['parts'] ?? null) ? $manifest['parts'] : [];
-        $requested = $manifest['enableOxygenPartImports'] ?? false;
-        $enabled = $requested === true || $requested === 1 || $requested === '1' || $requested === 'true';
+        if ($records === []) {
+            return ['valid' => true, 'errors' => []];
+        }
 
-        if (!$enabled || $records === []) {
+        $guidance = 'Enable "Turn This Website Into a Design Set" in Oxygen > Settings > Design Library, save the setting, then retry in a new request.';
+        if (!$this->oxygenPartGateIsEnabled()) {
+            return ['valid' => false, 'errors' => [$guidance]];
+        }
+
+        foreach (['BREAKDANCE_ALL_TEMPLATE_POST_TYPES', 'BREAKDANCE_ALL_EDITABLE_POST_TYPES'] as $constantName) {
+            if (!defined($constantName)) {
+                continue;
+            }
+
+            $postTypes = constant($constantName);
+            if (!is_array($postTypes) || !in_array('oxygen_part', $postTypes, true)) {
+                return [
+                    'valid' => false,
+                    'errors' => [
+                        'Oxygen loaded this request before Design Library parts were enabled, so its cached post-type constants do not include oxygen_part. ' . $guidance,
+                    ],
+                ];
+            }
+        }
+
+        if (function_exists('did_action')
+            && did_action('init') > 0
+            && function_exists('post_type_exists')
+            && !post_type_exists('oxygen_part')
+        ) {
             return [
-                'enabled' => false,
-                'snapshot' => null,
+                'valid' => false,
+                'errors' => [
+                    'Oxygen did not register the oxygen_part post type for this request. ' . $guidance,
+                ],
             ];
         }
 
-        // Oxygen 6.1 stable reads this through Breakdance\Data\get_global_option,
-        // which expects a JSON-encoded value at the physical oxygen_ option key.
-        $snapshot = $this->captureOptionStore('oxygen_part_gate', self::OXYGEN_PART_GATE_OPTION_NAME);
-        $this->setOxygenPartGateOption('yes');
+        return ['valid' => true, 'errors' => []];
+    }
 
-        return [
-            'enabled' => true,
-            'snapshot' => $snapshot,
-        ];
+    private function oxygenPartGateIsEnabled(): bool
+    {
+        if (function_exists('\Breakdance\Data\get_global_option')) {
+            return \Breakdance\Data\get_global_option('is_copy_from_frontend_enabled') === 'yes';
+        }
+
+        if (!function_exists('get_option')) {
+            return false;
+        }
+
+        $value = get_option(self::OXYGEN_PART_GATE_OPTION_NAME, '');
+        if ($value === 'yes') {
+            return true;
+        }
+
+        if (!is_string($value) || trim($value) === '') {
+            return false;
+        }
+
+        return json_decode($value, true) === 'yes';
     }
 
     /**
-     * @param array<string, mixed> $state
+     * @param array<string, mixed> $manifest
+     * @return list<string>
      */
-    private function restoreManagedOxygenPartImports(array $state): void
+    private function unsafePersistenceErrors(array $manifest): array
     {
-        $snapshot = is_array($state['snapshot'] ?? null) ? $state['snapshot'] : null;
-        if ($snapshot === null) {
-            return;
-        }
+        $errors = [];
+        $this->scanUnsafePersistenceValue($manifest, '$', $errors);
 
-        $exists = (bool) ($snapshot['oldExists'] ?? false);
-        if ($exists) {
-            $this->setOxygenPartGateOption($snapshot['oldValue'] ?? null, true);
-            return;
-        }
-
-        $this->deleteOxygenPartGateOption();
+        return array_values(array_unique($errors));
     }
 
     /**
      * @param mixed $value
+     * @param list<string> $errors
      */
-    private function setOxygenPartGateOption($value, bool $valueIsRawOptionValue = false): void
+    private function scanUnsafePersistenceValue($value, string $path, array &$errors, int $depth = 0): void
     {
-        if (function_exists('\Breakdance\Data\set_global_option') && !$valueIsRawOptionValue) {
-            \Breakdance\Data\set_global_option('is_copy_from_frontend_enabled', $value);
+        if (count($errors) >= 20) {
             return;
         }
 
-        if (!function_exists('update_option')) {
+        if ($depth > 100) {
+            $errors[] = $path . ' exceeds the safe persistence scan depth.';
             return;
         }
 
-        $optionValue = $valueIsRawOptionValue ? $value : $this->encodeJson($value);
-        update_option(self::OXYGEN_PART_GATE_OPTION_NAME, $optionValue);
+        if (!is_array($value)) {
+            return;
+        }
+
+        $nodeType = is_string($value['data']['type'] ?? null) ? (string) $value['data']['type'] : '';
+        if ($nodeType !== '') {
+            $nodeError = $this->unsafePersistenceNodeError($value, $nodeType);
+            if ($nodeError !== '') {
+                $errors[] = $path . ': ' . $nodeError;
+            }
+        }
+
+        foreach ($value as $key => $item) {
+            $itemPath = $path . (is_int($key) ? '[' . $key . ']' : '.' . (string) $key);
+
+            if (is_array($item)) {
+                $this->scanUnsafePersistenceValue($item, $itemPath, $errors, $depth + 1);
+                continue;
+            }
+
+            if (!is_string($item)) {
+                continue;
+            }
+
+            if ((string) $key === 'tree_json_string') {
+                $decodedTree = json_decode($item, true);
+                if (is_array($decodedTree)) {
+                    $this->scanUnsafePersistenceValue($decodedTree, $itemPath, $errors, $depth + 1);
+                }
+                continue;
+            }
+
+            $cssField = in_array((string) $key, [
+                'css',
+                'css_code',
+                'globalCss',
+                'fallbackCss',
+                'pageCss',
+                'pageScopedCss',
+            ], true);
+            if ($cssField && $this->cssContainsUnsafeExecutableMarkers($item)) {
+                $errors[] = $itemPath . ' contains an unsafe executable CSS value.';
+                continue;
+            }
+
+            if ((string) $key === 'code' && strpos($path, '.scripts') !== false && trim($item) !== '') {
+                $errors[] = $itemPath . ' contains executable global script code.';
+                continue;
+            }
+
+            if ($this->stringContainsUnsafeExecutableUrl($item)) {
+                $errors[] = $itemPath . ' contains an unsafe executable URL.';
+            }
+        }
     }
 
-    private function deleteOxygenPartGateOption(): void
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function unsafePersistenceNodeError(array $node, string $type): string
     {
-        if (function_exists('\Breakdance\Data\delete_global_option')) {
-            \Breakdance\Data\delete_global_option('is_copy_from_frontend_enabled');
-            return;
+        if ($type === ElementTypes::JAVASCRIPT_CODE || str_ends_with($type, '\\JavaScriptCode')) {
+            return 'JavaScriptCode nodes require explicit unsafe-code authorization.';
         }
 
-        if (function_exists('delete_option')) {
-            delete_option(self::OXYGEN_PART_GATE_OPTION_NAME);
+        if ($type === ElementTypes::PHP_CODE || str_ends_with($type, '\\PhpCode')) {
+            return 'PhpCode nodes require explicit unsafe-code authorization.';
         }
+
+        if ($this->nodeSettingsContainUnsafeExecutableCode($node)) {
+            return 'node settings contain executable attributes or interactions.';
+        }
+
+        if ($type === ElementTypes::HTML_CODE || str_ends_with($type, '\\HtmlCode')) {
+            $html = $node['data']['properties']['content']['content']['html_code'] ?? '';
+            if (is_string($html) && $this->htmlContainsUnsafeExecutableMarkers($html)) {
+                return 'HtmlCode content contains executable markup.';
+            }
+        }
+
+        if ($type === ElementTypes::CSS_CODE || str_ends_with($type, '\\CssCode')) {
+            $css = $node['data']['properties']['content']['content']['css_code'] ?? '';
+            if (is_string($css) && $this->cssContainsUnsafeExecutableMarkers($css)) {
+                return 'CssCode content contains an unsafe executable value.';
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function nodeSettingsContainUnsafeExecutableCode(array $node): bool
+    {
+        $settings = is_array($node['data']['properties']['settings'] ?? null)
+            ? $node['data']['properties']['settings']
+            : [];
+        $advanced = is_array($settings['advanced'] ?? null) ? $settings['advanced'] : [];
+        $attributes = is_array($advanced['attributes'] ?? null) ? $advanced['attributes'] : [];
+
+        foreach ($attributes as $attribute) {
+            if (!is_array($attribute)) {
+                continue;
+            }
+
+            $name = is_scalar($attribute['name'] ?? null) ? strtolower(trim((string) $attribute['name'])) : '';
+            $attributeValue = is_scalar($attribute['value'] ?? null) ? (string) $attribute['value'] : '';
+            if ($this->attributeNameIsUnsafeExecutable($name)
+                || $this->stringContainsUnsafeExecutableUrl($attributeValue)
+            ) {
+                return true;
+            }
+        }
+
+        $interactionSettings = is_array($settings['interactions'] ?? null) ? $settings['interactions'] : [];
+        $interactions = is_array($interactionSettings['interactions'] ?? null)
+            ? $interactionSettings['interactions']
+            : [];
+        foreach ($interactions as $interaction) {
+            if (!is_array($interaction)) {
+                continue;
+            }
+
+            foreach (is_array($interaction['actions'] ?? null) ? $interaction['actions'] : [] as $action) {
+                if (is_array($action)
+                    && strtolower((string) ($action['name'] ?? '')) === 'javascript_function'
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function attributeNameIsUnsafeExecutable(string $name): bool
+    {
+        return $name !== '' && (
+            strpos($name, 'on') === 0
+            || strpos($name, 'data-oxy-at-') === 0
+            || strpos($name, 'x-') === 0
+            || strpos($name, 'v-') === 0
+            || strpos($name, 'ng-') === 0
+            || strpos($name, 'hx-on') === 0
+            || strpos($name, 'bind:') === 0
+            || strpos($name, ':') === 0
+            || strpos($name, '@') === 0
+            || in_array($name, ['srcdoc', 'formaction', 'ping'], true)
+        );
+    }
+
+    private function htmlContainsUnsafeExecutableMarkers(string $html): bool
+    {
+        $decoded = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $urlDecoded = rawurldecode($decoded);
+        $normalized = preg_replace('/[\x00-\x20\x7F]+/', '', $urlDecoded);
+        if (!is_string($normalized)) {
+            return true;
+        }
+
+        $pattern = '/<\s*(?:script|iframe|object|embed|svg|form|input|textarea|select)\b|\son[a-z0-9_-]+\s*=|(?:javascript|vbscript)\s*:|data:(?:text\/html|image\/svg\+xml)(?:[;,\s]|$)|srcdoc\s*=/i';
+        foreach ([$html, $decoded, $urlDecoded, $normalized] as $candidate) {
+            if (preg_match($pattern, $candidate) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function cssContainsUnsafeExecutableMarkers(string $css): bool
+    {
+        $decoded = html_entity_decode($css, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $urlDecoded = rawurldecode($decoded);
+        $cssDecoded = preg_replace_callback(
+            '/\\\\([0-9a-f]{1,6})\s?/i',
+            static function (array $matches): string {
+                $codepoint = hexdec($matches[1]);
+                return $codepoint >= 0 && $codepoint <= 127 ? chr($codepoint) : '';
+            },
+            $urlDecoded
+        );
+        if (!is_string($cssDecoded)) {
+            return true;
+        }
+
+        $normalized = preg_replace('/[\x00-\x20\x7F]+/', '', $cssDecoded);
+        if (!is_string($normalized)) {
+            return true;
+        }
+
+        $pattern = '/expression\s*\(|(?:javascript|vbscript)\s*:|data:(?:text\/html|image\/svg\+xml)(?:[;,\s]|$)/i';
+        foreach ([$css, $decoded, $urlDecoded, $cssDecoded, $normalized] as $candidate) {
+            if (preg_match($pattern, $candidate) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function stringContainsUnsafeExecutableUrl(string $value): bool
+    {
+        $decoded = strtolower(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $probe = rawurldecode($decoded);
+        $probe = preg_replace('/[\x00-\x20\x7F]+/', '', $probe);
+        if (!is_string($probe)) {
+            return true;
+        }
+
+        return preg_match('/(?:javascript|vbscript)\s*:|data:(?:text\/html|image\/svg\+xml)(?:[;,]|$)/i', $probe) === 1;
     }
 
     /**
@@ -1056,6 +1379,7 @@ class OxygenPageImporter
             $preWriteBaseline[] = $this->capturePostMetaStore($postId, 'template_document', $this->getOxygenDataMetaKey());
             $preWriteBaseline[] = $this->capturePostMetaStore($postId, 'template_settings', '_oxygen_template_settings');
             $preWriteBaseline[] = $this->capturePostMetaStore($postId, 'page_styles', PageStyleRepository::META_KEY);
+            $preWriteBaseline[] = $this->capturePostMetaStore($postId, 'import_manifest', self::MANIFEST_META_KEY);
         }
 
         $result = $repository->createOrUpdateTemplate($spec);
@@ -1333,7 +1657,8 @@ class OxygenPageImporter
                 'reason' => (string) ($windPressCacheReset['reason'] ?? ''),
             ],
             'rollback' => [
-                'available' => !empty($rollbackSnapshot['stores']),
+                'available' => !empty($rollbackSnapshot['stores'])
+                    || !empty($siteConfigurationPersistence['rollback']['stores']),
                 'id' => $rollbackId,
                 'snapshot' => $rollbackSnapshot,
             ],
@@ -2079,6 +2404,7 @@ class OxygenPageImporter
             $postId = (int) ($block['postId'] ?? 0);
             if ($postId > 0) {
                 $stores[] = $this->capturePostStore($postId, null, 'component_block');
+                $stores[] = $this->capturePostMetaStore($postId, 'import_manifest', self::MANIFEST_META_KEY);
             }
         }
 
@@ -2114,6 +2440,7 @@ class OxygenPageImporter
                 '_breakdance_block_settings',
                 '_oxy_html_converter_previous_breakdance_block_settings'
             );
+            $stores[] = $this->capturePostMetaStore($postId, 'import_manifest', self::MANIFEST_META_KEY);
         }
 
         return $stores;
@@ -3522,6 +3849,178 @@ class OxygenPageImporter
     private function optionIsAbsent(string $key): bool
     {
         return !$this->optionExists($key);
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     * @return list<int>
+     */
+    private function siteKitManifestPostIds(array $manifest): array
+    {
+        $recordedPostIds = is_array($manifest['rollback']['postIds'] ?? null)
+            ? $manifest['rollback']['postIds']
+            : [];
+        $postIds = [];
+
+        foreach ($recordedPostIds as $postId) {
+            $postId = (int) $postId;
+            if ($postId > 0) {
+                $postIds[] = $postId;
+            }
+        }
+
+        $objects = is_array($manifest['objects'] ?? null) ? $manifest['objects'] : [];
+        foreach (array_keys(self::SITE_KIT_DOCUMENT_SECTIONS) as $section) {
+            foreach (is_array($objects[$section] ?? null) ? $objects[$section] : [] as $object) {
+                if (!is_array($object)) {
+                    continue;
+                }
+
+                $postId = (int) ($object['postId'] ?? 0);
+                if ($postId > 0) {
+                    $postIds[] = $postId;
+                }
+            }
+        }
+
+        $componentPersistence = is_array($manifest['componentPersistence'] ?? null)
+            ? $manifest['componentPersistence']
+            : [];
+        foreach (['createdBlocks', 'updatedBlocks'] as $field) {
+            foreach (is_array($componentPersistence[$field] ?? null) ? $componentPersistence[$field] : [] as $block) {
+                if (!is_array($block)) {
+                    continue;
+                }
+
+                $postId = (int) ($block['postId'] ?? 0);
+                if ($postId > 0) {
+                    $postIds[] = $postId;
+                }
+            }
+        }
+
+        return array_values(array_unique($postIds));
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     */
+    private function persistSiteKitManifest(array $manifest): void
+    {
+        if (!function_exists('get_option') || !function_exists('update_option')) {
+            throw new \RuntimeException('WordPress option storage is unavailable for the site-kit rollback manifest.');
+        }
+
+        $rollbackId = is_string($manifest['rollbackId'] ?? null) ? trim((string) $manifest['rollbackId']) : '';
+        if (preg_match('/^[a-f0-9]{16}$/', $rollbackId) !== 1) {
+            throw new \RuntimeException('Site-kit rollback manifest has an invalid rollback ID.');
+        }
+
+        $registry = $this->siteKitManifestRegistry();
+        $registry['manifests'][$rollbackId] = $manifest;
+        foreach ($this->siteKitManifestPostIds($manifest) as $postId) {
+            $registry['postIndex'][(string) $postId] = $rollbackId;
+        }
+
+        update_option(self::SITE_KIT_MANIFESTS_OPTION, $registry, false);
+        $stored = $this->siteKitManifestRegistry();
+        if (($stored['manifests'][$rollbackId] ?? null) !== $manifest) {
+            throw new \RuntimeException('Failed to persist the site-kit rollback manifest.');
+        }
+    }
+
+    /**
+     * @return array{version: int, manifests: array<string, array<string, mixed>>, postIndex: array<string, string>}
+     */
+    private function siteKitManifestRegistry(): array
+    {
+        $stored = function_exists('get_option') ? get_option(self::SITE_KIT_MANIFESTS_OPTION, []) : [];
+        $stored = is_array($stored) ? $stored : [];
+
+        return [
+            'version' => 1,
+            'manifests' => is_array($stored['manifests'] ?? null) ? $stored['manifests'] : [],
+            'postIndex' => is_array($stored['postIndex'] ?? null) ? $stored['postIndex'] : [],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function loadRollbackManifest(int $postId, string $rollbackId): array
+    {
+        $registry = $this->siteKitManifestRegistry();
+        if ($rollbackId !== '') {
+            $manifest = $registry['manifests'][$rollbackId] ?? [];
+            if (!is_array($manifest)) {
+                return [];
+            }
+
+            $postIds = $this->siteKitManifestPostIds($manifest);
+            if ($postId > 0 && $postIds !== [] && !in_array($postId, $postIds, true)) {
+                return [];
+            }
+
+            return $manifest;
+        }
+
+        $indexedRollbackId = $postId > 0 ? ($registry['postIndex'][(string) $postId] ?? '') : '';
+        if (is_string($indexedRollbackId) && isset($registry['manifests'][$indexedRollbackId])) {
+            $manifest = $registry['manifests'][$indexedRollbackId];
+            if (is_array($manifest)) {
+                return $manifest;
+            }
+        }
+
+        return $this->loadManifest($postId);
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     */
+    private function currentUserCanRollbackSiteKitManifest(array $manifest): bool
+    {
+        if (($manifest['kind'] ?? '') !== 'site-kit') {
+            return true;
+        }
+
+        if (!$this->currentUserCan('edit_pages')) {
+            return false;
+        }
+
+        foreach ($this->siteKitManifestPostIds($manifest) as $postId) {
+            if ($this->postExists($postId) && !$this->currentUserCan('edit_post', $postId)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function markSiteKitManifestRolledBack(string $rollbackId): void
+    {
+        if (!function_exists('update_option')) {
+            return;
+        }
+
+        $registry = $this->siteKitManifestRegistry();
+        $manifest = $registry['manifests'][$rollbackId] ?? null;
+        if (!is_array($manifest)) {
+            return;
+        }
+
+        $manifest['rollback'] = is_array($manifest['rollback'] ?? null) ? $manifest['rollback'] : [];
+        $manifest['rollback']['available'] = false;
+        $manifest['rollback']['restoredAt'] = gmdate('c');
+        $registry['manifests'][$rollbackId] = $manifest;
+
+        foreach ($registry['postIndex'] as $postId => $indexedRollbackId) {
+            if ($indexedRollbackId === $rollbackId) {
+                unset($registry['postIndex'][$postId]);
+            }
+        }
+
+        update_option(self::SITE_KIT_MANIFESTS_OPTION, $registry, false);
     }
 
     /**

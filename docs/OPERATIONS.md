@@ -22,3 +22,9 @@ When converter-triggered Oxygen cache regeneration throws an error, Oxygen HTML 
 5. Check the PHP error log for any new cache-write failure.
 
 For Docker, make ownership changes inside the WordPress container so the container path and runtime UID/GID are used. Avoid applying recursive ownership changes outside the scoped uploads directory.
+
+## Deactivation and uninstall
+
+Imported posts, Oxygen document data, and converter post meta are retained when the plugin is uninstalled. Converter-owned page and fallback CSS stored in `_oxy_html_converter_page_styles` is printed by Oxygen HTML Converter at runtime, however. Deactivating or uninstalling the plugin stops that runtime output, so an imported page that depends on the retained CSS may lose styling.
+
+Before removing the plugin, move or materialize required converter-owned CSS into Oxygen or another persistent stylesheet, then verify each affected page with the plugin inactive. This retention policy preserves user content without leaving executable cleanup logic that edits imported documents during uninstall.

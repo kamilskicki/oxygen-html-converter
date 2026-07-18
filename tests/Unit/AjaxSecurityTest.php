@@ -50,6 +50,33 @@ class AjaxSecurityTest extends TestCase
         $this->assertSame('custom_cap', $GLOBALS['__wp_current_user_can_last_capability']);
     }
 
+    public function testCacheRefreshNoticeDetailsRequireManageOptionsCapability(): void
+    {
+        new Ajax();
+        $notice = [
+            'postId' => 42,
+            'message' => 'Sensitive cache path: wp-content/uploads/oxygen/private',
+        ];
+        $GLOBALS['__wp_current_user_can'] = static fn (string $capability): bool => $capability !== 'manage_options';
+
+        $filtered = apply_filters(
+            'option_' . \OxyHtmlConverter\Services\OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION,
+            $notice
+        );
+
+        $this->assertSame([], $filtered);
+        $this->assertSame('manage_options', $GLOBALS['__wp_current_user_can_last_capability']);
+
+        $GLOBALS['__wp_current_user_can'] = static fn (string $capability): bool => $capability === 'manage_options';
+        $this->assertSame(
+            $notice,
+            apply_filters(
+                'option_' . \OxyHtmlConverter\Services\OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION,
+                $notice
+            )
+        );
+    }
+
     public function testHandleConvertRedactsExceptionByDefault(): void
     {
         add_filter('oxy_html_converter_tree_builder', static function () {
@@ -299,6 +326,57 @@ class AjaxSecurityTest extends TestCase
         $this->assertStringContainsString('Executable code import', $response['data']['message']);
         $this->assertSame([], $GLOBALS['__wp_posts']);
         $this->assertSame([], $GLOBALS['__wp_post_meta']);
+    }
+
+    public function testHandleImportPagePassesAuthorizedUnsafeOptInToSiteKitImporter(): void
+    {
+        $pageImporter = new class extends \OxyHtmlConverter\Services\OxygenPageImporter {
+            public bool $receivedAuthorizedUnsafeOptIn = false;
+
+            public function importSiteKit(array $manifest, bool $allowUnsafeCode = false): array
+            {
+                unset($manifest);
+                $this->receivedAuthorizedUnsafeOptIn = $allowUnsafeCode;
+
+                return [
+                    'success' => true,
+                    'status' => 200,
+                    'rollbackId' => 'authorized-import',
+                ];
+            }
+        };
+        $manifest = $this->minimalStandaloneSiteKitManifest();
+        $manifest['pages'][0]['documentTree'] = [
+            'root' => [
+                'id' => 1,
+                'data' => [
+                    'type' => 'OxygenElements\\JavaScriptCode',
+                    'properties' => [
+                        'content' => [
+                            'content' => [
+                                'javascript_code' => 'console.log("authorized");',
+                            ],
+                        ],
+                    ],
+                ],
+                'children' => [],
+            ],
+            '_nextNodeId' => 2,
+        ];
+        $_POST = [
+            'nonce' => 'test-nonce',
+            'importPayload' => wp_json_encode([
+                'safeMode' => false,
+                'allowExecutableCode' => true,
+                'siteKitManifest' => $manifest,
+            ]),
+        ];
+        $ajax = new Ajax(null, null, null, null, null, null, null, null, $pageImporter);
+
+        $ajax->handleImportPage();
+
+        $this->assertTrue($GLOBALS['__wp_send_json_last']['success']);
+        $this->assertTrue($pageImporter->receivedAuthorizedUnsafeOptIn);
     }
 
     public function testHandleImportPageRejectsExecutableStandaloneSiteKitTokenAliasesWithoutExplicitOptIn(): void

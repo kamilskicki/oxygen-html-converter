@@ -1,6 +1,12 @@
 # WordPress.org Asset Sources
 
-This directory contains editable SVG sources and generated PNG exports for the WordPress.org plugin directory artwork.
+This directory contains editable SVG sources, generated PNG exports, and reproducible verification evidence for the WordPress.org plugin directory artwork.
+
+## Source Artwork
+
+- `icon.svg` uses a bold code-to-Oxygen conversion mark designed to remain clear at 128 x 128.
+- `banner.svg` pairs the same mark with the `HTML Converter` wordmark on a clean blue gradient.
+- Both SVGs include accessible titles, descriptions, and license metadata.
 
 ## Required PNG Exports
 
@@ -13,22 +19,24 @@ WordPress.org SVN assets should include:
 
 Optional retina screenshots should be exported separately and referenced by the `readme.txt` screenshots section.
 
-## Export Commands
+## Render and Verify
 
-Example Inkscape commands:
+From the plugin `core` directory, use the repository's Playwright installation and Pillow:
 
 ```powershell
-inkscape assets-wporg/icon.svg --export-type=png --export-filename=assets-wporg/icon-128x128.png -w 128 -h 128
-inkscape assets-wporg/icon.svg --export-type=png --export-filename=assets-wporg/icon-256x256.png -w 256 -h 256
-inkscape assets-wporg/banner.svg --export-type=png --export-filename=assets-wporg/banner-772x250.png -w 772 -h 250
-inkscape assets-wporg/banner.svg --export-type=png --export-filename=assets-wporg/banner-1544x500.png -w 1544 -h 500
+node assets-wporg/verification/render-assets.cjs
+python assets-wporg/verification/verify-assets.py
 ```
 
-Review the generated PNGs at their target dimensions before copying them into the WordPress.org SVN `assets/` directory.
+The renderer opens each source SVG in headless Chromium at device scale factor 1 and captures the exact target dimensions. It also opens the 772 x 250 PNG in a browser verification page and writes `verification/banner-772x250-browser-proof.png`.
+
+The verifier checks PNG file magic, Pillow decoding, exact dimensions, file size over 3 KB, pixel luminance variance, luminance range, and sampled color count. Machine-readable results are written to `verification/verification-results.json`.
 
 ## Licensing
 
-All artwork in this directory is original project artwork and is GPL-compatible for distribution with the Oxygen HTML Converter plugin.
+The SVG artwork and PNG derivatives in this directory are original artwork created for HTML Converter. They are licensed under the GNU General Public License, version 2 or any later version (`GPL-2.0-or-later`), consistent with the plugin.
+
+Oxygen and Oxygen Builder names and trademarks belong to their respective owner. This independent plugin artwork is not an official Oxygen brand asset.
 
 ## Publication Notes
 

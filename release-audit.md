@@ -3,19 +3,22 @@
 Date: 2026-04-25
 Branch: `master`
 Target release line: `0.9.0-beta`
+Status: Superseded historical audit
+
+This April audit is retained as historical evidence. Its publication verdict, command counts, and remaining-work list no longer describe the current release candidate. The current authority is [PRD/09: Final Independent Publication Audit](../../../PRD/09-publication-readiness-scorecard.md#final-independent-publication-audit), including its later close-out evidence, adversarial findings, score, and publication gate. Documentation cleanup in this release does not by itself establish a `GO` decision.
 
 ## Executive Summary
 
-Do not tag or publish `0.9.0-beta` yet.
+Historical verdict (superseded): the April 25 candidate was not ready to tag or publish.
 
 The core conversion code has a healthy baseline: the default fast gate passes, AJAX endpoints have nonce/capability checks, Safe Mode is covered by tests, and dependency audits reported no known vulnerabilities. However, the audit found two release-blocking issues:
 
 1. The generated release ZIP includes local screenshots, temporary live-audit files, and `.tmp-*` data. The current ZIP is about `113.22 MB` and contains `291` entries, including `.screens/`, `.tmp-live-audit/`, `.tmp-playwright/`, and top-level `.tmp-*.json` files.
 2. `startingNodeId` is not honored for generated child nodes. With `startingNodeId=50`, the AJAX convert response produced IDs `[50, 1, 2, 3]`, which can collide with an existing Oxygen document tree during builder import.
 
-Treat these as release blockers. The remaining findings are important hardening and maintainability work, but they can be sequenced after the blockers unless they affect the final beta acceptance gate.
+At that checkpoint, these were treated as release blockers. The remaining findings were classified as hardening and maintainability work to follow the blockers unless they affected the final beta acceptance gate.
 
-## Remediation Update
+## Remediation Update (Historical)
 
 Date: 2026-04-26
 Status: fixes implemented in the working tree; live Docker/Oxygen gate still needs to be run on the maintained local stack before publishing.
@@ -44,7 +47,7 @@ Verified after fixes:
 - Manual ZIP inspection: `113531` bytes, `0` forbidden artifact entries.
 - `npm run release:verify`: passed with live gate skipped by design.
 
-Remaining before publishing:
+Remaining at the April checkpoint:
 
 - Run `npm run release:verify:live` on the maintained Docker/Oxygen stack.
 - Commit the now-unignored `composer.lock` if the release branch should lock dev tool versions.
@@ -425,7 +428,7 @@ Fix plan:
 3. Align stale PHP 7.4 polyfill comments with the current PHP `8.2+` requirement or remove unnecessary polyfills later.
 4. Review legacy tests and migrate still-useful regressions into active unit tests.
 
-## Release Decision Rule
+## Release Decision Rule (Historical)
 
 Release `0.9.0-beta` only after:
 

@@ -8,8 +8,8 @@ Recommended reading order:
 2. [Definition of Done: v0.9.0-beta](DOD-0.9.0-BETA.md)
 3. [Open Core Model](OPEN_CORE.md)
 4. [Release Checklist](RELEASE_CHECKLIST.md)
-5. [Release Notes Draft: 0.9.0-beta](RELEASE_NOTES_0.9.0_BETA.md)
-6. [Roadmap](../ROADMAP.md)
+5. [Release Notes: 0.9.0-beta](RELEASE_NOTES_0.9.0_BETA.md)
+6. [Upgrade Guide](UPGRADE.md)
 7. [Operations and cache permissions](OPERATIONS.md)
 
 ## What Each Document Covers
@@ -24,7 +24,10 @@ Recommended reading order:
 - `RELEASE_CHECKLIST.md`
   - release hygiene and packaging steps
 - `RELEASE_NOTES_0.9.0_BETA.md`
-  - draft public release summary for the current beta line
+  - release-candidate public summary for the current beta line
+- `UPGRADE.md`
+  - expected `0.8.0-beta` to `0.9.0-beta` upgrade behavior
+  - migration behavior and post-upgrade checks
 - `OPERATIONS.md`
   - Oxygen uploads/cache ownership and write-permission requirements
   - recovery steps when converter-triggered cache regeneration fails

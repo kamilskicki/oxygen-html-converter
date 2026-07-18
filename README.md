@@ -4,16 +4,17 @@ Convert pasted HTML into native Oxygen Builder 6 content that can be edited and 
 
 This repository is the public `Core` plugin. The long-term product goal is simple: paste HTML, get a native Oxygen document, and continue editing without validation errors or broken document state.
 
-Current release line:
-- `v0.9.0-beta` work in progress
-- stable public baseline: `v0.8.0-beta`
+Current release candidate:
+
+- `v0.9.0-beta` public beta candidate
+- WordPress.org promotion will use the numeric stable tag `0.9.0`; the plugin runtime and release documentation retain the `0.9.0-beta` prerelease version
 
 ## What Core Does
 
 - Converts full HTML fragments and pages into native Oxygen elements
 - Preserves IDs, classes, data attributes, and inline styles
 - Supports builder paste/import flows
-- Preserves supported scripts and interactions needed for parity
+- Maps supported safe interactions; executable script fallback requires explicit unsafe opt-in and permission
 - Keeps imported content editable in Oxygen Builder
 
 ## Supported Scope
@@ -42,7 +43,7 @@ Detailed scope:
 
 - WordPress `6.5+`
 - PHP `8.2+`
-- Oxygen Builder `6.x`
+- Oxygen Builder `6.1.0`
 - Logged-in user with `manage_options` by default
 
 The required capability can be changed with `oxy_html_converter_required_capability`.
@@ -61,11 +62,12 @@ More detail:
 ## Project Docs
 
 - [Documentation Index](docs/README.md)
-- [Roadmap](ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 - [Release Checklist](docs/RELEASE_CHECKLIST.md)
-- [Release Notes Draft: 0.9.0-beta](docs/RELEASE_NOTES_0.9.0_BETA.md)
+- [Release Notes: 0.9.0-beta](docs/RELEASE_NOTES_0.9.0_BETA.md)
+- [Upgrade Guide](docs/UPGRADE.md)
+- [Operations and Cache Permissions](docs/OPERATIONS.md)
 - [Changelog](CHANGELOG.md)
 
 ## Installation
@@ -73,7 +75,7 @@ More detail:
 1. Download the latest release ZIP.
 2. In WordPress admin, go to `Plugins -> Add New -> Upload Plugin`.
 3. Upload the ZIP and activate it.
-4. Ensure Oxygen Builder 6 is installed and active.
+4. Ensure Oxygen Builder 6.1.0 is installed and active.
 
 ## Testing
 

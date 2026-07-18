@@ -17,7 +17,6 @@ declare(strict_types=1);
 <div class="wrap oxy-html-converter-wrap">
     <section class="oxy-hero-card">
         <div class="oxy-hero-copy">
-            <p class="oxy-eyebrow"><?php echo esc_html__('v1.0 hardening workflow', 'oxygen-html-converter'); ?></p>
             <h1><?php echo esc_html__('Oxygen HTML Converter', 'oxygen-html-converter'); ?></h1>
             <p class="oxy-hero-description">
                 <?php echo esc_html__('Paste supported HTML, inspect the conversion audit, and import builder-safe Oxygen output without manual JSON surgery.', 'oxygen-html-converter'); ?>

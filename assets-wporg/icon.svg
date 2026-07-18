@@ -1,10 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
-  <title id="title">Oxygen HTML Converter icon placeholder</title>
-  <desc id="desc">A placeholder icon source for WordPress.org publication assets.</desc>
-  <rect width="256" height="256" rx="48" fill="#102a43"/>
-  <path d="M64 78h128v100H64z" fill="#f7fafc"/>
-  <path d="M84 104l-22 24 22 24" fill="none" stroke="#1f8a70" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M172 104l22 24-22 24" fill="none" stroke="#1f8a70" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M143 91l-30 74" fill="none" stroke="#334e68" stroke-width="12" stroke-linecap="round"/>
-  <circle cx="128" cy="204" r="13" fill="#f0b429"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc" shape-rendering="geometricPrecision">
+  <title id="title">HTML Converter plugin icon</title>
+  <desc id="desc">White HTML angle brackets flow through a teal arrow into a blue hexagonal O on a deep navy tile.</desc>
+  <metadata>Original HTML Converter project artwork. Licensed GPL-2.0-or-later.</metadata>
+
+  <!-- Deep, flat field keeps the mark crisp at the 128 px WordPress.org size. -->
+  <rect width="256" height="256" rx="48" fill="#08172B"/>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="46.5" fill="none" stroke="#FFFFFF" stroke-opacity=".12" stroke-width="3"/>
+
+  <!-- HTML source: angle brackets and a warm slash. -->
+  <path d="M50 94 25 128l25 34" fill="none" stroke="#F8FAFC" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m85 94 25 34-25 34" fill="none" stroke="#F8FAFC" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m79 88-20 80" fill="none" stroke="#78E7D7" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Conversion arrow deliberately meets the destination mark. -->
+  <path d="M108 122h13v-10l15 16-15 16v-10h-13Z" fill="#2DD4BF"/>
+
+  <!-- Oxygen-inspired destination: a sturdy, unmistakable hexagonal O. -->
+  <path fill="#4B8FF7" fill-rule="evenodd" d="m185 72 49 28v56l-49 28-49-28v-56Zm0 29-24 14v26l24 14 24-14v-26Z"/>
 </svg>

@@ -1,11 +1,11 @@
-# Release Notes Draft: 0.9.0-beta
+# Release Notes: 0.9.0-beta
 
-Status: Draft  
-Date: 2026-07-06
+Status: Release candidate  
+Date: 2026-07-10
 
 ## Summary
 
-`0.9.0-beta` is the release line focused on one standard: supported HTML imported by Core should remain editable as a native Oxygen document without hidden unsafe runtime dependencies.
+`0.9.0-beta` is the release line focused on one standard: supported HTML imported by Core should remain editable as a native Oxygen document, with any converter runtime dependencies disclosed before removal.
 
 This is still a beta release. It aims to be strong and honest inside the supported scope, not to promise perfect conversion of every arbitrary frontend stack.
 
@@ -36,6 +36,10 @@ This is still a beta release. It aims to be strong and honest inside the support
 - Kept PHP and JS test gates green while tightening the Builder document contract
 - Added stable fixture audit, live Builder/browser smoke, visual smoke, release hygiene checks, and failure artifacts
 
+## Beta Channel
+
+WordPress.org requires the `Stable tag` value to contain only numbers and periods. This beta will therefore be promoted from the numeric `0.9.0` stable tag while the plugin header, runtime constant, changelog, and release notes continue to identify the build as `0.9.0-beta`. The numeric directory tag does not make this a general-availability release.
+
 ## Supported Scope
 
 `0.9.0-beta` is aimed at:
@@ -56,12 +60,15 @@ See [SUPPORTED_SCOPE.md](SUPPORTED_SCOPE.md) and [DOD-0.9.0-BETA.md](DOD-0.9.0-B
 - framework app migration is still partial at best
 - functional forms need a verified native form element or approved plugin integration
 - dynamic data, loops, WooCommerce, inferred CMS mappings, and WindPress runtime workflows are Pro/future scope
-- M8-06 final release evidence is still the authority for tagging readiness
+- converter-owned page and fallback CSS stored in `_oxy_html_converter_page_styles` is emitted only while the plugin is active; migrate that CSS before deactivation or uninstall when an imported page depends on it
+- the Final Independent Publication Audit in `PRD/09-publication-readiness-scorecard.md` is the current authority for publication readiness
 
 ## Upgrade Notes
 
 - No Pro add-on is required for Core import/editability guarantees
 - If you have custom automation around AJAX conversion responses, a builder-safe `documentTree` and `documentJson` payload is now available in addition to the existing `element` and `json` fields
+- No database or option migration runs when upgrading from `0.8.0-beta`; existing imports and compatible settings are retained and are not rewritten
+- See [UPGRADE.md](UPGRADE.md) for the expected direct-upgrade behavior, runtime requirements, and post-upgrade checks
 
 ## Recommended Validation Before Tagging
 

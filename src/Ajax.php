@@ -682,6 +682,29 @@ class Ajax
         add_action('wp_ajax_oxy_html_import_page', [$this, 'handleImportPage']);
         add_action('wp_ajax_oxy_html_rollback_import', [$this, 'handleRollbackImport']);
         add_action('wp_ajax_oxy_html_save_brand_library', [$this, 'handleSaveBrandLibrary']);
+        add_filter(
+            'option_' . OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION,
+            [$this, 'filterCacheRefreshNoticeForCurrentUser'],
+            10,
+            2
+        );
+    }
+
+    /**
+     * Cache exception details can include server paths and are admin-only.
+     *
+     * @param mixed $notice
+     * @return mixed
+     */
+    public function filterCacheRefreshNoticeForCurrentUser($notice, string $option = '')
+    {
+        unset($option);
+
+        if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
+            return [];
+        }
+
+        return $notice;
     }
 
     /**
@@ -742,6 +765,7 @@ class Ajax
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_conversion_exception', $e, $options);
             if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional diagnostic output when WP_DEBUG_LOG is explicitly enabled.
                 error_log('Oxygen HTML Converter Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
             wp_send_json_error([
@@ -944,7 +968,8 @@ class Ajax
             return;
         }
 
-        if ($this->importPayloadContainsExecutableCode($payload) && !$this->currentUserCanUseExecutableImport($payload)) {
+        $authorizedUnsafeCode = $this->currentUserCanUseExecutableImport($payload);
+        if ($this->importPayloadContainsExecutableCode($payload) && !$authorizedUnsafeCode) {
             wp_send_json_error([
                 'message' => __('Executable code import requires explicit approval and unfiltered HTML permission.', 'oxygen-html-converter'),
             ], 403);
@@ -960,8 +985,11 @@ class Ajax
 
         try {
             $result = $this->importPayloadIsStandaloneSiteKit($payload)
-                ? $this->pageImporter->importSiteKit($this->resolveStandaloneSiteKitManifest($payload))
-                : $this->pageImporter->import($payload);
+                ? $this->pageImporter->importSiteKit(
+                    $this->resolveStandaloneSiteKitManifest($payload),
+                    $authorizedUnsafeCode
+                )
+                : $this->pageImporter->import($payload, $authorizedUnsafeCode);
 
             if (!empty($result['success'])) {
                 unset($result['success'], $result['status']);
@@ -1110,9 +1138,11 @@ class Ajax
         }
 
         $postId = isset($_POST['postId']) ? (int) $_POST['postId'] : 0;
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Rollback ID is normalized and format-validated by the importer.
+        $rollbackId = isset($_POST['rollbackId']) ? sanitize_text_field(wp_unslash((string) $_POST['rollbackId'])) : '';
 
         try {
-            $result = $this->pageImporter->rollback($postId);
+            $result = $this->pageImporter->rollback($postId, $rollbackId);
 
             if (!empty($result['success'])) {
                 unset($result['success'], $result['status']);
@@ -1234,6 +1264,7 @@ class Ajax
         } catch (\Throwable $e) {
             do_action('oxy_html_converter_preview_exception', $e);
             if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional diagnostic output when WP_DEBUG_LOG is explicitly enabled.
                 error_log('Oxygen HTML Converter Preview Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
             wp_send_json_error([

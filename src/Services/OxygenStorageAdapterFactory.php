@@ -28,7 +28,7 @@ final class OxygenStorageAdapterFactory
     {
         $this->contractService = $contractService ?? new BuilderContractService();
         $this->fixtureDirectory = $fixtureDirectory ?? OxygenStorageContract::defaultFixtureDirectory();
-        $this->runtimeOxygenVersion = $runtimeOxygenVersion ?? $this->detectRuntimeOxygenVersion();
+        $this->runtimeOxygenVersion = $runtimeOxygenVersion ?? self::detectRuntimeOxygenVersion();
     }
 
     public function supports(string $oxygenVersion): bool
@@ -84,7 +84,7 @@ final class OxygenStorageAdapterFactory
         return $this->contractService->evaluateOxygenStorageFixtures($this->fixtureDirectory);
     }
 
-    private function detectRuntimeOxygenVersion(): ?string
+    public static function detectRuntimeOxygenVersion(): ?string
     {
         if (defined('__BREAKDANCE_VERSION')) {
             return (string) constant('__BREAKDANCE_VERSION');
@@ -92,6 +92,10 @@ final class OxygenStorageAdapterFactory
 
         if (defined('BREAKDANCE_VERSION')) {
             return (string) constant('BREAKDANCE_VERSION');
+        }
+
+        if (defined('CT_VERSION')) {
+            return (string) constant('CT_VERSION');
         }
 
         return null;

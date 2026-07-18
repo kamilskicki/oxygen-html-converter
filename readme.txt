@@ -1,10 +1,10 @@
 === Oxygen HTML Converter ===
-Contributors: kamilskicki
+Contributors: wordpressdotorg
 Tags: oxygen builder, html import, page builder, conversion, no code
 Requires at least: 6.5
-Tested up to: 6.5
+Tested up to: 6.9
 Requires PHP: 8.2
-Stable tag: 0.9.0-beta
+Stable tag: 0.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,13 +12,15 @@ Convert HTML pages into native, editable Oxygen Builder 6 documents with Safe Mo
 
 == Description ==
 
-Oxygen HTML Converter helps Oxygen Builder 6 users turn pasted HTML into native Oxygen document content that can be edited, saved, and reopened in the builder.
+<!-- TODO(owner): Replace the temporary "wordpressdotorg" validation placeholder with the verified plugin-owner account before directory submission. -->
 
-The Core plugin focuses on supported marketing and landing-page HTML: inline styles, IDs, classes, attributes, common utility-first markup, and safe interaction patterns. Its goal is to produce editable Oxygen output without corrupting the Oxygen document tree or requiring hidden runtime dependencies.
+Oxygen HTML Converter helps Oxygen Builder 6.1.0 users turn pasted HTML into native Oxygen document content that can be edited, saved, and reopened in the builder.
+
+The Core plugin focuses on supported marketing and landing-page HTML: inline styles, IDs, classes, attributes, common utility-first markup, and safe interaction patterns. Its goal is to produce editable Oxygen output without corrupting the Oxygen document tree and to disclose converter runtime dependencies when fallback output requires them.
 
 = Key features =
 
-* Convert full HTML fragments and pages into Oxygen Builder 6 document data.
+* Convert full HTML fragments and pages into Oxygen Builder 6.1.0 document data.
 * Preserve IDs, classes, data attributes, and supported inline styles.
 * Use Safe Mode by default for supported native/no-code output.
 * Report unsupported or deferred items instead of silently guessing unsafe behavior.
@@ -42,14 +44,14 @@ Core does not promise perfect conversion for every arbitrary frontend stack. Com
 
 1. Upload the plugin ZIP through Plugins > Add New > Upload Plugin in WordPress admin.
 2. Activate Oxygen HTML Converter.
-3. Make sure Oxygen Builder 6 is installed and active.
+3. Make sure Oxygen Builder 6.1.0 is installed and active.
 4. Open Tools > Oxygen HTML Converter, paste HTML, preview the conversion audit, and convert or import the supported output.
 
 == Frequently Asked Questions ==
 
 = Does this require Oxygen Builder? =
 
-Yes. Oxygen Builder 6 must be installed and active. The plugin is not a standalone page builder.
+Yes. Oxygen Builder 6.1.0 must be installed and active. The plugin is not a standalone page builder.
 
 = Does Core require a Pro add-on? =
 
@@ -65,7 +67,13 @@ No. Core is strongest for static marketing and landing-page HTML. Framework apps
 
 = What data is removed on uninstall? =
 
-Uninstall removes plugin-owned options under the `oxy_html_converter_*` prefix. It intentionally keeps imported WordPress posts, Oxygen document data, Oxygen selectors, Oxygen variables, global settings, and Breakdance/Oxygen-owned options so imported content survives plugin removal.
+Uninstall removes plugin-owned options under the `oxy_html_converter_*` prefix. It intentionally keeps imported WordPress posts, Oxygen document data, Oxygen selectors, Oxygen variables, global settings, converter post meta, and Breakdance/Oxygen-owned options so imported content survives plugin removal.
+
+Page and fallback CSS stored in `_oxy_html_converter_page_styles` is emitted by Oxygen HTML Converter at runtime. An imported page that depends on this retained CSS may lose styling after deactivation or uninstall. Move required CSS into Oxygen or another persistent stylesheet and verify affected pages with the plugin inactive before removing the plugin.
+
+= How is this beta published on WordPress.org? =
+
+WordPress.org Stable tags use only numbers and periods, so this beta will be promoted from Stable tag `0.9.0`. The plugin header, runtime version, changelog, and release notes remain `0.9.0-beta`; the numeric directory tag identifies the promoted beta channel and does not declare a general-availability release.
 
 = Can developers extend conversion behavior? =
 
@@ -86,14 +94,15 @@ The PHP/WordPress runtime user must be able to create and replace files under `w
 = 0.9.0-beta =
 
 * Added Core extension hooks for add-ons and Pro integrations.
-* Added Open Core documentation, Pro starter scaffold, public security policy, supported scope documentation, draft release notes, and release checklist updates.
+* Added Open Core documentation, Pro starter scaffold, public security policy, supported scope documentation, release notes, an upgrade guide, and release checklist updates.
+* Added packaged operations guidance for Oxygen cache permissions and retained converter page CSS.
 * Added API contract version constant `OXY_HTML_CONVERTER_API_VERSION`.
 * Added Builder-safe document tree serialization and AJAX response payloads for Oxygen documents.
 * Added stable fixture index, local fixture audit, live Builder/browser smoke gate, visual review gate, release hygiene checks, and failure artifacts.
 * Changed Builder script localization to support feature flag/filter injection.
 * Changed AJAX responses to pass through extension filters.
 * Changed Core/API documentation to list exported extension hooks.
-* Changed roadmap version naming to align with the current plugin version.
+* Changed public release documentation to identify the current `0.9.0-beta` release line.
 * Changed Safe Mode documentation to make supported native/no-code behavior the Core default.
 * Changed unsupported forms, dynamic data, WooCommerce, advanced component patterns, and Pro/future scope to be reported instead of guessed.
 * Changed Tailwind-like utilities to be treated as Core source hints or safe fallback CSS, with Tailwind runtime preservation, WindPress class mode, config parsing, and cache reset outside Core scope.
@@ -102,6 +111,7 @@ The PHP/WordPress runtime user must be able to create and replace files under `w
 * Fixed stale Builder troubleshooting guidance by moving it out of current skill docs.
 * Fixed fixture live-smoke metadata to reflect current M8 evidence.
 * Fixed Maximus site-kit proof documents to be examples instead of generic Core acceptance rules.
+* Fixed uninstall cleanup for the one-time cache-refresh notice and made the missing-Oxygen notice capability-scoped and dismissible.
 
 = 0.8.0-beta =
 
@@ -115,21 +125,14 @@ The PHP/WordPress runtime user must be able to create and replace files under `w
 
 = 0.1.0 =
 
-* Added initial HTML to Oxygen Builder 6 element conversion.
-* Added inline style extraction and mapping.
-* Added class and ID preservation.
-* Added event handler to Oxygen Interactions conversion.
-* Added JavaScript function transformation.
-* Added Tailwind CSS class detection.
-* Added framework detection for Alpine.js, HTMX, and Stimulus.js.
-* Added admin page under Tools > Oxygen HTML Converter.
-* Added Builder integration for paste and import modal workflows.
+* Added the initial HTML-to-Oxygen element conversion with inline styles, classes, IDs, interactions, and framework detection.
+* Added the admin converter and Builder paste/import-modal workflows.
 
 == Upgrade Notice ==
 
 = 0.9.0-beta =
 
-Beta release focused on builder-safe Oxygen document output, Safe Mode scope clarity, extension hooks, and stronger release gates. Validate imports on staging before using on production content.
+Beta release focused on builder-safe Oxygen document output, Safe Mode scope clarity, extension hooks, and stronger release gates. This upgrade requires PHP 8.2+ and does not automatically rewrite earlier imports. Validate imports on staging, and migrate converter-owned page CSS before deactivating or uninstalling the plugin.
 
 = 0.8.0-beta =
 
