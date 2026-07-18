@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sublima Wedding - Dyrektorzy Artystyczni Uczuć</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Montserrat:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom Fonts Configuration */
+        .font-serif { fontFamily: 'Cormorant Garamond', serif; }
+        .font-sans { fontFamily: 'Montserrat', sans-serif; }
+        
+        /* Custom Colors & Utilities */
+        ::selection {
+            background-color: #ff0084;
+            color: #ffffff;
+        }
+
+        body {
+            background-color: #050505;
+            color: #E5E5E5;
+            overflow-x: hidden;
+        }
+
+        .accent-text { color: #ff0084; }
+        .accent-border { border-color: #ff0084; }
+        .accent-bg { background-color: #ff0084; }
+        
+        /* Animations */
+        .fade-in-up {
+            animation: fadeInUp 1s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fashion-gradient {
+            background: radial-gradient(circle at top right, rgba(255, 0, 132, 0.15) 0%, rgba(5, 5, 5, 0) 60%);
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Hover Glow Effect */
+        .hover-glow {
+            transition: all 0.5s ease;
+        }
+        .hover-glow:hover {
+            box-shadow: 0 0 30px rgba(255, 0, 132, 0.4);
+        }
+
+        /* Nav Transition */
+        #navbar {
+            transition: all 0.5s ease;
+        }
+        .nav-scrolled {
+            background-color: rgba(5, 5, 5, 0.9);
+            backdrop-filter: blur(16px);
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+            border-bottom: 1px solid rgba(255, 0, 132, 0.2);
+        }
+    </style>
+</head>
+<body class="font-sans antialiased">
+
+    <!-- Navigation -->
+    <nav id="navbar" class="fixed w-full z-50 py-8 bg-transparent">
+        <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
+            <!-- Logo -->
+            <div class="font-serif text-3xl tracking-wide font-medium relative group cursor-pointer">
+                Sublima
+                <span class="text-[#ff0084] text-4xl absolute -top-2 -right-3 animate-pulse">.</span>
+            </div>
+            
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex space-x-12 text-xs tracking-[0.2em] uppercase font-medium">
+                <a href="#vibe" class="hover:text-[#ff0084] transition-colors duration-300">Vibe</a>
+                <a href="#sound-dna" class="hover:text-[#ff0084] transition-colors duration-300">DNA</a>
+                <a href="#kolekcje" class="hover:text-[#ff0084] transition-colors duration-300">Kolekcje</a>
+                <a href="#legacy" class="hover:text-[#ff0084] transition-colors duration-300">Legacy</a>
+            </div>
+
+            <div class="hidden md:block">
+                <button class="border border-white/20 px-8 py-2 text-xs uppercase tracking-widest hover:border-[#ff0084] hover:bg-[#ff0084] hover:text-white transition-all duration-300 rounded-full">
+                    Zarezerwuj Termin
+                </button>
+            </div>
+
+            <!-- Mobile Toggle -->
+            <button class="md:hidden text-white hover:text-[#ff0084] transition-colors" onclick="toggleMenu()">
+                <i data-lucide="menu"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Overlay -->
+    <div id="mobile-menu" class="fixed inset-0 bg-[#050505] z-40 flex flex-col items-center justify-center space-y-8 text-2xl font-serif hidden opacity-0 transition-opacity duration-300">
+        <button class="absolute top-8 right-6 text-white hover:text-[#ff0084]" onclick="toggleMenu()">
+            <i data-lucide="x"></i>
+        </button>
+        <a href="#vibe" onclick="toggleMenu()" class="hover:text-[#ff0084]">Vibe</a>
+        <a href="#sound-dna" onclick="toggleMenu()" class="hover:text-[#ff0084]">DNA</a>
+        <a href="#kolekcje" onclick="toggleMenu()" class="hover:text-[#ff0084]">Kolekcje</a>
+        <a href="#legacy" onclick="toggleMenu()" class="hover:text-[#ff0084]">Legacy</a>
+    </div>
+
+    <!-- Hero Section -->
+    <header class="relative h-screen flex items-center justify-center overflow-hidden">
+        <!-- Background -->
+        <div class="absolute inset-0 z-0">
+            <img 
+                src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=2070&auto=format&fit=crop" 
+                alt="Party wedding vibe neon" 
+                class="w-full h-full object-cover opacity-50 grayscale hover:grayscale-0 transition-all duration-[2s] scale-105"
+            />
+            <div class="absolute inset-0 bg-gradient-to-b from-[#050505]/30 via-[#050505]/60 to-[#050505]"></div>
+            <div class="absolute inset-0 bg-[#ff0084] mix-blend-overlay opacity-20"></div>
+        </div>
+
+        <!-- Content -->
+        <div class="relative z-10 text-center max-w-5xl px-6 fade-in-up mt-20">
+            <div class="inline-block border border-[#ff0084] px-4 py-1 rounded-full mb-8 backdrop-blur-sm bg-black/30">
+                <p class="text-[#ff0084] text-[10px] md:text-xs tracking-[0.3em] uppercase font-bold">
+                    Wedding Music Reimagined
+                </p>
+            </div>
+            
+            <h1 class="font-serif text-6xl md:text-8xl lg:text-9xl leading-[0.9] mb-8 font-light tracking-tight">
+                Spełniamy <br />
+                <span class="italic text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-[#ff0084]">Wasze Marzenia</span>
+            </h1>
+            
+            <p class="font-sans text-gray-200 text-sm md:text-lg max-w-2xl mx-auto leading-relaxed mb-12 font-light tracking-wide">
+                Zapomnij o "zespole weselnym". Tworzymy artystyczny performance, 
+                który brzmi jak Wasza ulubiona playlista i wygląda jak okładka Vogue'a.
+            </p>
+            
+            <div class="flex flex-col md:flex-row justify-center items-center gap-6">
+                <button class="bg-[#ff0084] text-white px-12 py-4 text-xs tracking-[0.2em] uppercase hover:bg-[#d6006f] hover-glow transition-all duration-300 font-bold rounded-full w-full md:w-auto">
+                    Chcę tego
+                </button>
+                <button class="flex items-center gap-3 text-sm tracking-widest uppercase hover:text-[#ff0084] transition-colors group text-white">
+                    <span class="bg-white/10 rounded-full p-4 group-hover:bg-[#ff0084] group-hover:text-white transition-all">
+                        <i data-lucide="play" width="14" height="14" fill="currentColor"></i>
+                    </span>
+                    Zobacz Film
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Vibe / Philosophy Section -->
+    <section id="vibe" class="py-24 md:py-32 px-6 relative overflow-hidden">
+        <div class="fashion-gradient absolute top-0 right-0 w-full h-full opacity-30 pointer-events-none"></div>
+        
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-20 items-center">
+            <div class="space-y-10 order-2 md:order-1">
+                <h2 class="font-serif text-5xl md:text-6xl text-white leading-tight">
+                    To nie wesele.<br/>To <span class="text-[#ff0084] italic font-light">Eksplozja Emocji.</span>
+                </h2>
+                <p class="font-light text-gray-300 leading-8 text-lg">
+                    Wiemy, że boisz się obciachu. Boisz się "Białego Misia" i zabaw, które żenują. My też.
+                    Dlatego Sublima to antyteza przaśności. To styl, klasa i energia, która porywa gości na parkiet 
+                    i nie pozwala im zejść do rana. 
+                </p>
+                
+                <div class="flex gap-4">
+                    <div class="glass-panel p-6 rounded-2xl flex-1 text-center hover:border-[#ff0084]/50 transition-colors">
+                        <span class="block text-3xl font-serif text-[#ff0084] mb-2">0%</span>
+                        <span class="text-xs uppercase tracking-widest text-gray-400">Żenady</span>
+                    </div>
+                    <div class="glass-panel p-6 rounded-2xl flex-1 text-center hover:border-[#ff0084]/50 transition-colors">
+                        <span class="block text-3xl font-serif text-[#ff0084] mb-2">100%</span>
+                        <span class="text-xs uppercase tracking-widest text-gray-400">Gęsiej Skórki</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative order-1 md:order-2 group">
+                <div class="absolute inset-0 bg-[#ff0084] transform translate-x-4 translate-y-4 rounded-xl transition-transform group-hover:translate-x-2 group-hover:translate-y-2"></div>
+                <img 
+                    src="https://images.unsplash.com/photo-1545231027-637d2f6210f8?q=80&w=2070&auto=format&fit=crop" 
+                    alt="Emotional wedding couple flash" 
+                    class="relative z-10 w-full rounded-xl grayscale group-hover:grayscale-0 transition-all duration-700 object-cover shadow-2xl"
+                />
+            </div>
+        </div>
+    </section>
+
+    <!-- Sound DNA Section -->
+    <section id="sound-dna" class="py-24 bg-[#0a0a0a] relative">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-20">
+                <span class="text-[#ff0084] text-xs tracking-[0.3em] uppercase block mb-4 font-bold">Unikalna Usługa</span>
+                <h2 class="font-serif text-5xl md:text-7xl mb-6 text-white">Sound DNA™</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto font-light text-lg">
+                    Tworzymy muzykę szytą na miarę. Dosłownie.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="dna-container">
+                <!-- Step 1 -->
+                <div class="dna-card p-10 rounded-3xl border border-[#ff0084] bg-[#ff0084]/10 transition-all duration-500 cursor-pointer group relative overflow-hidden" 
+                     onmouseenter="setActiveDna(0)">
+                    <div class="icon-wrapper mb-8 text-[#ff0084] transition-colors">
+                        <i data-lucide="heart" size="32"></i>
+                    </div>
+                    <h3 class="font-serif text-3xl mb-4 text-white">Wasze Story</h3>
+                    <p class="text-gray-400 font-light text-sm leading-6 group-hover:text-gray-200 transition-colors">Luźna rozmowa o tym, co Was kręci. Wasz styl, Wasze guilty pleasures, Wasza historia.</p>
+                    <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-[#ff0084] blur-[60px] opacity-20 transition-opacity"></div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="dna-card p-10 rounded-3xl border border-white/10 hover:border-[#ff0084]/50 transition-all duration-500 cursor-pointer group relative overflow-hidden"
+                     onmouseenter="setActiveDna(1)">
+                    <div class="icon-wrapper mb-8 text-gray-500 group-hover:text-white transition-colors">
+                        <i data-lucide="music" size="32"></i>
+                    </div>
+                    <h3 class="font-serif text-3xl mb-4 text-white">Soundtrack</h3>
+                    <p class="text-gray-400 font-light text-sm leading-6 group-hover:text-gray-200 transition-colors">Komponujemy unikalny motyw. To nie playlista, to ścieżka dźwiękowa Waszego filmu.</p>
+                    <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-[#ff0084] blur-[60px] opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="dna-card p-10 rounded-3xl border border-white/10 hover:border-[#ff0084]/50 transition-all duration-500 cursor-pointer group relative overflow-hidden"
+                     onmouseenter="setActiveDna(2)">
+                    <div class="icon-wrapper mb-8 text-gray-500 group-hover:text-white transition-colors">
+                        <i data-lucide="sparkles" size="32"></i>
+                    </div>
+                    <h3 class="font-serif text-3xl mb-4 text-white">Wielki Finał</h3>
+                    <p class="text-gray-400 font-light text-sm leading-6 group-hover:text-gray-200 transition-colors">Aranżacja na żywo. Od intymnego duetu po pełen ogień z sekcją dętą.</p>
+                    <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-[#ff0084] blur-[60px] opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Collections / Offer -->
+    <section id="kolekcje" class="py-32 px-6 bg-[#050505]">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-16">
+                <div>
+                    <h2 class="font-serif text-4xl md:text-6xl mb-4 text-white">Wybierz Swój <span class="text-[#ff0084]">Vibe</span></h2>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Essence -->
+                <div class="relative glass-panel rounded-3xl p-8 flex flex-col justify-between h-full transition-all duration-500 hover:bg-white/5">
+                    <div>
+                        <div class="flex justify-between items-start mb-6">
+                            <span class="text-[10px] uppercase tracking-widest font-bold py-1 px-3 rounded-full bg-white/10 text-[#ff0084]">
+                                Start
+                            </span>
+                        </div>
+                        <h3 class="font-serif text-4xl mb-4 text-white">Essence</h3>
+                        <p class="text-sm leading-6 mb-8 text-gray-400">
+                            Dla par, które chcą klasy, ale bez przepychu. Kameralnie, stylowo, perfekcyjnie.
+                        </p>
+                    </div>
+                    <ul class="space-y-3 mb-8 text-sm">
+                        <li class="flex items-center gap-3 opacity-90 text-gray-300"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0084]"></div> Kwartet smyczkowy</li>
+                        <li class="flex items-center gap-3 opacity-90 text-gray-300"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0084]"></div> DJ + Sax</li>
+                        <li class="flex items-center gap-3 opacity-90 text-gray-300"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0084]"></div> Konsultacja muzyczna</li>
+                        <li class="flex items-center gap-3 opacity-90 text-gray-300"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0084]"></div> Nagłośnienie strefy</li>
+                    </ul>
+                    <button class="w-full py-4 rounded-xl text-xs tracking-widest uppercase font-bold transition-all border border-white/20 text-white hover:border-[#ff0084] hover:bg-[#ff0084]">
+                        Wybieram Essence
+                    </button>
+                </div>
+
+                <!-- Prestige (Highlighted) -->
+                <div class="relative bg-[#ff0084] text-white shadow-[0_0_40px_rgba(255,0,132,0.3)] transform md:-translate-y-4 rounded-3xl p-8 flex flex-col justify-between h-full transition-all duration-500">
+                    <div>
+                        <div class="flex justify-between items-start mb-6">
+                            <span class="text-[10px] uppercase tracking-widest font-bold py-1 px-3 rounded-full bg-black/20 text-white">
+                                Bestseller
+                            </span>
+                        </div>
+                        <h3 class="font-serif text-4xl mb-4">Prestige</h3>
+                        <p class="text-sm leading-6 mb-8 text-white/90">
+                            Pełne doświadczenie. Kompozycja motywu, większy skład, więcej magii. Nasz złoty standard.
+                        </p>
+                    </div>
+                    <ul class="space-y-3 mb-8 text-sm">
+                        <li class="flex items-center gap-3 opacity-90"><div class="w-1.5 h-1.5 rounded-full bg-white"></div> Sound DNA™ Composition</li>
+                        <li class="flex items-center gap-3 opacity-90"><div class="w-1.5 h-1.5 rounded-full bg-white"></div> Live Band (7 osób)</li>
+                        <li class="flex items-center gap-3 opacity-90"><div class="w-1.5 h-1.5 rounded-full bg-white"></div> Sekcja dęta</li>
+                        <li class="flex items-center gap-3 opacity-90"><div class="w-1.5 h-1.5 rounded-full bg-white"></div> Realizator światła</li>
+                    </ul>
+                    <button class="w-full py-4 rounded-xl text-xs tracking-widest uppercase font-bold transition-all bg-white text-[#ff0084] hover:bg-black hover:text-white">
+                        Wybieram Prestige
+                    </button>
+                </div>
+
+                <!-- Unlimited -->
+                <div class="relative glass-panel rounded-3xl p-8 flex flex-col justify-between h-full transition-all duration-500 hover:bg-white/5">
+                    <div>
+                        <div class="flex justify-between items-start mb-6">
+                            <span class="text-[10px] uppercase tracking-widest font-bold py-1 px-3 rounded-full bg-white/10 text-[#ff0084]">
+                                VIP
+                            </span>
+                        </div>
+                        <h3 class="font-serif text-4xl mb-4 text-white">Unlimited</h3>
+                        <p class="text-sm leading-6 mb-8 text-gray-400">
+                            Sky is the limit. Orkiestra, gwiazdy, produkcja jak na festiwalu. Tylko dla wizjonerów.
+                        </p>
+                    </div>
+                    <ul class="space-y-3 mb-8 text-sm">
+                        <li class="flex items-center gap-3 opacity-90 text-gray-300"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0084]"></div> Orkiestra kameralna</li>
+                        <li class="flex items-center gap-3 opacity-90 text-gray-300"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0084]"></div> Gwiazda wieczoru</li>
+                        <li class="flex items-center gap-3 opacity-90 text-gray-300"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0084]"></div> Produkcja sceniczna</li>
+                        <li class="flex items-center gap-3 opacity-90 text-gray-300"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0084]"></div> Dedykowany kompozytor</li>
+                    </ul>
+                    <button class="w-full py-4 rounded-xl text-xs tracking-widest uppercase font-bold transition-all border border-white/20 text-white hover:border-[#ff0084] hover:bg-[#ff0084]">
+                        Wybieram Unlimited
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Legacy Section -->
+    <section id="legacy" class="py-24 bg-white text-black relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-2 bg-[#ff0084]"></div>
+        
+        <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+            <div class="relative">
+                <div class="absolute inset-0 bg-[#ff0084] transform -translate-x-3 translate-y-3"></div>
+                <img src="https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?q=80&w=2070&auto=format&fit=crop" alt="Vogue style wedding" class="relative z-10 w-full h-auto grayscale object-cover border-2 border-black" />
+                <div class="absolute bottom-6 left-6 z-20 bg-white px-4 py-2">
+                    <span class="font-serif text-2xl">VOGUE</span>
+                </div>
+            </div>
+
+            <div class="space-y-8">
+                <h2 class="font-serif text-6xl md:text-7xl leading-none">
+                    Your <br/><span class="text-[#ff0084]">Legacy.</span>
+                </h2>
+                <p class="text-gray-800 font-sans leading-relaxed text-lg">
+                    Emocje są ulotne, ale styl jest wieczny. Otrzymacie od nas winylową płytę z Waszym Sound DNA™ 
+                    i pamiątkowy plakat stylizowany na okładkę magazynu modowego. 
+                    Powieście go w salonie i wyglądajcie jak ikony stylu. Każdego dnia.
+                </p>
+                
+                <div class="flex gap-4 pt-4">
+                    <button class="bg-black text-white px-8 py-3 uppercase text-xs tracking-widest hover:bg-[#ff0084] transition-colors">
+                        Zobacz Realizacje
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social / Insta Feed -->
+    <section class="py-20 bg-[#050505] border-t border-white/10">
+        <div class="max-w-7xl mx-auto px-6 text-center mb-12">
+            <div class="flex items-center justify-center gap-2 text-[#ff0084] mb-4">
+                <i data-lucide="instagram" width="20"></i>
+                <span class="text-xs tracking-widest uppercase font-bold">@SublimaWedding</span>
+            </div>
+            <h2 class="font-serif text-4xl text-white">Dołącz do naszego świata</h2>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-1 px-4">
+            <!-- Feed Item 1 -->
+            <div class="aspect-square relative group overflow-hidden bg-[#111]">
+                <div class="absolute inset-0 bg-gray-800 animate-pulse group-hover:bg-[#ff0084]/20 transition-colors"></div>
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                    <i data-lucide="instagram" class="text-white"></i>
+                </div>
+                <img src="https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" alt="Instagram feed" />
+            </div>
+            <!-- Feed Item 2 -->
+            <div class="aspect-square relative group overflow-hidden bg-[#111]">
+                <div class="absolute inset-0 bg-gray-800 animate-pulse group-hover:bg-[#ff0084]/20 transition-colors"></div>
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                    <i data-lucide="instagram" class="text-white"></i>
+                </div>
+                <img src="https://images.unsplash.com/photo-1511285560982-1351cdeb9821?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" alt="Instagram feed" />
+            </div>
+            <!-- Feed Item 3 -->
+            <div class="aspect-square relative group overflow-hidden bg-[#111]">
+                <div class="absolute inset-0 bg-gray-800 animate-pulse group-hover:bg-[#ff0084]/20 transition-colors"></div>
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                    <i data-lucide="instagram" class="text-white"></i>
+                </div>
+                <img src="https://images.unsplash.com/photo-1470337458703-46ad1756a187?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" alt="Instagram feed" />
+            </div>
+            <!-- Feed Item 4 -->
+            <div class="aspect-square relative group overflow-hidden bg-[#111]">
+                <div class="absolute inset-0 bg-gray-800 animate-pulse group-hover:bg-[#ff0084]/20 transition-colors"></div>
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                    <i data-lucide="instagram" class="text-white"></i>
+                </div>
+                <img src="https://images.unsplash.com/photo-1520854222379-199f8166469d?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" alt="Instagram feed" />
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-black pt-24 pb-12 px-6 border-t border-[#ff0084]/30">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
+            <div class="col-span-1 md:col-span-1">
+                <div class="font-serif text-4xl text-white mb-6">Sublima<span class="text-[#ff0084]">.</span></div>
+                <p class="text-gray-500 text-sm leading-6">
+                    Tworzymy najpiękniejsze wspomnienia dla par, które kochają życie, muzykę i siebie nawzajem.
+                </p>
+            </div>
+            
+            <div>
+                <h4 class="text-white uppercase tracking-widest text-xs mb-6 font-bold">Info</h4>
+                <ul class="space-y-4 text-gray-500 text-sm font-light">
+                    <li><a href="#" class="hover:text-white transition-colors">O Nas</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Oferta</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">FAQ</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="text-white uppercase tracking-widest text-xs mb-6 font-bold">Kontakt</h4>
+                <ul class="space-y-4 text-gray-500 text-sm font-light">
+                    <li>Warszawa, Polska</li>
+                    <li>hello@sublima.pl</li>
+                    <li>+48 555 000 111</li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="text-white uppercase tracking-widest text-xs mb-6 font-bold">Bądź na bieżąco</h4>
+                <div class="flex border-b border-[#ff0084] pb-2">
+                    <input type="email" placeholder="Twój email" class="bg-transparent border-none text-white focus:ring-0 w-full placeholder-gray-600 font-light focus:outline-none" />
+                    <button class="text-[#ff0084] uppercase text-xs font-bold hover:text-white transition-colors">Zapisz</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center text-gray-700 text-xs pt-8 border-t border-gray-900">
+            <p>&copy; 2025 Sublima Wedding. Made with Love & Bass.</p>
+            <div class="flex space-x-6 mt-4 md:mt-0">
+                <a href="#" class="hover:text-[#ff0084] transition-colors">Instagram</a>
+                <a href="#" class="hover:text-[#ff0084] transition-colors">Facebook</a>
+                <a href="#" class="hover:text-[#ff0084] transition-colors">TikTok</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Navbar Scroll Effect
+        window.addEventListener('scroll', () => {
+            const navbar = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('nav-scrolled');
+            } else {
+                navbar.classList.remove('nav-scrolled');
+            }
+        });
+
+        // Mobile Menu Toggle
+        function toggleMenu() {
+            const menu = document.getElementById('mobile-menu');
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                setTimeout(() => menu.classList.remove('opacity-0'), 10);
+            } else {
+                menu.classList.add('opacity-0');
+                setTimeout(() => menu.classList.add('hidden'), 300);
+            }
+        }
+
+        // DNA Section Hover Logic
+        function setActiveDna(index) {
+            const cards = document.querySelectorAll('.dna-card');
+            
+            cards.forEach((card, idx) => {
+                const iconWrapper = card.querySelector('.icon-wrapper');
+                const glow = card.querySelector('div[class*="blur-"]'); // glow div
+
+                if (idx === index) {
+                    // Active State
+                    card.classList.remove('border-white/10', 'hover:border-[#ff0084]/50');
+                    card.classList.add('border-[#ff0084]', 'bg-[#ff0084]/10');
+                    
+                    iconWrapper.classList.remove('text-gray-500');
+                    iconWrapper.classList.add('text-[#ff0084]');
+
+                    if (glow) {
+                        glow.classList.remove('opacity-0');
+                        glow.classList.add('opacity-20');
+                    }
+                } else {
+                    // Inactive State
+                    card.classList.remove('border-[#ff0084]', 'bg-[#ff0084]/10');
+                    card.classList.add('border-white/10', 'hover:border-[#ff0084]/50');
+                    
+                    iconWrapper.classList.remove('text-[#ff0084]');
+                    iconWrapper.classList.add('text-gray-500');
+
+                    if (glow) {
+                        glow.classList.remove('opacity-20');
+                        glow.classList.add('opacity-0');
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
