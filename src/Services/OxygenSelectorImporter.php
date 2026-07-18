@@ -123,6 +123,46 @@ class OxygenSelectorImporter
     }
 
     /**
+     * Persist the cascade-resolved style for one element as an Oxygen selector.
+     * Oxygen's native elements do not render arbitrary `properties.design`
+     * values on the frontend, while selectors are compiled into the global
+     * Oxygen stylesheet. A declaration hash keeps the selector stable across
+     * imports and prevents node-id collisions between documents.
+     *
+     * @param array<string, string> $declarations
+     * @param array<string, mixed> $element
+     */
+    public function attachResolvedStyleSelector(array $declarations, array &$element): ?string
+    {
+        $declarations = $this->normalizeDeclarations($declarations);
+        if ($declarations === []) {
+            return null;
+        }
+
+        ksort($declarations);
+        $signature = json_encode($declarations, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (!is_string($signature)) {
+            return null;
+        }
+
+        $className = 'ohc-style-' . substr(hash('sha256', $signature), 0, 12);
+        $this->declarationsByClass[$className]['breakpoint_base'] = $declarations;
+
+        $element['data']['properties']['settings'] = $element['data']['properties']['settings'] ?? [];
+        $element['data']['properties']['settings']['advanced'] = $element['data']['properties']['settings']['advanced'] ?? [];
+        $classes = $element['data']['properties']['settings']['advanced']['classes'] ?? [];
+        if (!is_array($classes)) {
+            $classes = [];
+        }
+        if (!in_array($className, $classes, true)) {
+            $classes[] = $className;
+        }
+        $element['data']['properties']['settings']['advanced']['classes'] = array_values($classes);
+
+        return $className;
+    }
+
+    /**
      * @param array<string, mixed> $rule
      */
     public function canImportCssRule(array $rule): bool

@@ -546,6 +546,35 @@ class TreeBuilderElementMappingTest extends TestCase
 
         $this->assertTrue($result['success']);
         $this->assertSame('#008000FF', $result['element']['data']['properties']['design']['typography']['color']);
+
+        $classes = $result['element']['data']['properties']['settings']['advanced']['classes'] ?? [];
+        $resolvedStyleClasses = array_values(array_filter(
+            $classes,
+            static fn ($className): bool => is_string($className)
+                && preg_match('/^ohc-style-[a-f0-9]{12}$/', $className) === 1
+        ));
+        $this->assertCount(1, $resolvedStyleClasses);
+
+        $selectors = array_values(array_filter(
+            $result['selectorPayload']['selectors'] ?? [],
+            static fn ($selector): bool => is_array($selector)
+                && ($selector['name'] ?? null) === $resolvedStyleClasses[0]
+        ));
+        $this->assertCount(1, $selectors);
+        $this->assertSame(
+            '#008000FF',
+            $selectors[0]['properties']['breakpoint_base']['typography']['color'] ?? null
+        );
+        $this->assertContains(
+            $selectors[0]['id'],
+            $result['element']['data']['properties']['meta']['classes'] ?? []
+        );
+
+        $selectorNames = array_column($result['selectorPayload']['selectors'] ?? [], 'name');
+        $this->assertGreaterThan(
+            array_search('card', $selectorNames, true),
+            array_search($resolvedStyleClasses[0], $selectorNames, true)
+        );
     }
 
     public function testIdSelectorWinsOverLaterClassRule(): void

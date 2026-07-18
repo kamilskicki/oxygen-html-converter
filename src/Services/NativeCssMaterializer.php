@@ -275,6 +275,9 @@ final class NativeCssMaterializer
                 $element['data']['properties'],
                 ['design' => $convertedStyles]
             );
+            if (!$this->environment->shouldUseWindPressMode()) {
+                $this->selectorImporter->attachResolvedStyleSelector($materializedDeclarations, $element);
+            }
         }
 
         $this->logDebug("Total rules matched: $matchedCount");
