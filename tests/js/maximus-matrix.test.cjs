@@ -46,6 +46,22 @@ module.exports = async function runMaximusMatrixTests() {
     ),
     "Native text headline"
   );
+  assert.equal(
+    liveGate.extractEditabilityTargetText(
+      '<body><script>const hidden = "This text must never become the editability target.";</script ><p>Fixture-specific visible copy for editability proof.</p></body>'
+    ),
+    "Fixture-specific visible copy for editability proof."
+  );
+  assert.equal(
+    liveGate.decodeHtmlEntities("&amp;lt;strong&amp;gt;"),
+    "&lt;strong&gt;"
+  );
+  assert.equal(
+    liveGate.htmlToVisibleText(
+      "<script>Hidden script text</script ><p>Visible frontend text</p>"
+    ),
+    "Visible frontend text"
+  );
   const focusedProof = liveGate.buildFocusedImportProof(
     "<body><main><h1>Krótki tytuł</h1><p>Fixture-specific copy for editability proof.</p></main></body>"
   );

@@ -214,9 +214,10 @@ function getCurrentClassMode(container) {
 }
 
 function setClassMode(container, classMode) {
+  const encodedClassMode = Buffer.from(String(classMode), "utf8").toString("base64");
   return runDockerPhp(
     container,
-    `require '/var/www/html/wp-load.php'; update_option('oxy_html_converter_class_mode', '${String(classMode).replace(/'/g, "\\'")}'); echo get_option('oxy_html_converter_class_mode', 'auto');`
+    `require '/var/www/html/wp-load.php'; update_option('oxy_html_converter_class_mode', base64_decode('${encodedClassMode}', true)); echo get_option('oxy_html_converter_class_mode', 'auto');`
   );
 }
 
@@ -1414,11 +1415,11 @@ const FOCUSED_STYLE_ROUTING_EXPECTATION = {
 function decodeHtmlEntities(value) {
   return String(value || "")
     .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'");
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, "&");
 }
 
 function normalizeCandidateText(value) {
@@ -1434,9 +1435,9 @@ function minimumEditabilityCandidateLength(tagName) {
 
 function extractEditabilityTargetText(fixtureHtml) {
   const sanitizedHtml = String(fixtureHtml || "")
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ");
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, " ");
   const candidates = [];
 
   function collectCandidates(pattern, { requireLeaf = false } = {}) {
@@ -1852,9 +1853,9 @@ async function runBuilderPasteSmoke(page, fixtureSlug) {
 
 function htmlToVisibleText(html) {
   return decodeHtmlEntities(String(html || ""))
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -2578,7 +2579,9 @@ module.exports = {
   resolveBuilderEditabilityHelperFromWindow,
   isBuilderSaveRequestDetails,
   isBuilderSaveResponsePayloadSuccessful,
+  decodeHtmlEntities,
   extractEditabilityTargetText,
+  htmlToVisibleText,
   buildFocusedImportProof,
   buildEditedProofText,
   SITE_KIT_EXPECTED_TEXTS,

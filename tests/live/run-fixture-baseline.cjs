@@ -523,9 +523,10 @@ function getCurrentClassMode(options) {
 }
 
 function setClassMode(options, classMode) {
+  const encodedClassMode = Buffer.from(String(classMode), "utf8").toString("base64");
   runDockerPhp(
     options,
-    `require '/var/www/html/wp-load.php'; update_option('oxy_html_converter_class_mode', '${String(classMode).replace(/'/g, "\\'")}'); echo get_option('oxy_html_converter_class_mode', 'auto');`
+    `require '/var/www/html/wp-load.php'; update_option('oxy_html_converter_class_mode', base64_decode('${encodedClassMode}', true)); echo get_option('oxy_html_converter_class_mode', 'auto');`
   );
 }
 
