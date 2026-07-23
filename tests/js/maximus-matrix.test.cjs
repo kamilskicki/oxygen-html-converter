@@ -48,7 +48,7 @@ module.exports = async function runMaximusMatrixTests() {
   );
   assert.equal(
     liveGate.extractEditabilityTargetText(
-      '<body><script>const hidden = "This text must never become the editability target.";</script ><p>Fixture-specific visible copy for editability proof.</p></body>'
+      '<body><script>const hidden = "This text must never become the editability target.";</script\t\n data-invalid><p>Fixture-specific visible copy for editability proof.</p></body>'
     ),
     "Fixture-specific visible copy for editability proof."
   );
@@ -58,7 +58,7 @@ module.exports = async function runMaximusMatrixTests() {
   );
   assert.equal(
     liveGate.htmlToVisibleText(
-      "<script>Hidden script text</script ><p>Visible frontend text</p>"
+      "<script>Hidden script text</script\t\n data-invalid><p>Visible frontend text</p>"
     ),
     "Visible frontend text"
   );
