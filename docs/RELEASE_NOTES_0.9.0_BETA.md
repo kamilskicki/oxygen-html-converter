@@ -1,7 +1,7 @@
 # Release Notes: 0.9.0-beta
 
-Status: Release candidate  
-Date: 2026-07-10
+Status: Public beta 1
+Date: 2026-07-23
 
 ## Summary
 

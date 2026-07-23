@@ -69,9 +69,9 @@ foreach (['tested up to' => 'Tested up to', 'requires at least' => 'Requires at 
 }
 
 if (isset($headers['stable tag']) && $headers['stable tag'] !== ''
-    && preg_match('/^(?:trunk|\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.-]+)?)$/', $headers['stable tag']) !== 1
+    && preg_match('/^(?:trunk|\d+(?:\.\d+)*)$/', $headers['stable tag']) !== 1
 ) {
-    $errors[] = 'Header "Stable tag" must be "trunk" or a valid release tag.';
+    $errors[] = 'Header "Stable tag" must be "trunk" or a numeric WordPress.org tag such as 0.9.0.';
 }
 
 $shortDescription = '';
@@ -177,10 +177,12 @@ $pluginVersion = pluginVersion($projectRoot . DIRECTORY_SEPARATOR . 'oxygen-html
 if ($pluginVersion === null) {
     $errors[] = 'Could not determine the current plugin version from oxygen-html-converter.php.';
 } else {
-    if (($headers['stable tag'] ?? '') !== $pluginVersion) {
+    $expectedStableTag = wordpressStableTag($pluginVersion);
+    if (($headers['stable tag'] ?? '') !== $expectedStableTag) {
         $errors[] = sprintf(
-            'Stable tag "%s" does not match the current plugin version "%s".',
+            'Stable tag "%s" does not match the expected WordPress.org tag "%s" for plugin version "%s".',
             $headers['stable tag'] ?? '',
+            $expectedStableTag,
             $pluginVersion
         );
     }
@@ -224,6 +226,7 @@ if ($errors !== []) {
 
 printf("Readme validation passed: %s\n", $displayPath);
 printf("- Current version/changelog: %s\n", $pluginVersion);
+printf("- WordPress.org stable tag: %s\n", $headers['stable tag'] ?? '');
 printf("- Short description: %d/150 characters\n", $shortDescriptionLength);
 printf("- Tags: %d/5\n", count($tags));
 printf("- Screenshots: %d entries, %d files\n", count($screenshotNumbers), count($assetScreenshotNumbers));
@@ -301,6 +304,15 @@ function pluginVersion(string $pluginFile): ?string
     }
 
     return trim($matches[1]);
+}
+
+function wordpressStableTag(string $pluginVersion): string
+{
+    if (preg_match('/^(\d+(?:\.\d+)*)(?:[-+].+)?$/', $pluginVersion, $matches) !== 1) {
+        return $pluginVersion;
+    }
+
+    return $matches[1];
 }
 
 /**

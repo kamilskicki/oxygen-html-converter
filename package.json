@@ -33,7 +33,7 @@
     "lint:phpstan": "composer lint:phpstan",
     "i18n:make-pot": "wp i18n make-pot . languages/oxygen-html-converter.pot --domain=oxygen-html-converter --exclude=node_modules,vendor,tests,tests/live,artifacts,.git,.worktrees",
     "i18n:make-pot:docker": "docker run --rm -v %cd%:/app -w /app wordpress:cli wp i18n make-pot . languages/oxygen-html-converter.pot --domain=oxygen-html-converter --exclude=node_modules,vendor,tests,tests/live,artifacts,.git,.worktrees --allow-root",
-    "check": "npm run check:release-hygiene && npm run test:js && composer lint:phpcs && composer lint:phpstan && composer test",
+    "check": "npm run check:release-hygiene && composer validate:readme && npm run test:js && composer lint:phpcs && composer lint:phpstan && composer test",
     "test": "npm run test:js && npm run test:php"
   },
   "devDependencies": {

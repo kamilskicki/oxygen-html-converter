@@ -234,7 +234,7 @@ class PluginTest extends TestCase
 
         $this->assertIsString($bootstrap);
         $this->assertStringContainsString(
-            "__('Oxygen HTML Converter requires Oxygen Builder 6.0 or newer to be active.', 'oxygen-html-converter')",
+            "__('Oxygen HTML Converter requires Oxygen Builder 6.1.0 or newer to be active.', 'oxygen-html-converter')",
             $bootstrap
         );
         $this->assertStringContainsString('esc_html($message)', $bootstrap);
@@ -252,9 +252,23 @@ class PluginTest extends TestCase
 
         $this->assertFalse($result['booted']);
         $this->assertSame(1, $result['noticeCount']);
-        $this->assertStringContainsString('6.0', $result['notice']);
+        $this->assertStringContainsString('6.1.0', $result['notice']);
         $this->assertStringNotContainsString('<script>', $result['notice']);
         $this->assertStringContainsString('&lt;script&gt;', $result['notice']);
+    }
+
+    public function testBootstrapRejectsUnsupportedOxygenSixPointZeroRuntime(): void
+    {
+        $result = $this->runBootstrapVersionHarness([
+            '__BREAKDANCE_PLUGIN_FILE__' => 'oxygen/plugin.php',
+            'BREAKDANCE_MODE' => 'oxygen',
+            '__BREAKDANCE_VERSION' => '6.0.0',
+        ]);
+
+        $this->assertFalse($result['booted']);
+        $this->assertSame(1, $result['noticeCount']);
+        $this->assertStringContainsString('6.1.0', $result['notice']);
+        $this->assertStringContainsString('6.0.0', $result['notice']);
     }
 
     public function testBootstrapAcceptsModernOxygenSixVersionConstant(): void

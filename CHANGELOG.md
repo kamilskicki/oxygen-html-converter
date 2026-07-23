@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.9.0-beta] — 2026-07-10
+## [0.9.0-beta] — 2026-07-23
 
 ### Added
 - Core extension hooks for add-ons and Pro integrations.
@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - API contract version constant `OXY_HTML_CONVERTER_API_VERSION`.
 - Repository `LICENSE` file (GPL-2.0-or-later).
 - GitHub issue templates and release checklist.
+- GitHub community health files, CI/release badges, support routing, and reproducible WordPress.org artwork verification.
 - Builder-safe document tree serializer for Oxygen documents.
 - Public `SECURITY.md` policy.
 - Supported scope documentation in `docs/SUPPORTED_SCOPE.md`.
@@ -35,6 +36,7 @@ All notable changes to this project will be documented in this file.
 - Polyfill documentation now reflects the PHP 8.2+ runtime requirement instead of PHP 7.4 compatibility.
 - WordPress.org metadata now documents the planned numeric `0.9.0` stable-tag promotion for the public beta channel.
 - Missing-Oxygen guidance is shown only to administrators who can activate plugins and can be dismissed.
+- Runtime compatibility checks now match the documented and contract-tested Oxygen Builder 6.1.0 minimum.
 
 ### Fixed
 - Prevented Safe Mode imports from leaving JS-controlled hidden reveal content invisible after stripped runtime code.
@@ -42,6 +44,7 @@ All notable changes to this project will be documented in this file.
 - Updated fixture live-smoke metadata from pending M8-03 status to current passed M8-03 evidence.
 - Clarified Maximus site-kit proof documents as examples instead of generic Core acceptance rules.
 - Uninstall cleanup now removes the one-time cache-refresh notice and documents the runtime dependency of retained converter page CSS.
+- WordPress.org readme validation now accepts the required numeric stable tag for prerelease plugin versions.
 
 ## [0.8.0-beta] — 2025-02-11
 

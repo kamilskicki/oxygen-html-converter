@@ -1,0 +1,159 @@
+{
+  "verified_at_utc": "2026-07-23T08:10:02.088941+00:00",
+  "requirements": {
+    "png_magic": "89504e470d0a1a0a",
+    "minimum_bytes_exclusive": 3072,
+    "exact_dimensions": true,
+    "pillow_decode": true,
+    "minimum_luminance_variance_exclusive": 100,
+    "minimum_luminance_range_exclusive": 30,
+    "minimum_sampled_unique_colors_exclusive": 16
+  },
+  "assets": [
+    {
+      "file": "icon-128x128.png",
+      "bytes": 4405,
+      "sha256": "d83b6d62b21de0b9299a67865e831ee955e8a67db564fd7c6240116d247d6fca",
+      "format": "PNG",
+      "mode": "RGB",
+      "dimensions": [
+        128,
+        128
+      ],
+      "expected_dimensions": [
+        128,
+        128
+      ],
+      "channel_variance": [
+        4055.55,
+        4811.11,
+        6064.21
+      ],
+      "luminance_variance": 4532.32,
+      "luminance_extrema": [
+        21,
+        255
+      ],
+      "sampled_unique_colors_64x64": 386,
+      "checks": {
+        "png_magic": true,
+        "file_size_gt_3kb": true,
+        "pillow_decodes_as_png": true,
+        "exact_dimensions": true,
+        "non_blank_luminance_variance": true,
+        "non_blank_luminance_range": true,
+        "non_trivial_sampled_color_count": true
+      },
+      "passed": true
+    },
+    {
+      "file": "icon-256x256.png",
+      "bytes": 8549,
+      "sha256": "0ee0cc6655b2cd552ab20005eafb6ba9110e8f680d759877a73ef44c80be8c42",
+      "format": "PNG",
+      "mode": "RGB",
+      "dimensions": [
+        256,
+        256
+      ],
+      "expected_dimensions": [
+        256,
+        256
+      ],
+      "channel_variance": [
+        4185.98,
+        4956.54,
+        6216.31
+      ],
+      "luminance_variance": 4670.49,
+      "luminance_extrema": [
+        20,
+        255
+      ],
+      "sampled_unique_colors_64x64": 341,
+      "checks": {
+        "png_magic": true,
+        "file_size_gt_3kb": true,
+        "pillow_decodes_as_png": true,
+        "exact_dimensions": true,
+        "non_blank_luminance_variance": true,
+        "non_blank_luminance_range": true,
+        "non_trivial_sampled_color_count": true
+      },
+      "passed": true
+    },
+    {
+      "file": "banner-772x250.png",
+      "bytes": 126463,
+      "sha256": "ce6ac69adecf90fe2bd5eedd3bea6c3fdb926d83f962d71805920cc6010febfa",
+      "format": "PNG",
+      "mode": "RGB",
+      "dimensions": [
+        772,
+        250
+      ],
+      "expected_dimensions": [
+        772,
+        250
+      ],
+      "channel_variance": [
+        1784.26,
+        2320.35,
+        3222.88
+      ],
+      "luminance_variance": 2044.58,
+      "luminance_extrema": [
+        19,
+        255
+      ],
+      "sampled_unique_colors_64x64": 1538,
+      "checks": {
+        "png_magic": true,
+        "file_size_gt_3kb": true,
+        "pillow_decodes_as_png": true,
+        "exact_dimensions": true,
+        "non_blank_luminance_variance": true,
+        "non_blank_luminance_range": true,
+        "non_trivial_sampled_color_count": true
+      },
+      "passed": true
+    },
+    {
+      "file": "banner-1544x500.png",
+      "bytes": 416355,
+      "sha256": "dd879721aabebb40c62474d42b9371c04bf5d9df0c057ea480856e244e56ce40",
+      "format": "PNG",
+      "mode": "RGB",
+      "dimensions": [
+        1544,
+        500
+      ],
+      "expected_dimensions": [
+        1544,
+        500
+      ],
+      "channel_variance": [
+        1804.8,
+        2337.79,
+        3247.87
+      ],
+      "luminance_variance": 2066.77,
+      "luminance_extrema": [
+        19,
+        255
+      ],
+      "sampled_unique_colors_64x64": 1512,
+      "checks": {
+        "png_magic": true,
+        "file_size_gt_3kb": true,
+        "pillow_decodes_as_png": true,
+        "exact_dimensions": true,
+        "non_blank_luminance_variance": true,
+        "non_blank_luminance_range": true,
+        "non_trivial_sampled_color_count": true
+      },
+      "passed": true
+    }
+  ],
+  "passed": true
+}

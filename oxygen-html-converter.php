@@ -24,7 +24,7 @@ define('OXY_HTML_CONVERTER_URL', plugin_dir_url(__FILE__));
 define('OXY_HTML_CONVERTER_IS_CORE', true);
 define('OXY_HTML_CONVERTER_API_VERSION', '1.0.0');
 
-// Load PHP 7.4 polyfills for PHP 8.0+ functions
+// Load compatibility helpers used by the converter runtime.
 require_once OXY_HTML_CONVERTER_PATH . 'src/polyfills.php';
 
 // Autoload classes
@@ -55,10 +55,10 @@ function oxy_html_converter_render_missing_oxygen_notice(?string $detected_versi
     }
 
     $message = $detected_version === null
-        ? __('Oxygen HTML Converter requires Oxygen Builder 6.0 or newer to be active.', 'oxygen-html-converter')
+        ? __('Oxygen HTML Converter requires Oxygen Builder 6.1.0 or newer to be active.', 'oxygen-html-converter')
         : sprintf(
             /* translators: %s: detected Oxygen Builder version. */
-            __('Oxygen HTML Converter requires Oxygen Builder 6.0 or newer. Detected version: %s.', 'oxygen-html-converter'),
+            __('Oxygen HTML Converter requires Oxygen Builder 6.1.0 or newer. Detected version: %s.', 'oxygen-html-converter'),
             $detected_version
         );
 
@@ -86,7 +86,7 @@ add_action('plugins_loaded', function () {
     $oxygenVersion = \OxyHtmlConverter\Services\OxygenStorageAdapterFactory::detectRuntimeOxygenVersion();
     $oxygenActive = ($modernOxygen || $legacyOxygen)
         && $oxygenVersion !== null
-        && version_compare($oxygenVersion, '6.0.0', '>=');
+        && version_compare($oxygenVersion, '6.1.0', '>=');
 
     if (!$oxygenActive) {
         add_action('admin_notices', static function () use ($oxygenVersion): void {

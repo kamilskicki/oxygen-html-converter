@@ -8,15 +8,25 @@ on:
       - ".tmp-*"
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: core-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   php:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         php-version: ["8.2", "8.3"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -34,6 +44,14 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Validate Composer manifest
+        run: composer validate --strict
+
+      - name: Validate release metadata
+        run: |
+          npm run check:release-hygiene
+          composer validate:readme
+
       - name: PHP unit tests
         run: composer test
 
@@ -45,3 +63,21 @@ jobs:
 
       - name: PHPStan
         run: composer lint:phpstan
+
+      - name: Audit dependencies
+        run: |
+          composer audit --locked
+          npm audit --audit-level=high
+
+      - name: Build verified plugin ZIP
+        if: matrix.php-version == '8.2'
+        run: npm run build:zip
+
+      - name: Upload verified plugin ZIP
+        if: matrix.php-version == '8.2'
+        uses: actions/upload-artifact@v4
+        with:
+          name: oxygen-html-converter-${{ github.sha }}
+          path: artifacts/release/oxygen-html-converter-*.zip
+          if-no-files-found: error
+          retention-days: 14

@@ -1,12 +1,18 @@
 # Oxygen HTML Converter
 
+[![Core CI](https://github.com/kamilskicki/oxygen-html-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/kamilskicki/oxygen-html-converter/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/kamilskicki/oxygen-html-converter?include_prereleases&sort=semver)](https://github.com/kamilskicki/oxygen-html-converter/releases)
+[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php&logoColor=white)](https://www.php.net/)
+[![WordPress 6.5+](https://img.shields.io/badge/WordPress-6.5%2B-21759B?logo=wordpress&logoColor=white)](https://wordpress.org/)
+[![License: GPL v2 or later](https://img.shields.io/badge/License-GPL--2.0--or--later-blue.svg)](LICENSE)
+
 Convert pasted HTML into native Oxygen Builder 6 content that can be edited and saved in the builder.
 
 This repository is the public `Core` plugin. The long-term product goal is simple: paste HTML, get a native Oxygen document, and continue editing without validation errors or broken document state.
 
-Current release candidate:
+Current release:
 
-- `v0.9.0-beta` public beta candidate
+- `v0.9.0-beta.1` public beta tag for the `v0.9.0-beta` plugin release line
 - WordPress.org promotion will use the numeric stable tag `0.9.0`; the plugin runtime and release documentation retain the `0.9.0-beta` prerelease version
 
 ## What Core Does
@@ -72,10 +78,14 @@ More detail:
 
 ## Installation
 
-1. Download the latest release ZIP.
+1. Download the plugin ZIP attached to the [latest GitHub release](https://github.com/kamilskicki/oxygen-html-converter/releases/latest).
 2. In WordPress admin, go to `Plugins -> Add New -> Upload Plugin`.
 3. Upload the ZIP and activate it.
 4. Ensure Oxygen Builder 6.1.0 is installed and active.
+
+Do not install GitHub's automatically generated “Source code” archives as the
+WordPress plugin package. Use the attached `oxygen-html-converter-*.zip`
+artifact, which is built and verified by the repository release tooling.
 
 ## Testing
 
@@ -120,3 +130,9 @@ API compatibility is versioned via `OXY_HTML_CONVERTER_API_VERSION`.
 ## License
 
 GPL-2.0-or-later. See [LICENSE](LICENSE).
+
+## Support And Security
+
+- Read [SUPPORT.md](SUPPORT.md) before opening a question or bug report.
+- Use the structured [GitHub issue forms](https://github.com/kamilskicki/oxygen-html-converter/issues/new/choose) for reproducible bugs and feature requests.
+- Follow [SECURITY.md](SECURITY.md) and report vulnerabilities privately.

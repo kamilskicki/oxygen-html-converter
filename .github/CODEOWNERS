@@ -1,0 +1,8 @@
+# Default owner for public Core.
+* @kamilskicki
+
+# Security-sensitive and release-critical surfaces.
+/src/Ajax.php @kamilskicki
+/src/Services/HtmlCodeSanitizer.php @kamilskicki
+/scripts/ @kamilskicki
+/.github/ @kamilskicki

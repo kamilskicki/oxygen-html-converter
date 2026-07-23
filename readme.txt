@@ -1,5 +1,4 @@
 === Oxygen HTML Converter ===
-Contributors: wordpressdotorg
 Tags: oxygen builder, html import, page builder, conversion, no code
 Requires at least: 6.5
 Tested up to: 6.9
@@ -11,8 +10,6 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Convert HTML pages into native, editable Oxygen Builder 6 documents with Safe Mode and supported-scope reporting.
 
 == Description ==
-
-<!-- TODO(owner): Replace the temporary "wordpressdotorg" validation placeholder with the verified plugin-owner account before directory submission. -->
 
 Oxygen HTML Converter helps Oxygen Builder 6.1.0 users turn pasted HTML into native Oxygen document content that can be edited, saved, and reopened in the builder.
 
