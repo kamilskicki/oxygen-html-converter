@@ -55,9 +55,6 @@ class FrameworkDetector
         $detected = [];
 
         foreach ($document->getElementsByTagName('*') as $node) {
-            if (!($node instanceof \DOMElement)) {
-                continue;
-            }
 
             foreach ($this->detect($node) as $framework) {
                 $detected[] = $framework;

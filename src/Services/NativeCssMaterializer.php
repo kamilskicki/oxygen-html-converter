@@ -202,7 +202,7 @@ final class NativeCssMaterializer
                 continue;
             }
 
-            if ($this->selectorMatcher->containsPseudo($selector)) {
+            if ($this->selectorMatcher->requiresCssFallback($selector)) {
                 continue;
             }
 
@@ -285,7 +285,7 @@ final class NativeCssMaterializer
 
     /**
      * @param array<string,array{value:string,important:bool,specificity:array{int,int,int,int},sourceOrder:int}> $winners
-     * @param array<string,string> $declarations
+     * @param array<string,mixed> $declarations
      * @param array<string,bool> $importantDeclarations
      * @param array{int,int,int,int} $specificity
      */
@@ -441,7 +441,7 @@ final class NativeCssMaterializer
             ?string $mediaContext = null
         ) use (&$callback, $fullyConsumed, $partiallyConsumed): ?string {
             if ($this->cssBlockContainsNestedRule($block)) {
-                if (preg_match('/^@media\b/i', $selector) === 1 && $callback !== null) {
+                if (preg_match('/^@media\b/i', $selector) === 1) {
                     $cleanedBlock = $this->rewriteCssRuleBlocks($block, $callback, $selector);
 
                     return trim($cleanedBlock) === '' ? '' : $selectorRaw . '{' . $cleanedBlock . '}';
@@ -619,7 +619,7 @@ final class NativeCssMaterializer
     private function selectorWithFinalStateClass(string $selector, string $stateClass): ?string
     {
         $selector = trim($selector);
-        if ($selector === '' || $this->selectorMatcher->containsPseudo($selector)) {
+        if ($selector === '' || $this->selectorMatcher->requiresCssFallback($selector)) {
             return null;
         }
 
@@ -1175,7 +1175,8 @@ final class NativeCssMaterializer
                 continue;
             }
 
-            $remaining[] = $declaration['property'] . ': ' . $declaration['value'];
+            $remaining[] = $declaration['property'] . ': ' . $declaration['value']
+                . ($declaration['important'] ? ' !important' : '');
         }
 
         return $remaining === [] ? '' : ' ' . implode('; ', $remaining) . '; ';

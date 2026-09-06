@@ -103,6 +103,7 @@
   }
 
   function renderAudit(audit) {
+    $("#oxy-audit-summary .oxy-audit-header p").prop("hidden", !!audit);
     const lists =
       rendererUtils && typeof rendererUtils.buildAuditLists === "function"
         ? rendererUtils.buildAuditLists(audit)
@@ -193,7 +194,7 @@
     }
 
     if (data.stats) {
-      $("#report-elements").text(data.stats.elements || 0);
+      $("#report-elements").text(data.audit?.summary?.elements ?? data.stats.elements ?? 0);
       $("#report-tailwind").text(data.stats.tailwindClasses || 0);
       $("#report-custom").text(data.stats.customClasses || 0);
 

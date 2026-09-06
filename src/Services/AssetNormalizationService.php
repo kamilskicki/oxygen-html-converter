@@ -11,8 +11,8 @@ use DOMXPath;
 class AssetNormalizationService
 {
     /**
-     * @param list<array<string, mixed>> $headAssets
-     * @param array<string, array<string, mixed>> $iconLibraries
+     * @param list<mixed> $headAssets
+     * @param array<string, mixed> $iconLibraries
      * @return array<string, mixed>
      */
     public function buildReport(DOMDocument $document, string $css, array $headAssets = [], array $iconLibraries = []): array
@@ -510,7 +510,7 @@ class AssetNormalizationService
         $parts = [];
         $current = $node;
 
-        while ($current instanceof DOMElement) {
+        while (true) {
             $parts[] = strtolower($current->tagName);
             if (!($current->parentNode instanceof DOMElement)) {
                 break;

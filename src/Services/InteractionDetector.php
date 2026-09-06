@@ -497,7 +497,7 @@ class InteractionDetector
      *
      * @param string $elementId  HTML ID of the element
      * @param array  $interaction  Interaction array
-     * @param array  &$element  Reference to the Oxygen element being built
+     * @param array<string, mixed> &$element Reference to the Oxygen element being built
      */
     public function applyDetectedInteraction(string $elementId, array $interaction, array &$element): void
     {

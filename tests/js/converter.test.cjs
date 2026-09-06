@@ -4,6 +4,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 module.exports = async function runConverterTests() {
+  await testParentTextareaPasteRemainsInputOnly();
   await testNativeInsertSavesSelectorsAndShowsSuccessToast();
   await testPasteFallbackShowsSuccessToastAfterStoreMutation();
   await testClipboardFallbackShowsClipboardToast();
@@ -124,9 +125,7 @@ function createRuntime(options = {}) {
   };
 
   const builderPaste = options.builderPaste || {
-    canInterceptPasteTarget() {
-      return true;
-    },
+    canInterceptPasteTarget: require("../../assets/js/lib/builder-paste.js").canInterceptPasteTarget,
     extractClipboardHtml(clipboardData) {
       return clipboardData.getData("text/html");
     },
@@ -277,6 +276,8 @@ function createRuntime(options = {}) {
       assert.equal(listeners.length > 0, true, `Expected paste listener on ${targetDocument.label}`);
 
       const event = {
+        currentTarget: targetDocument,
+        target: targetDocument.activeElement,
         clipboardData: {
           getData(type) {
             return type === "text/html" ? html : "";
@@ -438,4 +439,17 @@ async function testOxygenSixDocumentStoreBootstrapsBuilderUiWithoutVueStore() {
   assert.equal(runtime.modalBuildCalls.length, 1);
   assert.equal(typeof runtime.windowObj.oxyHtmlConverterOpenModal, "function");
   assert.equal(typeof runtime.parentWindow.oxyHtmlConverterOpenModal, "function");
+}
+
+async function testParentTextareaPasteRemainsInputOnly() {
+  const runtime = createRuntime();
+  runtime.parentDocument.activeElement = {
+    tagName: "TEXTAREA",
+    getAttribute() { return null; },
+  };
+  const event = await runtime.dispatchPaste(runtime.parentDocument, "<section>Source to edit</section>");
+  assert.equal(event.preventDefaultCalled, false, "parent modal textarea must keep its native paste");
+  assert.equal(runtime.convertHtmlCalls.length, 0, "pasting source must wait for the explicit import click");
+  assert.equal(runtime.tree.root.children.length, 0);
+  assert.deepEqual(runtime.toastCalls, []);
 }

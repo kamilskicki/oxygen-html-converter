@@ -44,6 +44,19 @@ class HtmlParserTest extends TestCase
         $this->assertStringContainsString('日本語', $result->textContent);
     }
 
+    public function testFullDocumentsPreserveUtf8WithoutAnExplicitCharset(): void
+    {
+        foreach ([
+            '<!doctype html><html><body><p>Zażółć gęślą jaźń — 日本語</p></body></html>',
+            '<!doctype html><html><head data-theme="demo"><title>Demo</title></head><body><p>Zażółć gęślą jaźń — 日本語</p></body></html>',
+        ] as $html) {
+            $body = $this->parser->parse($html);
+            $this->assertInstanceOf(DOMElement::class, $body);
+            $this->assertSame('Zażółć gęślą jaźń — 日本語', $body->textContent);
+            $this->assertStringNotContainsString('<?xml', $this->parser->getDom()->saveHTML());
+        }
+    }
+
     public function testParsePreprocessesAlpineJsAttributes(): void
     {
         // @ attributes are converted to data-oxy-at- prefix for DOMDocument compatibility

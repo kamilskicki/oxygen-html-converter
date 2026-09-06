@@ -7,6 +7,27 @@ use PHPUnit\Framework\TestCase;
 
 class OxygenSchemaValidatorTest extends TestCase
 {
+    public function testBlockPreviewMatchesBuilderRuntimeTypes(): void
+    {
+        $validator = new OxygenSchemaValidator();
+        foreach ([null, 0, 2, 1.5] as $row) {
+            $this->assertTrue($validator->validateBlockSettings(['preview' => ['acfFlexibleFieldRow' => $row]])['valid']);
+        }
+        foreach (['', '2', false, []] as $row) {
+            $validation = $validator->validateBlockSettings(['preview' => ['acfFlexibleFieldRow' => $row]]);
+            $this->assertFalse($validation['valid']);
+            $this->assertSame('$.preview.acfFlexibleFieldRow', $validation['errors'][0]['path']);
+        }
+        $this->assertTrue($validator->validateBlockSettings(['preview' => [
+            'width' => 1440, 'height' => 900, 'backgroundColor' => null,
+            'isCentered' => true, 'acfFlexibleField' => '',
+        ]])['valid']);
+        foreach (['width' => '', 'height' => null, 'backgroundColor' => false, 'isCentered' => 1, 'acfFlexibleField' => null] as $field => $value) {
+            $this->assertFalse($validator->validateBlockSettings(['preview' => [$field => $value]])['valid']);
+        }
+        $this->assertFalse($validator->validateBlockSettings(['preview' => null])['valid']);
+    }
+
     public function testContractFixturesValidateAgainstOxygenSchema(): void
     {
         $validator = new OxygenSchemaValidator();

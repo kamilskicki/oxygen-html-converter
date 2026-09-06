@@ -10,10 +10,10 @@ Convert pasted HTML into native Oxygen Builder 6 content that can be edited and 
 
 This repository is the public `Core` plugin. The long-term product goal is simple: paste HTML, get a native Oxygen document, and continue editing without validation errors or broken document state.
 
-Current release:
+Current staging candidate:
 
-- `v0.9.0-beta.1` public beta tag for the `v0.9.0-beta` plugin release line
-- WordPress.org promotion will use the numeric stable tag `0.9.0`; the plugin runtime and release documentation retain the `0.9.0-beta` prerelease version
+- `v0.9.1-beta`, the compatibility and import-integrity update; public publication is separate from staging deployment.
+- WordPress.org promotion uses the numeric stable tag `0.9.1`; the plugin runtime retains the `0.9.1-beta` prerelease version.
 
 ## What Core Does
 
@@ -37,7 +37,7 @@ Core is not yet a promise of perfect conversion for every arbitrary frontend sta
 Detailed scope:
 - [Supported Scope](docs/SUPPORTED_SCOPE.md)
 - [OxyMade/Oxygen 6 Globals + WindPress Decision](docs/OXYMADE_OXYGEN6_GLOBALS_AND_WINDPRESS_DECISION.md)
-- [Definition of Done for v0.9.0-beta](docs/DOD-0.9.0-BETA.md)
+- [Definition of Done for v0.9.1-beta](docs/DOD-0.9.1-BETA.md)
 
 ## Import Methods
 
@@ -49,7 +49,8 @@ Detailed scope:
 
 - WordPress `6.5+`
 - PHP `8.2+`
-- Oxygen Builder `6.1.0`
+- Oxygen Builder `6.1.0` or `6.1.3` (stable); `6.2.0-beta.8` is an explicitly
+  experimental compatibility target. Other unverified versions fail closed.
 - Logged-in user with `manage_options` by default
 
 The required capability can be changed with `oxy_html_converter_required_capability`.
@@ -81,7 +82,7 @@ More detail:
 1. Download the plugin ZIP attached to the [latest GitHub release](https://github.com/kamilskicki/oxygen-html-converter/releases/latest).
 2. In WordPress admin, go to `Plugins -> Add New -> Upload Plugin`.
 3. Upload the ZIP and activate it.
-4. Ensure Oxygen Builder 6.1.0 is installed and active.
+4. Ensure a supported Oxygen Builder version is installed and active.
 
 Do not install GitHub's automatically generated “Source code” archives as the
 WordPress plugin package. Use the attached `oxygen-html-converter-*.zip`
@@ -97,8 +98,8 @@ artifact, which is built and verified by the repository release tooling.
 - Build and hash the exact release artifact: `npm run build:zip`
 - Install that explicit ZIP on the maintained SSH staging target using the
   commands in `docs/RELEASE_CHECKLIST.md`
-- Focused staging fixture gate: `npm run test:fixtures -- --ssh-host=oxyconvo6.mylab --wordpress-root=/var/www/wordpress`
-- Staging browser round-trip: `npm run test:staging:browser -- --base-url=https://oxyconvo6.mylab --page-id=<id>`
+- Focused staging fixture gate: `npm run test:fixtures -- --ssh-host=oxyconvo.lab --wordpress-root=/var/www/wordpress`
+- Staging browser round-trip: `npm run test:staging:browser -- --base-url=https://oxyconvo.lab --page-id=<id>`
 - Docker-only legacy live helpers remain available for isolated local debugging;
   they are not the canonical release target
 - Release verification: `npm run release:verify`

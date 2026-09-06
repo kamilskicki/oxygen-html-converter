@@ -39,7 +39,7 @@ class OxygenTokenBindingService
     public function applyToConversionResult(array $result, array $payload): array
     {
         $references = $this->buildReferences($payload);
-        $references = $this->markBindingRequirements($references, $result);
+        $sourceResult = $result;
         $usage = $this->initializeUsage($references);
 
         if ($references !== []) {
@@ -93,6 +93,7 @@ class OxygenTokenBindingService
             }
         }
 
+        $references = $this->markBindingRequirements($references, $sourceResult, $usage);
         $tokenUsage = $this->summarizeUsage($references, $usage);
         $result['tokenUsage'] = $tokenUsage;
         $result['stats'] = is_array($result['stats'] ?? null) ? $result['stats'] : [];
@@ -179,6 +180,44 @@ class OxygenTokenBindingService
                 'element'
             );
         }
+        foreach (['text', 'html_code'] as $field) {
+            $html = $properties['content']['content'][$field] ?? null;
+            if (!is_string($html) || !str_contains($html, '<') || stripos($html, 'style') === false) {
+                continue;
+            }
+            $dom = new \DOMDocument('1.0', 'UTF-8');
+            $previousErrors = libxml_use_internal_errors(true);
+            try {
+                $loaded = $dom->loadHTML('<?xml encoding="UTF-8"><div data-ohc-token-root="1">' . $html . '</div>', LIBXML_NONET | LIBXML_HTML_NODEFDTD | LIBXML_HTML_NOIMPLIED);
+                $changed = false;
+                if ($loaded) {
+                    foreach ($dom->getElementsByTagName('*') as $node) {
+                        if (!$node->hasAttribute('style')) {
+                            continue;
+                        }
+                        $oldStyle = $node->getAttribute('style');
+                        $style = $this->bindCssText($oldStyle . ';', $references, $usage, 'element:' . $elementId . '.content.' . $field . '.style', 'element');
+                        if ($style !== $oldStyle . ';') {
+                            $node->setAttribute('style', rtrim($style, ';'));
+                            $changed = true;
+                        }
+                    }
+                }
+                if ($changed) {
+                    $root = $dom->getElementsByTagName('div')->item(0);
+                    if ($root !== null) {
+                        $boundHtml = '';
+                        foreach ($root->childNodes as $child) {
+                            $boundHtml .= $dom->saveHTML($child);
+                        }
+                        $properties['content']['content'][$field] = $boundHtml;
+                    }
+                }
+            } finally {
+                libxml_clear_errors();
+                libxml_use_internal_errors($previousErrors);
+            }
+        }
         unset($properties);
 
         if (!isset($element['children']) || !is_array($element['children'])) {
@@ -198,11 +237,15 @@ class OxygenTokenBindingService
      * @param array<string, mixed> $result
      * @return list<array<string, mixed>>
      */
-    private function markBindingRequirements(array $references, array $result): array
+    private function markBindingRequirements(array $references, array $result, array $usage): array
     {
         foreach ($references as &$reference) {
-            if (($reference['group'] ?? '') !== 'images') {
+            if (($usage[$this->referenceKey($reference)]['count'] ?? 0) > 0) {
                 $reference['bindingRequired'] = true;
+                continue;
+            }
+            if (($reference['group'] ?? '') !== 'images') {
+                $reference['bindingRequired'] = $this->referenceOccursInOutput($reference, $result);
                 continue;
             }
 
@@ -211,6 +254,104 @@ class OxygenTokenBindingService
         unset($reference);
 
         return $references;
+    }
+
+    /**
+     * Source analysis also sees overridden declarations and merely downloaded fonts.
+     * A mandatory binding needs an occurrence in the converted output; this scan is
+     * deliberately independent of control-path support so missed bindings still fail.
+     *
+     * @param array<string, mixed> $reference
+     * @param array<string, mixed> $result
+     */
+    private function referenceOccursInOutput(array $reference, array $result): bool
+    {
+        foreach (['extractedCss', 'globalCss', 'pageScopedCss', 'styleRouting', 'selectorPayload'] as $field) {
+            if ($this->outputValueContainsReference($result[$field] ?? null, $reference)) {
+                return true;
+            }
+        }
+        foreach (['element', 'cssElement'] as $field) {
+            if (is_array($result[$field] ?? null) && $this->treeContainsReference($result[$field], $reference)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** @param array<string, mixed> $node @param array<string, mixed> $reference */
+    private function treeContainsReference(array $node, array $reference): bool
+    {
+        $properties = $node['data']['properties'] ?? [];
+        if ($this->outputValueContainsReference($properties['design'] ?? null, $reference)
+            || $this->outputValueContainsReference($properties['content']['content']['css_code'] ?? null, $reference)
+        ) {
+            return true;
+        }
+        foreach (['text', 'html_code'] as $field) {
+            $html = $properties['content']['content'][$field] ?? '';
+            if (is_string($html) && preg_match_all('/\bstyle\s*=\s*([\'"])(.*?)\1/is', $html, $styles)) {
+                foreach ($styles[2] as $style) {
+                    if ($this->outputValueContainsReference(html_entity_decode($style, ENT_QUOTES | ENT_HTML5), $reference)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        foreach ($node['children'] ?? [] as $child) {
+            if (is_array($child) && $this->treeContainsReference($child, $reference)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** @param mixed $value @param array<string, mixed> $reference */
+    private function outputValueContainsReference($value, array $reference, string $key = '', array $path = []): bool
+    {
+        $logicalPath = $path;
+        $propertyIndex = array_search('properties', $logicalPath, true);
+        if ($propertyIndex !== false) {
+            $logicalPath = array_slice($logicalPath, $propertyIndex + 1);
+        }
+        $groups = $this->groupsForPath($logicalPath, null);
+        if ($groups !== [] && !in_array((string) $reference['group'], $groups, true)) {
+            return false;
+        }
+        if (is_array($value)) {
+            foreach ($value as $childKey => $child) {
+                if ($this->outputValueContainsReference($child, $reference, (string) $childKey, array_merge($path, [(string) $childKey]))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (!is_scalar($value)) {
+            return false;
+        }
+        if ($key === 'opacity' && is_numeric($value)) {
+            $value = (string) ((float) $value / 100);
+        }
+        if ($this->matchReference([$reference], [(string) $reference['group']], $value) !== null) {
+            return true;
+        }
+        $text = preg_replace('/\/\*.*?\*\//s', '', (string) $value) ?? (string) $value;
+        if (($reference['group'] ?? '') === 'numbers') {
+            return $this->replaceNumberReferenceInCssSegment($text . ';', $reference, '__ohc_probe__')[1];
+        }
+        if (in_array($reference['group'] ?? '', ['spacing', 'measurements'], true) && str_contains($text, ':')) {
+            return $this->replaceMeasurementReferenceInCssSegment($text . ';', $reference, '__ohc_probe__')[1];
+        }
+        foreach ($this->rawReplacementValues($reference) as $raw) {
+            $quoted = preg_quote($raw, '/');
+            if (($reference['group'] ?? '') === 'colors') {
+                $quoted = preg_replace('/\s*,\s*/', '\\s*,\\s*', $quoted) ?? $quoted;
+            }
+            if (preg_match('/(?<![A-Za-z0-9_.-])' . $quoted . '(?![A-Za-z0-9_.%-])/i', $text) === 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -389,6 +530,15 @@ class OxygenTokenBindingService
                             ? (string) $reference['selectorReference']
                             : (string) $reference['cssReference'];
                         $this->recordUsage($usage, $reference, $destination, (string) $value['style'], $mode);
+                    } else {
+                        $allowedGroups = $groups === [] ? ['spacing', 'measurements'] : $groups;
+                        $eligible = array_values(array_filter($references, static fn(array $item): bool => in_array($item['group'], $allowedGroups, true)));
+                        $style = $this->bindCssText($value['style'], $eligible, $usage, $destination, $mode);
+                        if ($style !== $value['style']) {
+                            $value['number'] = null;
+                            $value['unit'] = 'custom';
+                            $value['style'] = $style;
+                        }
                     }
                     continue;
                 }
@@ -402,6 +552,12 @@ class OxygenTokenBindingService
                 continue;
             }
 
+            if (is_string($value) && end($nextPath) === 'value' && in_array('gradient', $nextPath, true)) {
+                $eligible = array_values(array_filter($references, static fn(array $item): bool => in_array($item['group'], ['colors', 'measurements'], true)));
+                $value = $this->bindCssText($value, $eligible, $usage, $destination, $mode);
+                continue;
+            }
+
             if (!is_scalar($value)) {
                 continue;
             }
@@ -411,7 +567,11 @@ class OxygenTokenBindingService
                 continue;
             }
 
-            $reference = $this->matchReference($references, $groups, $value);
+            // Oxygen stores numeric opacity as a percentage, while CSS variables use a fraction.
+            $matchValue = end($nextPath) === 'opacity' && is_numeric($value)
+                ? (string) ((float) $value / 100)
+                : $value;
+            $reference = $this->matchReference($references, $groups, $matchValue);
             if ($reference === null) {
                 continue;
             }
@@ -433,9 +593,9 @@ class OxygenTokenBindingService
         $updated = $css;
 
         foreach ($references as $reference) {
-            $replacement = $mode === 'selector'
-                ? (string) $reference['selectorReference']
-                : (string) $reference['cssReference'];
+            // Oxygen resolves {var-id} only when it is the entire native property.
+            // CSS expressions (clamp, gradients, custom CSS) require real CSS references.
+            $replacement = (string) $reference['cssReference'];
             [$updated, $changed] = $this->replaceReferenceInCssText($updated, $reference, $replacement);
 
             if ($changed) {
@@ -556,7 +716,7 @@ class OxygenTokenBindingService
             return ['images'];
         }
 
-        if (in_array($leaf, ['z_index', 'opacity', 'flex_grow', 'flex_shrink', 'order_custom'], true)) {
+        if (in_array($leaf, ['z_index', 'opacity', 'font_weight', 'flex_grow', 'flex_shrink', 'order_custom'], true)) {
             return ['numbers'];
         }
 
@@ -740,9 +900,33 @@ class OxygenTokenBindingService
             'fonts' => $this->replaceFontReferenceInCssSegment($css, $reference, $replacement),
             'numbers' => $this->replaceNumberReferenceInCssSegment($css, $reference, $replacement),
             'colors' => $this->replaceTokenReferenceInCssSegment($css, $reference, $replacement, '/(?<![A-Za-z0-9_-])%s(?![A-Za-z0-9_-])/i'),
-            'spacing', 'measurements' => $this->replaceTokenReferenceInCssSegment($css, $reference, $replacement, '/(?<![A-Za-z0-9_.-])%s(?![A-Za-z0-9_.%-])/i'),
+            'spacing', 'measurements' => $this->replaceMeasurementReferenceInCssSegment($css, $reference, $replacement),
             default => [$css, false],
         };
+    }
+
+    /** @param array<string, mixed> $reference @return array{0:string,1:bool} */
+    private function replaceMeasurementReferenceInCssSegment(string $css, array $reference, string $replacement): array
+    {
+        $pattern = '/(?<![A-Za-z0-9_.-])%s(?![A-Za-z0-9_.%-])/i';
+        if (!str_contains($css, ':')) {
+            return $this->replaceTokenReferenceInCssSegment($css, $reference, $replacement, $pattern);
+        }
+        $changed = false;
+        $updated = preg_replace_callback(
+            '/((?:^|[;{])\s*([a-z_-][a-z0-9_-]*)\s*:\s*)([^;{}]*)(?=;|}|$)/i',
+            function (array $match) use ($reference, $replacement, $pattern, &$changed): string {
+                $groups = $this->groupsForPath([], strtolower($match[2]));
+                if (!in_array((string) $reference['group'], $groups, true) && !str_starts_with($match[2], '--')) {
+                    return $match[0];
+                }
+                [$value, $replaced] = $this->replaceTokenReferenceInCssSegment($match[3], $reference, $replacement, $pattern);
+                $changed = $changed || $replaced;
+                return $match[1] . $value;
+            },
+            $css
+        );
+        return [is_string($updated) ? $updated : $css, $changed];
     }
 
     /**
@@ -774,7 +958,7 @@ class OxygenTokenBindingService
     {
         $changed = false;
         $next = preg_replace_callback(
-            '/(font-family\s*:\s*)([^;{}]+)(?=;|})/i',
+            '/((?:font-family|--[a-z_][a-z0-9_-]*)\s*:\s*)([^;{}]+)(?=;|})/i',
             function (array $matches) use ($reference, $replacement, &$changed): string {
                 $value = $matches[2];
                 foreach ($this->rawReplacementValues($reference) as $rawValue) {
@@ -827,7 +1011,11 @@ class OxygenTokenBindingService
         $changed = false;
 
         foreach ($this->rawReplacementValues($reference) as $rawValue) {
-            $pattern = str_replace('%s', preg_quote($rawValue, '/'), $patternTemplate);
+            $quotedValue = preg_quote($rawValue, '/');
+            if (($reference['group'] ?? '') === 'colors' && preg_match('/^(?:rgb|hsl)a?\(/i', $rawValue) === 1) {
+                $quotedValue = preg_replace('/\s*,\s*/', '\\s*,\\s*', $quotedValue) ?? $quotedValue;
+            }
+            $pattern = str_replace('%s', $quotedValue, $patternTemplate);
             $next = preg_replace($pattern, $replacement, $updated);
             if (is_string($next) && $next !== $updated) {
                 $updated = $next;
@@ -860,6 +1048,10 @@ class OxygenTokenBindingService
     {
         $value = trim($value);
         $variants = [];
+        $normalizedColor = (new OxygenValueNormalizer())->normalizeColor($value);
+        if ($normalizedColor !== null && $normalizedColor !== $value) {
+            $variants[] = $normalizedColor;
+        }
 
         if (preg_match('/^#([0-9a-f]{6})$/i', $value, $matches) === 1) {
             $hex = strtoupper($matches[1]);
@@ -1010,6 +1202,7 @@ class OxygenTokenBindingService
     {
         $bindings = [];
         $orphans = [];
+        $sourceOnly = [];
         $bound = 0;
         $bindingRequired = 0;
 
@@ -1024,6 +1217,14 @@ class OxygenTokenBindingService
                 $bound++;
                 $bindings = array_merge($bindings, $entry['bindings']);
                 continue;
+            }
+
+            if (empty($reference['bindingRequired'])) {
+                $sourceOnly[] = [
+                    'group' => (string) ($reference['group'] ?? ''),
+                    'value' => (string) ($reference['normalizedValue'] ?? ''),
+                    'reason' => 'No occurrence requiring a variable binding in converted output.',
+                ];
             }
 
             if (!empty($reference['bindingRequired']) && (int) ($reference['uses'] ?? 0) > 0) {
@@ -1042,6 +1243,8 @@ class OxygenTokenBindingService
             'bindingRequired' => $bindingRequired,
             'bound' => $bound,
             'bindingCount' => count($bindings),
+            'sourceOnlyCount' => count($sourceOnly),
+            'sourceOnly' => $sourceOnly,
             'orphanCount' => count($orphans),
             'orphans' => $orphans,
             'bindings' => $bindings,

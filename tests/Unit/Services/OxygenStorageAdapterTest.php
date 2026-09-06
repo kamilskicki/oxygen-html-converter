@@ -10,6 +10,140 @@ use PHPUnit\Framework\TestCase;
 
 class OxygenStorageAdapterTest extends TestCase
 {
+    #[RunInSeparateProcess]
+    public function testRepeatedSelectorWritesRefreshNativeCssDespiteRequestLocalSelectorCache(): void
+    {
+        $GLOBALS['__wp_options'] = [];
+        $GLOBALS['__native_css_files'] = [];
+        eval(<<<'PHP'
+namespace Breakdance\BreakdanceOxygen\Selectors;
+function getOxySelectors() {
+    static $selectors = null;
+    if ($selectors === null) {
+        $selectors = json_decode(get_option('oxygen_oxy_selectors_json_string', '[]'), true);
+    }
+    return $selectors;
+}
+function cssForSelectors($selectors) {
+    return implode('', array_map(static fn($selector) => '.' . $selector['name'] . '{gap:' . $selector['properties']['layout']['gap']['breakpoint_base']['style'] . ';}', $selectors));
+}
+namespace Breakdance\Render;
+function writeCssFile($css, $namespace, $minify = true) {
+    $GLOBALS['__native_css_files'][$namespace] = $css;
+    return $namespace . '.css';
+}
+function appendHashToFilePathAsUrlQueryForCacheBusting($path, $css) { return $path . '?v=' . md5($css); }
+function loadGlobalCssCacheFromWpDb() { return $GLOBALS['__native_global_css_cache'] ?? []; }
+function saveGlobalCssCacheToWpDb($cache) { $GLOBALS['__native_global_css_cache'] = $cache; }
+function generateCacheForGlobalSettings() {
+    $css = \Breakdance\BreakdanceOxygen\Selectors\cssForSelectors(\Breakdance\BreakdanceOxygen\Selectors\getOxySelectors());
+    writeCssFile($css, 'oxy-selectors', false);
+    $cache = ['globalVariablesCssFilePath' => 'variables.css?v=current', 'globalOxySelectorsCssFilePath' => appendHashToFilePathAsUrlQueryForCacheBusting('oxy-selectors.css', $css)];
+    saveGlobalCssCacheToWpDb($cache);
+    return $cache;
+}
+namespace Breakdance\Variables;
+function saveVariables($payload) { \Breakdance\Render\generateCacheForGlobalSettings(); }
+namespace Breakdance\Data;
+function save_global_settings($payload) { \Breakdance\Render\generateCacheForGlobalSettings(); }
+PHP);
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $first = $this->selectorRecord('card');
+        $first['properties'] = ['layout' => ['gap' => ['breakpoint_base' => ['number' => null, 'unit' => 'custom', 'style' => 'clamp(1rem, 3vw, 2rem)']]]];
+        $second = $first;
+        $second['properties']['layout']['gap']['breakpoint_base']['style'] = 'clamp(var(--space-small), 4vw, 3rem)';
+
+        $this->assertTrue($adapter->writeSelectors([$first], ['Imported HTML'])['success']);
+        $firstCss = '.card{gap:clamp(1rem, 3vw, 2rem);}';
+        $this->assertSame($firstCss, $GLOBALS['__native_css_files']['oxy-selectors']);
+        $this->assertTrue($adapter->writeSelectors([$second], ['Imported HTML'])['success']);
+        $secondCss = '.card{gap:clamp(var(--space-small), 4vw, 3rem);}';
+        $this->assertSame($secondCss, $GLOBALS['__native_css_files']['oxy-selectors']);
+        $this->assertSame('oxy-selectors.css?v=' . md5($secondCss), $GLOBALS['__native_global_css_cache']['globalOxySelectorsCssFilePath']);
+        $this->assertSame('variables.css?v=current', $GLOBALS['__native_global_css_cache']['globalVariablesCssFilePath']);
+
+        // Later native writes also regenerate global CSS from the old request-local selector cache.
+        $this->assertTrue($adapter->writeVariables([], [])['success']);
+        $this->assertSame($secondCss, $GLOBALS['__native_css_files']['oxy-selectors']);
+        $this->assertTrue($adapter->writeGlobalSettings($this->fixturePayload('global-settings.json')['oxygen_global_settings_json_string'])['success']);
+        $this->assertSame($secondCss, $GLOBALS['__native_css_files']['oxy-selectors']);
+
+        $this->assertTrue($adapter->writeSelectors([], [])['success']);
+        $this->assertSame('', $GLOBALS['__native_css_files']['oxy-selectors']);
+        $this->assertArrayNotHasKey('globalOxySelectorsCssFilePath', $GLOBALS['__native_global_css_cache']);
+        $this->assertSame('variables.css?v=current', $GLOBALS['__native_global_css_cache']['globalVariablesCssFilePath']);
+    }
+
+    public function testBlockWriteRejectsBuilderIncompatiblePreviewBeforeCreatingPost(): void
+    {
+        $GLOBALS['__wp_posts'] = [];
+        $GLOBALS['__wp_post_meta'] = [];
+        $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();
+        $payload = $this->fixturePayload('block.json');
+        $tree = $this->decodeTree($payload['_oxygen_data']);
+        $write = $adapter->writeBlock($tree, ['preview' => ['acfFlexibleFieldRow' => '']]);
+        $this->assertFalse($write['success']);
+        $this->assertSame(422, $write['status']);
+        $this->assertStringContainsString('acfFlexibleFieldRow', implode(' ', $write['errors']));
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    public function testStable613AndExplicitBetaUsePinnedContract(): void
+    {
+        $factory = new OxygenStorageAdapterFactory(null, $this->fixtureDir(), '6.1.3');
+        $adapter = $factory->create();
+
+        $this->assertTrue($factory->supports('6.1.3'));
+        $this->assertTrue($adapter->supports('6.1.3'));
+        $this->assertSame('6.1.0', $adapter->getContractVersion());
+        $this->assertTrue($factory->supports('6.2.0-beta.8'));
+        $this->assertTrue($adapter->supports('6.2.0-beta.8'));
+        $this->assertFalse($factory->supports('6.2.0-beta.9'));
+    }
+
+    public function testDocumentValidationRejectsDuplicateNodeIdsAndStaleCounter(): void
+    {
+        $adapter = (new OxygenStorageAdapterFactory())->create();
+        $tree = $adapter->buildDocumentTree($this->validTree());
+        $tree['root']['children'][] = $tree['root'];
+        $tree['_nextNodeId'] = $tree['root']['id'];
+
+        $result = $adapter->validateDocumentTree($tree);
+
+        $this->assertFalse($result['valid']);
+        $this->assertStringContainsString('duplicates node ID', implode(' ', $result['errors']));
+        $this->assertStringContainsString('_nextNodeId must be', implode(' ', $result['errors']));
+    }
+
+    #[RunInSeparateProcess]
+    public function testPageWriteReportsFailureWhenNativeSetterDoesNotPersist(): void
+    {
+        $GLOBALS['__wp_post_meta'] = [];
+        eval('namespace Breakdance\\Data; function set_meta($postId, $key, $value) { return false; }');
+        $adapter = (new OxygenStorageAdapterFactory())->create();
+
+        $result = $adapter->writePageDocument(75, $this->validTree());
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(500, $result['status']);
+        $this->assertStringContainsString('does not match', implode(' ', $result['errors']));
+    }
+
+    public function testPageWriteKeepsEscapedRollbackJsonAndAllowsUnchangedWrites(): void
+    {
+        $GLOBALS['__wp_post_meta'] = [];
+        $adapter = (new OxygenStorageAdapterFactory())->create();
+        $previous = '{"tree_json_string":"{\\"text\\":\\"C:\\\\path\\"}"}';
+        $GLOBALS['__wp_post_meta'][75]['_oxygen_data'] = $previous;
+
+        $result = $adapter->writePageDocument(75, $this->validTree());
+
+        $this->assertTrue($result['success']);
+        // The test storage retains slashes; WordPress removes this layer on write.
+        $this->assertSame($previous, stripslashes($GLOBALS['__wp_post_meta'][75]['_oxy_html_converter_previous_oxygen_data']));
+        $this->assertTrue($adapter->writePageDocument(75, $this->validTree())['success']);
+    }
+
     public function testFactorySelectsSupportedOxygenSixAdapterDeterministically(): void
     {
         $adapter = (new OxygenStorageAdapterFactory(null, $this->fixtureDir()))->create();

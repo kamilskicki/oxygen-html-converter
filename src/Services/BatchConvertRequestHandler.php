@@ -43,7 +43,8 @@ class BatchConvertRequestHandler
 
         foreach ($batch as $batchItem) {
             $index = (int) $batchItem['index'];
-            $html = wp_unslash((string) $batchItem['html']);
+            // Ajax already removes WordPress request slashes at the boundary.
+            $html = (string) $batchItem['html'];
             $result = $builder->convert($html);
 
             if (!empty($result['success'])) {

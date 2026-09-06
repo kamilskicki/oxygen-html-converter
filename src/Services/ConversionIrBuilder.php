@@ -60,7 +60,7 @@ final class ConversionIrBuilder
         $tokens = [];
 
         foreach ($document->getElementsByTagName('*') as $element) {
-            if (!$element instanceof DOMElement || !$element->hasAttribute('class')) {
+            if (!$element->hasAttribute('class')) {
                 continue;
             }
 

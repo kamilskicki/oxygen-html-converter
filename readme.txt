@@ -1,9 +1,9 @@
 === Oxygen HTML Converter ===
 Tags: oxygen builder, html import, page builder, conversion, no code
 Requires at least: 6.5
-Tested up to: 6.9
+Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 0.9.0
+Stable tag: 0.9.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -11,13 +11,13 @@ Convert HTML pages into native, editable Oxygen Builder 6 documents with Safe Mo
 
 == Description ==
 
-Oxygen HTML Converter helps Oxygen Builder 6.1.0 users turn pasted HTML into native Oxygen document content that can be edited, saved, and reopened in the builder.
+Oxygen HTML Converter helps Oxygen Builder 6.1.0 and 6.1.3 users turn pasted HTML into native Oxygen document content that can be edited, saved, and reopened in the builder. Oxygen 6.2.0-beta.8 is an explicitly supported experimental runtime; other versions require compatibility validation.
 
 The Core plugin focuses on supported marketing and landing-page HTML: inline styles, IDs, classes, attributes, common utility-first markup, and safe interaction patterns. Its goal is to produce editable Oxygen output without corrupting the Oxygen document tree and to disclose converter runtime dependencies when fallback output requires them.
 
 = Key features =
 
-* Convert full HTML fragments and pages into Oxygen Builder 6.1.0 document data.
+* Convert full HTML fragments and pages into native Oxygen Builder 6 document data.
 * Preserve IDs, classes, data attributes, and supported inline styles.
 * Use Safe Mode by default for supported native/no-code output.
 * Report unsupported or deferred items instead of silently guessing unsafe behavior.
@@ -41,14 +41,14 @@ Core does not promise perfect conversion for every arbitrary frontend stack. Com
 
 1. Upload the plugin ZIP through Plugins > Add New > Upload Plugin in WordPress admin.
 2. Activate Oxygen HTML Converter.
-3. Make sure Oxygen Builder 6.1.0 is installed and active.
+3. Make sure a supported Oxygen Builder version is installed and active (6.1.3 stable recommended).
 4. Open Tools > Oxygen HTML Converter, paste HTML, preview the conversion audit, and convert or import the supported output.
 
 == Frequently Asked Questions ==
 
 = Does this require Oxygen Builder? =
 
-Yes. Oxygen Builder 6.1.0 must be installed and active. The plugin is not a standalone page builder.
+Yes. A supported Oxygen Builder version must be installed and active. Stable runtimes are 6.1.0 and 6.1.3; 6.2.0-beta.8 support is experimental. The plugin is not a standalone page builder.
 
 = Does Core require a Pro add-on? =
 
@@ -88,6 +88,14 @@ The PHP/WordPress runtime user must be able to create and replace files under `w
 
 == Changelog ==
 
+= 0.9.1-beta =
+
+* Added Oxygen 6.1.3 compatibility and experimental 6.2.0-beta.8 support, verified on WordPress 7.1 and PHP 8.4.
+* Fixed CSS parsing, selector matching, compound token expressions, Unicode input and bounded processing of complex selectors/media queries.
+* Fixed component grouping, native preview settings, token bindings, verified persistence and rollback integrity.
+* Hardened executable-content and rejected-URL boundaries while retaining diagnostic source evidence.
+* Fixed cross-frame Builder modal paste handling and duplicate submission, and updated development dependencies and live quality gates.
+
 = 0.9.0-beta =
 
 * Added Core extension hooks for add-ons and Pro integrations.
@@ -126,6 +134,10 @@ The PHP/WordPress runtime user must be able to create and replace files under `w
 * Added the admin converter and Builder paste/import-modal workflows.
 
 == Upgrade Notice ==
+
+= 0.9.1-beta =
+
+Compatibility and import-integrity update. Back up before upgrading. Earlier malformed components are not silently rewritten: use importer rollback and reimport. Oxygen 6.2 support remains experimental; 6.1.3 is the stable staging target.
 
 = 0.9.0-beta =
 

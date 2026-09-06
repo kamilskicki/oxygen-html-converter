@@ -163,7 +163,7 @@ class StyleRoutingService
     }
 
     /**
-     * @param list<array<string, mixed>> $records
+     * @param list<mixed> $records
      * @return list<array<string, mixed>>
      */
     private function normalizeComponentCssRecords(array $records): array
@@ -213,7 +213,7 @@ class StyleRoutingService
         $max = 0;
 
         foreach ($routes as $route) {
-            if (is_array($route) && isset($route['cascadeOrder'])) {
+            if (isset($route['cascadeOrder'])) {
                 $max = max($max, (int) $route['cascadeOrder']);
             }
         }
@@ -302,7 +302,7 @@ class StyleRoutingService
     {
         $bytes = 0;
         foreach ($routes as $route) {
-            if (is_array($route) && ($route['type'] ?? null) === 'tailwind_utility_fallback') {
+            if (($route['type'] ?? null) === 'tailwind_utility_fallback') {
                 $bytes += (int) ($route['bytes'] ?? 0);
             }
         }
@@ -316,7 +316,7 @@ class StyleRoutingService
     private function usesWindPressRuntime(array $routes): bool
     {
         foreach ($routes as $route) {
-            if (is_array($route) && ($route['type'] ?? null) === 'tailwind_utility_fallback') {
+            if (($route['type'] ?? null) === 'tailwind_utility_fallback') {
                 return true;
             }
         }

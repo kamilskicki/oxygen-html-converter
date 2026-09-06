@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pl">
+<head data-fixture="utf8-without-charset">
+  <title>Parser, selector and cascade regression</title>
+  <style>
+    @layer reset, components;
+    :root { --Brand: #b91c1c; --brand: #1d4ed8; }
+    .parent > .card { padding: 24px; }
+    .parent .card { background: #f1f5f9; }
+    .card + .badge { color: #1d4ed8; }
+    #fallback-card { color: #123456; contain: paint !important; }
+    :is(.card, .badge), [data-label="a,b"] { border: 1px solid #334155; }
+    [data-label="/*literal*/{x}"] { color: var(--Brand); }
+    .card { &:hover { color: red; } margin: 12px; }
+    @media (min-width: 600px), (orientation: landscape) {
+      @media (hover: hover), (pointer: fine) { .badge { padding: 8px; } }
+    }
+  </style>
+</head>
+<body>
+  <main class="parent">
+    <div class="card" id="fallback-card">Zażółć gęślą jaźń — 日本語</div>
+    <span class="badge" data-label="a,b">Sibling CSS remains in fallback.</span>
+    <section><div class="card">Grandchild must not receive 24px child padding.</div></section>
+    <p data-label="/*literal*/{x}">Case-sensitive custom property and literal selector.</p>
+  </main>
+</body>
+</html>

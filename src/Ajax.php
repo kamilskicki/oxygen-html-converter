@@ -526,9 +526,6 @@ class Ajax
 
         while ($stack !== []) {
             $current = array_pop($stack);
-            if (!is_array($current)) {
-                continue;
-            }
 
             foreach ($current as $key => $child) {
                 $itemCount++;
@@ -588,9 +585,6 @@ class Ajax
 
         while ($stack !== []) {
             $current = array_pop($stack);
-            if (!is_array($current)) {
-                continue;
-            }
 
             foreach ($current as $child) {
                 $count++;
@@ -615,7 +609,7 @@ class Ajax
         $current = $payload;
 
         foreach ($path as $key) {
-            if (!is_array($current) || !isset($current[$key]) || !is_array($current[$key])) {
+            if (!isset($current[$key]) || !is_array($current[$key])) {
                 return 0;
             }
 
@@ -727,7 +721,7 @@ class Ajax
         // Get HTML input
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw HTML must remain intact for conversion.
         $html = isset($_POST['html']) ? wp_unslash($_POST['html']) : '';
-        if (empty($html)) {
+        if (!is_string($html) || trim($html) === '') {
             wp_send_json_error(['message' => __('No HTML provided', 'oxygen-html-converter')], 400);
             return;
         }
@@ -1089,7 +1083,7 @@ class Ajax
         $current = $payload;
 
         foreach ($path as $key) {
-            if (!is_array($current) || !isset($current[$key]) || !is_array($current[$key])) {
+            if (!isset($current[$key]) || !is_array($current[$key])) {
                 return false;
             }
 
@@ -1227,7 +1221,7 @@ class Ajax
         // Get HTML input
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw HTML must remain intact for conversion.
         $html = isset($_POST['html']) ? wp_unslash($_POST['html']) : '';
-        if (empty($html)) {
+        if (!is_string($html) || trim($html) === '') {
             wp_send_json_error(['message' => __('No HTML provided', 'oxygen-html-converter')], 400);
             return;
         }
@@ -1390,7 +1384,7 @@ class Ajax
             ];
         }
 
-        if ($selectorPayload !== [] && $this->arrayContainsExecutableStyleValue($selectorPayload)) {
+        if ($this->arrayContainsExecutableStyleValue($selectorPayload)) {
             return true;
         }
 
@@ -1531,6 +1525,11 @@ class Ajax
      */
     private function elementNodeContainsExecutableCode(array $node): bool
     {
+        $content = $node['data']['properties']['content'] ?? [];
+        if (is_array($content) && (new Services\ExecutableMarkupGuard())->contentContainsExecutableMarkup($content)) {
+            return true;
+        }
+
         $type = is_string($node['data']['type'] ?? null) ? (string) $node['data']['type'] : '';
         if ($type === 'OxygenElements\\JavaScriptCode' || str_ends_with($type, '\\JavaScriptCode')) {
             return true;
@@ -1635,21 +1634,7 @@ class Ajax
 
     private function htmlCodeContainsExecutableMarkers(string $html): bool
     {
-        $decoded = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $urlDecoded = rawurldecode($decoded);
-        $normalized = preg_replace('/[\x00-\x20\x7F]+/', '', $urlDecoded);
-        if (!is_string($normalized)) {
-            return true;
-        }
-
-        $pattern = '/<\s*(?:script|iframe|object|embed|svg|form|input|textarea|select)\b|\son[a-z0-9_-]+\s*=|(?:javascript|vbscript)\s*:|data:(?:text\/html|image\/svg\+xml)(?:[;,\s]|$)|srcdoc\s*=/i';
-        foreach ([$html, $decoded, $urlDecoded, $normalized] as $candidate) {
-            if (preg_match($pattern, $candidate) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return (new Services\ExecutableMarkupGuard())->containsExecutableMarkup($html);
     }
 
     /**
@@ -1817,6 +1802,10 @@ class Ajax
 
     private function cssCodeContainsExecutableMarkers(string $css): bool
     {
+        if (stripos($css, '</style') !== false) {
+            return true;
+        }
+
         $decoded = html_entity_decode($css, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $urlDecoded = rawurldecode($decoded);
         $cssDecoded = preg_replace_callback(

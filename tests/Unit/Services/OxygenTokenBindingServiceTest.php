@@ -10,6 +10,109 @@ use PHPUnit\Framework\TestCase;
 
 class OxygenTokenBindingServiceTest extends TestCase
 {
+    public function testSelectorExpressionsUseCssVariablesWhileWholeControlsStayNative(): void
+    {
+        $measurement = static fn(string $style): array => ['number' => null, 'unit' => 'custom', 'style' => $style];
+        $result = ['selectorPayload' => ['selectors' => [[
+            'name' => 'fluid-layout',
+            'properties' => [
+                'spacing' => ['spacing' => ['padding' => [
+                    'left' => $measurement('clamp(1rem, 4vw, 3rem)'),
+                    'top' => $measurement('1rem'),
+                ]]],
+                'layout' => ['gap' => ['row' => $measurement('calc(1rem + 4vw)')]],
+                'background' => ['backgrounds' => [['gradient' => ['value' => 'linear-gradient(#123456, #fff)']]]],
+            ],
+            'children' => [['name' => 'hover', 'properties' => [
+                'layout' => ['gap' => ['column' => $measurement('max(1rem, 4vw)')]],
+            ]]],
+        ]]]];
+        $payload = ['designDocument' => ['tokens' => [
+            'spacing' => [
+                ['value' => '1rem', 'uses' => 1, 'suggestedName' => 'space'],
+                ['value' => '4vw', 'uses' => 1, 'suggestedName' => 'fluid'],
+            ],
+            'colors' => [['value' => '#123456', 'uses' => 1, 'suggestedName' => 'tint']],
+        ]]];
+        $binder = new OxygenTokenBindingService();
+        $result = $binder->applyToConversionResult($result, $payload);
+        $selector = $result['selectorPayload']['selectors'][0];
+        $properties = $selector['properties'];
+
+        $this->assertSame('clamp(var(--ohc-space), var(--ohc-fluid), 3rem)', $properties['spacing']['spacing']['padding']['left']['style']);
+        $space = array_values(array_filter($binder->buildReferences($payload), static fn(array $reference): bool => $reference['cssVariableName'] === 'ohc-space'))[0];
+        $this->assertSame($space['selectorReference'], $properties['spacing']['spacing']['padding']['top']['style']);
+        $this->assertSame('calc(var(--ohc-space) + var(--ohc-fluid))', $properties['layout']['gap']['row']['style']);
+        $this->assertSame('linear-gradient(var(--ohc-tint), #fff)', $properties['background']['backgrounds'][0]['gradient']['value']);
+        $this->assertSame('max(var(--ohc-space), var(--ohc-fluid))', $selector['children'][0]['properties']['layout']['gap']['column']['style']);
+        $this->assertSame(0, $result['tokenUsage']['orphanCount']);
+    }
+
+    public function testBindsNativeNumbersGradientsAndCompoundMeasurements(): void
+    {
+        $result = (new TreeBuilder())->convert('<div>Tokens</div>');
+        $result['element']['data']['properties']['design'] = [
+            'effects' => ['opacity' => 40],
+            'typography' => ['font_weight' => 600, 'font_size' => ['number' => null, 'unit' => 'custom', 'style' => 'clamp(1rem, 2vw, 3rem)']],
+            'background' => ['backgrounds' => [['gradient' => ['value' => 'linear-gradient(rgba(1, 2, 3, 0.4), #fff)']]]],
+        ];
+        $result = (new OxygenTokenBindingService())->applyToConversionResult($result, ['designDocument' => ['tokens' => [
+            'numbers' => [['value' => '0.4', 'uses' => 1, 'suggestedName' => 'opacity'], ['value' => '600', 'uses' => 1, 'suggestedName' => 'weight']],
+            'measurements' => [['value' => '2vw', 'uses' => 1, 'suggestedName' => 'fluid']],
+            'colors' => [['value' => 'rgba(1,2,3,0.4)', 'uses' => 1, 'suggestedName' => 'tint']],
+        ]]]);
+        $design = $result['element']['data']['properties']['design'];
+        $this->assertSame('var(--ohc-opacity)', $design['effects']['opacity']);
+        $this->assertSame('var(--ohc-weight)', $design['typography']['font_weight']);
+        $this->assertSame('clamp(1rem, var(--ohc-fluid), 3rem)', $design['typography']['font_size']['style']);
+        $this->assertSame('linear-gradient(var(--ohc-tint), #fff)', $design['background']['backgrounds'][0]['gradient']['value']);
+        $this->assertSame(0, $result['tokenUsage']['orphanCount']);
+    }
+
+    public function testSourceOnlyTokensAreReportedButPresentUnboundControlsStillBlock(): void
+    {
+        $result = (new TreeBuilder())->convert('<div>Visible</div>');
+        $result['element']['data']['properties']['design']['unknown_supported_control'] = '#123456';
+        $result = (new OxygenTokenBindingService())->applyToConversionResult($result, ['designDocument' => ['tokens' => [
+            'colors' => [['value' => '#abcdef', 'uses' => 1, 'suggestedName' => 'overridden'], ['value' => '#123456', 'uses' => 1, 'suggestedName' => 'missing-binding']],
+        ]]]);
+        $this->assertSame(1, $result['tokenUsage']['sourceOnlyCount']);
+        $this->assertSame(1, $result['tokenUsage']['orphanCount']);
+        $plan = (new ImportPlanBuilder())->build($result, [], []);
+        $this->assertSame('blocked', $plan['status']);
+    }
+
+    public function testCssBindingKeepsSpacingAndMeasurementTokensInTheirOwnProperties(): void
+    {
+        $result = (new TreeBuilder())->convert('<div>Tokens</div>');
+        $result['extractedCss'] = '.card { padding: 1rem; width: 1rem; }';
+        $result = (new OxygenTokenBindingService())->applyToConversionResult($result, ['designDocument' => ['tokens' => [
+            'spacing' => [['value' => '1rem', 'uses' => 1, 'suggestedName' => 'space']],
+            'measurements' => [['value' => '1rem', 'uses' => 1, 'suggestedName' => 'size']],
+        ]]]);
+        $this->assertStringContainsString('padding: var(--ohc-space)', $result['extractedCss']);
+        $this->assertStringContainsString('width: var(--ohc-size)', $result['extractedCss']);
+        $this->assertSame(0, $result['tokenUsage']['orphanCount']);
+    }
+
+    public function testRichTextInlineStylesAndFontCustomPropertiesAreBound(): void
+    {
+        $result = (new TreeBuilder())->convert('<div>Tokens</div>');
+        $result['element']['data']['properties']['content']['content']['text'] = '<span style="font-weight:400;color:#123456">ZaĹĽĂłĹ‚Ä‡ #123456</span>';
+        $result['extractedCss'] = ':root { --font-body: "Inter", sans-serif; }';
+        $result = (new OxygenTokenBindingService())->applyToConversionResult($result, ['designDocument' => ['tokens' => [
+            'colors' => [['value' => '#123456', 'uses' => 1, 'suggestedName' => 'brand']],
+            'numbers' => [['value' => '400', 'uses' => 1, 'suggestedName' => 'weight']],
+            'fonts' => [['value' => 'Inter', 'uses' => 1, 'suggestedName' => 'body']],
+        ]]]);
+        $html = $result['element']['data']['properties']['content']['content']['text'];
+        $this->assertStringContainsString('font-weight:var(--ohc-weight)', $html);
+        $this->assertStringContainsString('color:var(--ohc-brand)', $html);
+        $this->assertStringContainsString('ZaĹĽĂłĹ‚Ä‡ #123456', $html);
+        $this->assertStringContainsString('--font-body: var(--ohc-body), sans-serif', $result['extractedCss']);
+        $this->assertSame(0, $result['tokenUsage']['orphanCount']);
+    }
+
     public function testImageElementTokensDoNotBecomeRequiredOrphans(): void
     {
         $html = '<img src="https://example.test/assets/photo.jpg" alt="Photo">';

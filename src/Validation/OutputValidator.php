@@ -61,7 +61,7 @@ class OutputValidator
         $this->validateElement($result['element'], 'root');
 
         // Validate CSS element if present
-        if (isset($result['cssElement']) && $result['cssElement'] !== null) {
+        if (isset($result['cssElement'])) {
             $this->validateElement($result['cssElement'], 'cssElement');
         }
 

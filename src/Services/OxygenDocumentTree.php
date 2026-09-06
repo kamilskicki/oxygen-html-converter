@@ -18,8 +18,9 @@ class OxygenDocumentTree
             $documentTree['root'] = $this->normalizeNode($documentTree['root']);
         }
 
-        if (!isset($documentTree['_nextNodeId']) || !is_int($documentTree['_nextNodeId']) || $documentTree['_nextNodeId'] < 1) {
-            $documentTree['_nextNodeId'] = $this->calculateNextNodeId($documentTree['root'] ?? []);
+        $minimumNextNodeId = $this->calculateNextNodeId($documentTree['root'] ?? []);
+        if (!isset($documentTree['_nextNodeId']) || !is_int($documentTree['_nextNodeId']) || $documentTree['_nextNodeId'] < $minimumNextNodeId) {
+            $documentTree['_nextNodeId'] = $minimumNextNodeId;
         }
 
         if (!array_key_exists('exportedLookupTable', $documentTree)) {
@@ -31,6 +32,24 @@ class OxygenDocumentTree
         }
 
         return $documentTree;
+    }
+
+    /**
+     * Compare complete element shapes without IDs or editable values. A shallow
+     * div[div] signature cannot distinguish different descendants/property paths.
+     *
+     * @param array<string, mixed> $node
+     */
+    public function structureFingerprint(array $node): string
+    {
+        $tag = $node['data']['properties']['settings']['advanced']['tag']
+            ?? $node['data']['properties']['design']['tag']
+            ?? '';
+        $children = [];
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            $children[] = is_array($child) ? $this->structureFingerprint($child) : 'invalid';
+        }
+        return hash('sha256', (string) ($node['data']['type'] ?? '') . ':' . strtolower((string) $tag) . '[' . implode(',', $children) . ']');
     }
 
     /**

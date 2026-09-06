@@ -162,7 +162,9 @@ class InstalledBuilderContractsTest extends TestCase
 
         $pluginSource = file_get_contents($oxygenPlugin);
         $this->assertIsString($pluginSource);
-        $this->assertStringContainsString('Version: ' . self::OXYGEN_CONTRACT_VERSION, $pluginSource);
+        // Fixture provenance stays pinned; source checks may target a newer runtime.
+        $this->assertSame(1, preg_match('/^\s*\* Version:\s*(\S+)/m', $pluginSource, $version));
+        $this->assertContains($version[1], [self::OXYGEN_CONTRACT_VERSION, '6.1.3', '6.2.0-beta.8']);
 
         foreach (['block.json', 'component-instance.json'] as $fileName) {
             $fixture = $this->loadContractFixture($fileName);
@@ -209,6 +211,28 @@ class InstalledBuilderContractsTest extends TestCase
 
         $svgIcon = $this->sourceFileContents('oxygen/subplugins/oxygen-elements/elements/SVG_Icon/html.twig');
         $this->assertStringContainsString('content.content.icon.svgCode', $svgIcon);
+    }
+
+    public function testBlockPreviewRowMatchesInstalledBuilderRuntimeDecoder(): void
+    {
+        $builderDirectory = $this->resolveWorkspaceSourceFile('oxygen/builder/dist/js');
+        $files = glob($builderDirectory . DIRECTORY_SEPARATOR . 'store-*.js');
+        if (!is_array($files) || $files === []) {
+            $this->markTestSkipped('Oxygen Builder JavaScript source not found.');
+        }
+
+        $matches = [];
+        foreach ($files as $file) {
+            $source = file_get_contents($file);
+            $this->assertIsString($source);
+            // The ACF row shares the width/height numeric codec and background's nullable codec.
+            if (preg_match('/width:(\w+),height:\1,backgroundColor:(\w+)\(\[(\w+),(\w+)\]\),isCentered:\w+,acfFlexibleField:\3,acfFlexibleFieldRow:\2\(\[\1,\4\]\)/', $source, $matches) === 1) {
+                break;
+            }
+        }
+        $this->assertNotEmpty($matches, 'Builder block preview runtime codec drifted; inspect its numeric/null row contract.');
+        $settings = $this->loadContractFixture('block.json')['payload']['_breakdance_block_settings'];
+        $this->assertNull($settings['preview']['acfFlexibleFieldRow']);
     }
 
     public function testOxygenSixTreeFixturesDecodeWithoutWordPress(): void

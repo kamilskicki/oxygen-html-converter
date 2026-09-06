@@ -24,21 +24,12 @@ class SelectorMatcher
     ): bool
     {
         $selector = trim($selector);
-        $selector = (string) preg_replace('/::?[a-z-]+(\([^)]*\))?/i', '', $selector);
-        $selector = trim($selector);
-
-        if ($selector === '') {
+        if ($selector === '' || $this->containsPseudo($selector)) {
             return false;
         }
 
-        if (strpos($selector, '.') === 0 &&
-            strpos($selector, ' ') === false &&
-            strpos($selector, '>') === false &&
-            strpos($selector, '+') === false &&
-            strpos($selector, '~') === false &&
-            strpos($selector, '[') === false &&
-            strpos($selector, '#') === false) {
-            preg_match_all('/\.([a-zA-Z0-9_\-\\\\:]+)/', $selector, $matches);
+        if (preg_match('/^(?:\.[a-zA-Z0-9_-]+)+$/D', $selector) === 1) {
+            preg_match_all('/\.([a-zA-Z0-9_-]+)/', $selector, $matches);
             $selectorClasses = $matches[1];
 
             if ($selectorClasses === []) {
@@ -69,119 +60,215 @@ class SelectorMatcher
 
     public function containsPseudo(string $selector): bool
     {
-        $withoutAttributes = preg_replace('/\[[^\]]*\]/', '', $selector);
+        return $this->containsSelectorToken($selector, ':');
+    }
 
-        return (bool) preg_match('/::?[a-z-]+(\([^)]*\))?/i', (string) $withoutAttributes);
+    public function requiresCssFallback(string $selector): bool
+    {
+        // Sibling relationships depend on source order; arbitrary Tailwind utilities
+        // retain their generated !important declarations in the CSS owner.
+        return $this->containsSelectorToken($selector, ':+~') || str_contains($selector, '\\[');
+    }
+
+    private function containsSelectorToken(string $selector, string $tokens): bool
+    {
+        if (strpbrk($selector, $tokens) === false) {
+            return false;
+        }
+
+        $quote = '';
+        $bracketDepth = 0;
+        $length = strlen($selector);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $selector[$i];
+            if ($char === '\\') {
+                $i++;
+                continue;
+            }
+            if ($quote !== '') {
+                if ($char === $quote) {
+                    $quote = '';
+                }
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+            } elseif ($char === '[') {
+                $bracketDepth++;
+            } elseif ($char === ']') {
+                $bracketDepth = max(0, $bracketDepth - 1);
+            } elseif (str_contains($tokens, $char) && $bracketDepth === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function matchesDomPath(string $selector, DOMElement $node): bool
     {
-        $selector = (string) preg_replace('/\s*[>+~]\s*/', ' ', $selector);
-        $parts = preg_split('/\s+/', trim($selector));
+        $parts = [];
+        $combinators = [];
+        $current = '';
+        $pendingCombinator = null;
+        $quote = '';
+        $bracketDepth = 0;
+        $length = strlen($selector);
 
-        if (empty($parts)) {
-            return false;
-        }
-
-        $current = $node;
-        $lastIndex = count($parts) - 1;
-
-        for ($i = $lastIndex; $i >= 0; $i--) {
-            $part = trim((string) $parts[$i]);
-            if ($part === '') {
+        for ($i = 0; $i < $length; $i++) {
+            $char = $selector[$i];
+            if ($char === '\\') {
+                $current .= $char . ($selector[++$i] ?? '');
                 continue;
             }
-
-            if (!($current instanceof DOMElement)) {
-                return false;
+            if ($quote !== '') {
+                $current .= $char;
+                if ($char === $quote) {
+                    $quote = '';
+                }
+                continue;
             }
-
-            if ($i === $lastIndex) {
-                if (!$this->simpleSelectorMatchesNode($part, $current)) {
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+            } elseif ($char === '[') {
+                $bracketDepth++;
+            } elseif ($char === ']') {
+                $bracketDepth--;
+                if ($bracketDepth < 0) {
                     return false;
                 }
-                $current = ($current->parentNode instanceof DOMElement) ? $current->parentNode : null;
+            }
+
+            if ($bracketDepth === 0 && (ctype_space($char) || str_contains('>+~', $char))) {
+                if ($current !== '') {
+                    if ($parts !== []) {
+                        $combinators[] = $pendingCombinator ?? ' ';
+                    }
+                    $parts[] = $current;
+                    $current = '';
+                    $pendingCombinator = null;
+                }
+                if (!ctype_space($char)) {
+                    if ($parts === [] || $pendingCombinator !== null) {
+                        return false;
+                    }
+                    $pendingCombinator = $char;
+                }
                 continue;
             }
-
-            $matched = false;
-            while ($current instanceof DOMElement) {
-                if ($this->simpleSelectorMatchesNode($part, $current)) {
-                    $matched = true;
-                    $current = ($current->parentNode instanceof DOMElement) ? $current->parentNode : null;
-                    break;
-                }
-                $current = ($current->parentNode instanceof DOMElement) ? $current->parentNode : null;
-            }
-
-            if (!$matched) {
-                return false;
-            }
+            $current .= $char;
         }
 
-        return true;
+        if ($current === '' || $quote !== '' || $bracketDepth !== 0) {
+            return false;
+        }
+        if ($parts !== []) {
+            $combinators[] = $pendingCombinator ?? ' ';
+        }
+        $parts[] = $current;
+
+        /** @var \SplObjectStorage<DOMElement, array<int, bool>> $memo */
+        $memo = new \SplObjectStorage();
+
+        return $this->matchesSelectorPath($parts, $combinators, count($parts) - 1, $node, $memo);
+    }
+
+    /**
+     * @param list<string> $parts
+     * @param list<string> $combinators
+     * @param \SplObjectStorage<DOMElement, array<int, bool>> $memo
+     */
+    private function matchesSelectorPath(array $parts, array $combinators, int $index, DOMElement $node, \SplObjectStorage $memo): bool
+    {
+        $cached = $memo->contains($node) ? $memo[$node] : [];
+        if (array_key_exists($index, $cached)) {
+            return $cached[$index];
+        }
+
+        $matched = $this->matchesSelectorPathUncached($parts, $combinators, $index, $node, $memo);
+        $cached[$index] = $matched;
+        $memo[$node] = $cached;
+
+        return $matched;
+    }
+
+    /**
+     * @param list<string> $parts
+     * @param list<string> $combinators
+     * @param \SplObjectStorage<DOMElement, array<int, bool>> $memo
+     */
+    private function matchesSelectorPathUncached(array $parts, array $combinators, int $index, DOMElement $node, \SplObjectStorage $memo): bool
+    {
+        if (!$this->simpleSelectorMatchesNode($parts[$index], $node)) {
+            return false;
+        }
+        if ($index === 0) {
+            return true;
+        }
+
+        $combinator = $combinators[$index - 1];
+        $sibling = $combinator === '+' || $combinator === '~';
+        $candidate = $sibling ? $node->previousSibling : $node->parentNode;
+        while ($candidate !== null) {
+            if ($candidate instanceof DOMElement) {
+                if ($this->matchesSelectorPath($parts, $combinators, $index - 1, $candidate, $memo)) {
+                    return true;
+                }
+                if ($combinator === '>' || $combinator === '+') {
+                    return false;
+                }
+            }
+            $candidate = $sibling ? $candidate->previousSibling : $candidate->parentNode;
+        }
+
+        return false;
     }
 
     private function simpleSelectorMatchesNode(string $selectorPart, DOMElement $node): bool
     {
-        $selectorPart = trim($selectorPart);
-        if ($selectorPart === '' || $selectorPart === '*') {
-            return true;
-        }
-
-        $attributes = [];
-        if (preg_match_all('/\[\s*([a-zA-Z0-9_\-:]+)(?:\s*=\s*[\'"]?([^\'"\]]+)[\'"]?)?\s*\]/', $selectorPart, $attrMatches, PREG_SET_ORDER)) {
-            foreach ($attrMatches as $match) {
-                $attributes[] = [
-                    'name' => $match[1],
-                    'value' => $match[2] ?? null,
-                ];
+        // Only materialize selectors we can evaluate completely. Unsupported syntax
+        // stays in fallback CSS rather than accidentally matching every element.
+        $remaining = $selectorPart;
+        if (preg_match('/^(?:[a-zA-Z][a-zA-Z0-9-]*|\*)/', $remaining, $tagMatch) === 1) {
+            if ($tagMatch[0] !== '*' && strtolower($tagMatch[0]) !== strtolower($node->tagName)) {
+                return false;
             }
-            $selectorPart = (string) preg_replace('/\[[^\]]+\]/', '', $selectorPart);
+            $remaining = substr($remaining, strlen($tagMatch[0]));
         }
 
-        $tag = null;
-        if (preg_match('/^[a-zA-Z][a-zA-Z0-9\-]*/', $selectorPart, $tagMatch)) {
-            $tag = strtolower($tagMatch[0]);
-        }
+        while ($remaining !== '') {
+            if (preg_match('/^([.#])((?:[a-zA-Z0-9_-]|\\\\[^0-9a-fA-F\r\n])+)/', $remaining, $match) === 1) {
+                $identifier = (string) preg_replace('/\\\\(.)/s', '$1', $match[2]);
+                if ($match[1] === '#') {
+                    if ($node->getAttribute('id') !== $identifier) {
+                        return false;
+                    }
+                } else {
+                    $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
+                    if (!in_array($identifier, $classes, true)) {
+                        return false;
+                    }
+                }
+                $remaining = substr($remaining, strlen($match[0]));
+                continue;
+            }
 
-        $id = null;
-        if (preg_match('/#([a-zA-Z0-9_\-:\\\\]+)/', $selectorPart, $idMatch)) {
-            $id = str_replace('\\', '', $idMatch[1]);
-        }
-
-        preg_match_all('/\.([a-zA-Z0-9_\-:\\\\]+)/', $selectorPart, $classMatches);
-        $classes = $classMatches[1];
-
-        if ($tag !== null && strtolower($node->tagName) !== $tag) {
-            return false;
-        }
-
-        if ($id !== null && $node->getAttribute('id') !== $id) {
-            return false;
-        }
-
-        if ($classes !== []) {
-            $nodeClasses = array_filter(array_map('trim', explode(' ', $node->getAttribute('class'))));
-            foreach ($classes as $class) {
-                $class = str_replace('\\', '', $class);
-                if (!in_array($class, $nodeClasses, true)) {
+            if (preg_match('/^\[\s*([a-zA-Z0-9_:-]+)(?:\s*=\s*(?:"([^"\\\\]*)"|\'([^\'\\\\]*)\'|([^\s\]"\'\\\\]+)))?\s*\]/', $remaining, $match, PREG_UNMATCHED_AS_NULL) === 1) {
+                if (!$node->hasAttribute($match[1])) {
                     return false;
                 }
+                $value = $match[2] ?? $match[3] ?? $match[4] ?? null;
+                if ($value !== null && $node->getAttribute($match[1]) !== $value) {
+                    return false;
+                }
+                $remaining = substr($remaining, strlen($match[0]));
+                continue;
             }
+
+            return false;
         }
 
-        foreach ($attributes as $attribute) {
-            $attrName = $attribute['name'];
-            if (!$node->hasAttribute($attrName)) {
-                return false;
-            }
-            if ($attribute['value'] !== null && $node->getAttribute($attrName) !== $attribute['value']) {
-                return false;
-            }
-        }
-
-        return true;
+        return $selectorPart !== '';
     }
 
     /**

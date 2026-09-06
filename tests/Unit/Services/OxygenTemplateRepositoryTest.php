@@ -37,6 +37,33 @@ class OxygenTemplateRepositoryTest extends TestCase
         ], $repository->requiredMetaKeys());
     }
 
+    public function testPublishedManifestTemplatesPreserveNativeDisabledIsolation(): void
+    {
+        $repository = new OxygenTemplateRepository();
+        $adapter = (new \OxyHtmlConverter\Services\OxygenStorageAdapterFactory())->create();
+        foreach (['templates', 'headers', 'footers'] as $section) {
+            $record = [
+                'title' => 'Disabled QA ' . $section,
+                'postStatus' => 'publish',
+                'documentTree' => $this->minimalTree('main'),
+                'templateSettings' => [
+                    'type' => 'all-singles',
+                    'ruleGroups' => [],
+                    'triggers' => [],
+                    'priority' => 10,
+                    'fallback' => false,
+                    'disabled' => true,
+                ],
+            ];
+            $result = $repository->createOrUpdateTemplate($repository->manifestRecordToTemplateSpec($record, $section, 0));
+            $this->assertTrue($result['success'], implode(' ', $result['errors'] ?? []));
+            $this->assertSame('publish', $GLOBALS['__wp_posts'][$result['postId']]->post_status);
+            $readback = $adapter->readTemplateSettings($result['postId']);
+            $this->assertTrue($readback['success']);
+            $this->assertTrue($readback['settings']['disabled']);
+        }
+    }
+
     public function testValidateTemplateSpecAcceptsEveryTemplatePostType(): void
     {
         $repository = new OxygenTemplateRepository();

@@ -38,7 +38,7 @@ class ClassStrategyService
      * Process classes for an element based on the current mode
      *
      * @param array $classes Original class names
-     * @param array &$element Reference to the Oxygen element structure
+     * @param array<string, mixed> &$element Reference to the Oxygen element structure
      */
     public function processClasses(array $classes, array &$element): void
     {
@@ -205,6 +205,8 @@ class ClassStrategyService
 
     /**
      * WindPress Mode: Store all classes as-is
+     *
+     * @param array<string, mixed> $element
      */
     private function processWindPressMode(array $classes, array &$element): void
     {
@@ -221,6 +223,8 @@ class ClassStrategyService
 
     /**
      * Oxygen Native Mode: Separate Tailwind and custom classes
+     *
+     * @param array<string, mixed> $element
      */
     private function processOxygenNativeMode(array $classes, array &$element): void
     {
@@ -344,7 +348,7 @@ class ClassStrategyService
         $normalized = [];
 
         foreach ($declarations as $property => $value) {
-            if (!is_scalar($property) || !is_scalar($value)) {
+            if (!is_scalar($value)) {
                 continue;
             }
 
@@ -369,24 +373,10 @@ class ClassStrategyService
     private static function expandProfileDeclaration(string $property, string $value): array
     {
         if ($property === 'padding' || $property === 'margin') {
-            $parts = preg_split('/\s+/', $value) ?: [];
-            $parts = array_values(array_filter($parts, static fn (string $part): bool => $part !== ''));
-
-            if ($parts === []) {
+            if (trim($value) === '') {
                 return [];
             }
-
-            $sides = match (count($parts)) {
-                1 => ['top' => $parts[0], 'right' => $parts[0], 'bottom' => $parts[0], 'left' => $parts[0]],
-                2 => ['top' => $parts[0], 'right' => $parts[1], 'bottom' => $parts[0], 'left' => $parts[1]],
-                3 => ['top' => $parts[0], 'right' => $parts[1], 'bottom' => $parts[2], 'left' => $parts[1]],
-                default => [
-                    'top' => $parts[0],
-                    'right' => $parts[1],
-                    'bottom' => $parts[2],
-                    'left' => $parts[3],
-                ],
-            };
+            $sides = \OxyHtmlConverter\StyleExtractor::expandBoxValue($value);
 
             $expanded = [];
             foreach ($sides as $side => $sideValue) {
@@ -493,6 +483,8 @@ class ClassStrategyService
 
     /**
      * Set classes in the Oxygen element structure
+     *
+     * @param array<string, mixed> $element
      */
     private function setElementClasses(array &$element, array $classes): void
     {

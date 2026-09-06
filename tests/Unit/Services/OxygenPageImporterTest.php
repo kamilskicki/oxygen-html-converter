@@ -41,6 +41,65 @@ class OxygenPageImporterTest extends TestCase
         );
     }
 
+    public function testComponentReplacementRejectsDescendantDriftEvenWhenShallowSignatureMatches(): void
+    {
+        $candidate = $this->featureCardNode(1, 'Original');
+        $plan = [
+            'signature' => 'div[h3,p,a]',
+            'classes' => ['feature-card'],
+            'shapeHash' => (new \OxyHtmlConverter\Services\OxygenDocumentTree())->structureFingerprint($candidate),
+        ];
+        $source = $candidate;
+        $source['children'][2]['children'][] = [
+            'id' => 99,
+            'data' => ['type' => ElementTypes::TEXT, 'properties' => []],
+            'children' => [],
+        ];
+        $method = new \ReflectionMethod(OxygenPageImporter::class, 'matchingComponentReplacementPlan');
+
+        $this->assertSame($plan, $method->invoke(new OxygenPageImporter(), $candidate, [$plan]));
+        $this->assertNull($method->invoke(new OxygenPageImporter(), $source, [$plan]));
+    }
+
+    public function testImportKeepsDistinctDeepComponentShapesAndRollsBackThemTogether(): void
+    {
+        $html = (string) file_get_contents(dirname(__DIR__, 3) . '/fixtures/html/regressions/component-deep-shape-collision.html');
+        $options = (new \OxyHtmlConverter\Services\RequestOptions())->normalizeConvert([]);
+        $conversion = (new \OxyHtmlConverter\Services\TreeBuilderFactory())->createForConvert($options, $html)->convert($html);
+        $payloadBuilder = new \OxyHtmlConverter\Services\ConvertPayloadBuilder(
+            new \OxyHtmlConverter\Services\OxygenDocumentTree(),
+            new \OxyHtmlConverter\Services\ConversionAuditBuilder(),
+            new \OxyHtmlConverter\Validation\OutputValidator()
+        );
+        $payload = $payloadBuilder->build($conversion, $options, $html);
+        $this->assertTrue($payload['success']);
+        $importer = new OxygenPageImporter();
+        $import = $importer->import(array_merge($payload['data'], ['title' => 'Deep component shape regression']));
+
+        $this->assertTrue($import['success'], implode(' ', $import['errors'] ?? []));
+        $this->assertSame(6, $import['componentInstances']['replaced']);
+        $this->assertCount(2, array_unique(array_column($import['componentInstances']['replacements'], 'componentId')));
+        $this->assertTrue($importer->rollback($import['postId'])['success']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+    }
+
+    #[RunInSeparateProcess]
+    public function testImportRollsBackWhenRollbackManifestCannotBeStored(): void
+    {
+        eval('namespace OxyHtmlConverter\\Services; function update_post_meta($postId, $key, $value) { if ($key === "_oxy_html_converter_import_manifest") { return false; } return \\update_post_meta($postId, $key, $value); }');
+
+        $result = (new OxygenPageImporter())->import([
+            'title' => 'Rejected manifest',
+            'documentTree' => $this->minimalTreeWithSemanticTag('section'),
+        ]);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(500, $result['status']);
+        $this->assertTrue($result['restore']['success']);
+        $this->assertSame([], $GLOBALS['__wp_posts']);
+        $this->assertStringContainsString('rollback manifest', implode(' ', $result['errors']));
+    }
+
     public function testImportCreatesDraftPageAndPersistsTreeSelectorsAndManifest(): void
     {
         $result = (new OxygenPageImporter())->import([
@@ -1802,7 +1861,7 @@ class OxygenPageImporterTest extends TestCase
         $this->assertIsInt($postId);
         update_post_meta($postId, '_oxygen_data', 'previous-oxygen-payload');
 
-        $escapedPayload = "Quote: \"yes\"; path: C:\\imports\\site; unicode: Zażółć 🚀";
+        $escapedPayload = "Quote: \"yes\"; path: C:\\imports\\site; unicode: ZaÄąÄ˝Ä‚Ĺ‚Äąâ€šĂ„â€ˇ Ä‘ĹşĹˇâ‚¬";
         $GLOBALS['__wp_get_post_meta_returns_unslashed'] = true;
 
         $importer = new OxygenPageImporter();

@@ -211,9 +211,6 @@ class ComponentDetector
         $elements = [$element];
 
         foreach ($element->getElementsByTagName('*') as $child) {
-            if (!$child instanceof DOMElement) {
-                continue;
-            }
 
             $elements[] = $child;
         }
@@ -261,9 +258,7 @@ class ComponentDetector
         $elements = [$element];
 
         foreach ($element->getElementsByTagName('*') as $child) {
-            if ($child instanceof DOMElement) {
-                $elements[] = $child;
-            }
+            $elements[] = $child;
         }
 
         foreach ($elements as $child) {

@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1-beta] — 2026-09-06
+
+### Changed
+- Add explicit Oxygen 6.1.3 runtime support and experimental 6.2.0-beta.8 support while retaining the 6.1.0 schema fixture provenance and rejecting unvalidated versions.
+- Refresh development dependencies, including PHPStan 2, Playwright and patched PHP coding standards tools; retain runtime input validation and the existing static-analysis level.
+- Use `oxyconvo.lab` as the canonical staging host and add a live gate exercising production conversion, import, readback, rendering and rollback.
+
+### Fixed
+- Preserve UTF-8 documents without charset metadata, CSS custom-property case, quoted delimiters, nested media semantics and `!important` fallback declarations.
+- Match CSS combinators correctly and bound adversarial selector/media processing without discarding the original fallback CSS.
+- Bind applicable design tokens to native Oxygen properties without treating diagnostic or unused source values as missing runtime bindings.
+- Distinguish repeated components by complete descendant structure and class/role identity, preventing invalid property targets and cross-component name collisions.
+- Match component preview settings to the shipped Builder decoder (`acfFlexibleFieldRow` is numeric or null) and validate before persistence. Previously imported components with an invalid string row require rollback and reimport; the importer does not silently rewrite existing global components.
+- Verify persisted Oxygen documents and import manifests, preserve escaped rollback data, and reject duplicate node IDs or colliding next-node IDs.
+- Reject executable markup and dangerous rendered URLs at import boundaries, and prevent mixed-case closing style tags from escaping generated CSS containers.
+- Return a client error for malformed HTML request types, preserve batch input escaping, and show consistent conversion element counts in the admin audit.
+- Remove rejected CSS image URLs from native properties and selectors while retaining their source strings in diagnostic reports.
+- Preserve valid CSS variable syntax inside compound selector expressions such as `clamp()`, `calc()` and gradients.
+- Split margin/padding shorthand only at top-level whitespace, preserving complete function arguments and preventing invalid generated declarations.
+- Keep pastes into the parent Builder modal inside its textarea and ignore duplicate submissions during an import.
+- Regenerate selector CSS from freshly persisted data when native Oxygen cache generation retains an earlier selector snapshot in the same request.
+
 ## [0.9.0-beta] — 2026-07-23
 
 ### Added

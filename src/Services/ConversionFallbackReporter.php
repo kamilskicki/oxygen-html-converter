@@ -117,7 +117,7 @@ final class ConversionFallbackReporter
     }
 
     /**
-     * @param array<string, array<string, mixed>> $libraries
+     * @param array<string, mixed> $libraries
      */
     public function reportDetectedIconLibraries(array $libraries, bool $safeModeRemoved): void
     {
@@ -332,7 +332,7 @@ final class ConversionFallbackReporter
         $parts = [];
         $current = $node;
 
-        while ($current instanceof DOMElement) {
+        while (true) {
             $label = strtolower($current->tagName);
             if ($current->hasAttribute('id') && trim($current->getAttribute('id')) !== '') {
                 $label .= '#' . trim($current->getAttribute('id'));

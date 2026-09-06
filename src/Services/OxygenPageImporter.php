@@ -841,6 +841,20 @@ class OxygenPageImporter
      */
     private function unsafePersistenceErrors(array $manifest): array
     {
+        // Reports retain rejected source strings as evidence. They are not consumed
+        // by the document, selector, CSS, or global-resource persistence paths.
+        // Restrict this exemption to known top-level reports, never arbitrary keys
+        // inside renderable node properties.
+        unset($manifest['audit'], $manifest['stats'], $manifest['assetNormalization']);
+        if (is_array($manifest['importPlan']['fallbacks'] ?? null)) {
+            foreach ($manifest['importPlan']['fallbacks'] as &$fallback) {
+                if (is_array($fallback)) {
+                    unset($fallback['sourceSnippet']);
+                }
+            }
+            unset($fallback);
+        }
+
         $errors = [];
         $this->scanUnsafePersistenceValue($manifest, '$', $errors);
 
@@ -923,6 +937,11 @@ class OxygenPageImporter
      */
     private function unsafePersistenceNodeError(array $node, string $type): string
     {
+        $content = $node['data']['properties']['content'] ?? [];
+        if (is_array($content) && (new ExecutableMarkupGuard())->contentContainsExecutableMarkup($content)) {
+            return 'node content contains executable markup.';
+        }
+
         if ($type === ElementTypes::JAVASCRIPT_CODE || str_ends_with($type, '\\JavaScriptCode')) {
             return 'JavaScriptCode nodes require explicit unsafe-code authorization.';
         }
@@ -1016,25 +1035,15 @@ class OxygenPageImporter
 
     private function htmlContainsUnsafeExecutableMarkers(string $html): bool
     {
-        $decoded = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $urlDecoded = rawurldecode($decoded);
-        $normalized = preg_replace('/[\x00-\x20\x7F]+/', '', $urlDecoded);
-        if (!is_string($normalized)) {
-            return true;
-        }
-
-        $pattern = '/<\s*(?:script|iframe|object|embed|svg|form|input|textarea|select)\b|\son[a-z0-9_-]+\s*=|(?:javascript|vbscript)\s*:|data:(?:text\/html|image\/svg\+xml)(?:[;,\s]|$)|srcdoc\s*=/i';
-        foreach ([$html, $decoded, $urlDecoded, $normalized] as $candidate) {
-            if (preg_match($pattern, $candidate) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return (new ExecutableMarkupGuard())->containsExecutableMarkup($html);
     }
 
     private function cssContainsUnsafeExecutableMarkers(string $css): bool
     {
+        if (stripos($css, '</style') !== false) {
+            return true;
+        }
+
         $decoded = html_entity_decode($css, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $urlDecoded = rawurldecode($decoded);
         $cssDecoded = preg_replace_callback(
@@ -1077,7 +1086,7 @@ class OxygenPageImporter
     }
 
     /**
-     * @param array<string, mixed> $manifest
+     * @param array<array-key, mixed> $manifest
      * @return array{valid: bool, errors: list<string>}
      */
     private function validateSiteKitManifest(array $manifest): array
@@ -1293,10 +1302,12 @@ class OxygenPageImporter
 
         $treeValidation = $this->getStorageAdapter()->validateDocumentTree($tree);
         if (!$treeValidation['valid']) {
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal validation error; escaped at the output boundary.
             throw new \RuntimeException(
                 'Componentized site-kit page tree failed storage validation: '
                 . implode(' ', $treeValidation['errors'])
             );
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $payload = $this->siteKitPagePayload($record, $index, $tree);
@@ -1363,10 +1374,12 @@ class OxygenPageImporter
 
             $treeValidation = $this->getStorageAdapter()->validateDocumentTree($componentized['tree']);
             if (!$treeValidation['valid']) {
+                // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal validation error; escaped at the output boundary.
                 throw new \RuntimeException(
                     'Componentized site-kit template tree failed storage validation: '
                     . implode(' ', $treeValidation['errors'])
                 );
+                // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
         }
 
@@ -2803,7 +2816,7 @@ class OxygenPageImporter
 
     /**
      * @param array<string, mixed> $componentPersistence
-     * @param list<array<string, mixed>> $replacements
+     * @param list<mixed> $replacements
      * @return list<array<string, mixed>>
      */
     private function componentCssRecordsForHostReplacements(array $componentPersistence, array $replacements): array
@@ -2963,6 +2976,11 @@ class OxygenPageImporter
                 'targets' => $componentTargets,
                 'properties' => $componentOverrideProperties,
                 'targetPaths' => $this->componentTargetPathsForCandidate($candidate, $componentTargets),
+                'shapeHash' => $this->documentTree->structureFingerprint(
+                    is_array($candidate['documentTree']['root']['children'][0] ?? null)
+                        ? $candidate['documentTree']['root']['children'][0]
+                        : []
+                ),
             ];
         }
 
@@ -3058,9 +3076,11 @@ class OxygenPageImporter
             $name = is_string($candidate['suggestedName'] ?? null) && trim((string) $candidate['suggestedName']) !== ''
                 ? trim((string) $candidate['suggestedName'])
                 : trim(is_scalar($candidate['signature'] ?? null) ? (string) $candidate['signature'] : 'component');
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal validation error; escaped at the output boundary.
             throw new \RuntimeException(
                 sprintf('Component candidate "%s" has unresolved editable property targets: %s', $name, implode(' ', $errors))
             );
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         return $paths;
@@ -3125,7 +3145,7 @@ class OxygenPageImporter
 
     /**
      * @param array<string, mixed> $node
-     * @param list<array<string, mixed>> $plans
+     * @param list<mixed> $plans
      * @return array<string, mixed>|null
      */
     private function matchingComponentReplacementPlan(array $node, array $plans): ?array
@@ -3141,6 +3161,10 @@ class OxygenPageImporter
 
         foreach ($plans as $plan) {
             if (!is_array($plan) || (string) ($plan['signature'] ?? '') !== $signature) {
+                continue;
+            }
+
+            if (($plan['shapeHash'] ?? '') !== $this->documentTree->structureFingerprint($node)) {
                 continue;
             }
 
@@ -3248,18 +3272,22 @@ class OxygenPageImporter
             $controlPath = is_string($target['controlPath'] ?? null) ? trim((string) $target['controlPath']) : '';
             $path = is_array($targetPaths[$propertyKey] ?? null) ? $targetPaths[$propertyKey] : null;
             if ($propertyKey === '' || $controlPath === '' || $path === null) {
+                // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal validation error; escaped at the output boundary.
                 throw new \RuntimeException(sprintf(
                     'Component instance target %s could not be resolved against the component candidate tree.',
                     $propertyKey !== '' ? $propertyKey : '(missing propertyKey)'
                 ));
+                // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
 
             $matchedNode = $this->treeNodeAtPath($sourceNode, $path);
             if ($matchedNode === null) {
+                // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal validation error; escaped at the output boundary.
                 throw new \RuntimeException(sprintf(
                     'Component instance target %s could not be resolved against the matched source tree.',
                     $propertyKey
                 ));
+                // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
             $value = $this->treeNodePropertyValue($matchedNode, $controlPath);
             if ($value['exists']) {
@@ -3292,7 +3320,9 @@ class OxygenPageImporter
                 static fn (array $error): string => (string) $error['message'],
                 $validation['errors']
             );
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal validation error; escaped at the output boundary.
             throw new \RuntimeException('Generated component instance failed validation: ' . implode(' ', $messages));
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         return $componentNode;
@@ -3825,6 +3855,10 @@ class OxygenPageImporter
 
     private function postMetaExists(int $postId, string $key): bool
     {
+        if (function_exists('metadata_exists')) {
+            return metadata_exists('post', $postId, $key);
+        }
+
         if (isset($GLOBALS['__wp_post_meta']) && is_array($GLOBALS['__wp_post_meta'])) {
             return array_key_exists($key, $GLOBALS['__wp_post_meta'][$postId] ?? []);
         }
@@ -3930,7 +3964,7 @@ class OxygenPageImporter
     }
 
     /**
-     * @return array{version: int, manifests: array<string, array<string, mixed>>, postIndex: array<string, string>}
+     * @return array{version: int, manifests: array<array-key, mixed>, postIndex: array<array-key, mixed>}
      */
     private function siteKitManifestRegistry(): array
     {
@@ -4061,11 +4095,15 @@ class OxygenPageImporter
      */
     private function persistManifest(int $postId, array $manifest): void
     {
-        if (!function_exists('update_post_meta')) {
-            return;
+        if (!function_exists('update_post_meta') || !function_exists('get_post_meta')) {
+            throw new \RuntimeException('WordPress metadata storage is unavailable for the import rollback manifest.');
         }
 
-        update_post_meta($postId, self::MANIFEST_META_KEY, wp_slash($this->encodeJson($manifest)));
+        $encodedManifest = $this->encodeJson($manifest);
+        update_post_meta($postId, self::MANIFEST_META_KEY, wp_slash($encodedManifest));
+        if (get_post_meta($postId, self::MANIFEST_META_KEY, true) !== $encodedManifest) {
+            throw new \RuntimeException('Failed to persist the import rollback manifest.');
+        }
     }
 
     private function markManifestRolledBack(int $postId): void
@@ -4125,6 +4163,7 @@ class OxygenPageImporter
             }
         } catch (\Throwable $e) {
             $message = sprintf(
+                /* translators: 1: WordPress post ID, 2: Oxygen cache error details. */
                 __(
                     'Oxygen cache regeneration failed for post #%1$d. The imported content was saved, but cached CSS may be stale. Make sure wp-content/uploads/oxygen and its cache directories are writable by the PHP/WordPress user, then regenerate Oxygen caches. Details: %2$s',
                     'oxygen-html-converter'

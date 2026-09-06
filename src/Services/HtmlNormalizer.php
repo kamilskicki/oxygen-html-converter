@@ -197,9 +197,6 @@ final class HtmlNormalizer
     private function stripSourceArtifactAttributes(DOMDocument $document, array &$issues): void
     {
         foreach ($document->getElementsByTagName('*') as $element) {
-            if (!$element instanceof DOMElement) {
-                continue;
-            }
 
             $remove = [];
             foreach ($element->attributes as $attribute) {
@@ -310,9 +307,6 @@ final class HtmlNormalizer
         $headers = $document->getElementsByTagName('header');
 
         foreach ($headers as $header) {
-            if (!$header instanceof DOMElement) {
-                continue;
-            }
 
             $classification = $heuristics->classifyHeaderRole($header, $overrides);
             $decisions[] = [
@@ -344,7 +338,7 @@ final class HtmlNormalizer
             }
 
             foreach ($candidate as $selector => $role) {
-                if (!is_scalar($selector) || !is_scalar($role)) {
+                if (!is_scalar($role)) {
                     continue;
                 }
 

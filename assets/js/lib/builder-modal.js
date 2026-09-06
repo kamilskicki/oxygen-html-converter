@@ -151,6 +151,10 @@
       modalState.cancel.addEventListener("click", close);
       modalState.close.addEventListener("click", close);
       modalState.submit.addEventListener("click", async function () {
+        if (modalState.submit.disabled || modalState.overlay.style.display !== "block") {
+          return;
+        }
+
         const html = String(modalState.input.value || "").trim();
         if (!html) {
           modalState.error.textContent = strings.emptyHtml || "Paste HTML before importing.";

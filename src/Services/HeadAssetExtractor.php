@@ -116,9 +116,6 @@ class HeadAssetExtractor
 
         $linkTags = $doc->getElementsByTagName('link');
         foreach ($linkTags as $linkTag) {
-            if (!$linkTag instanceof DOMElement) {
-                continue;
-            }
 
             $rel = strtolower(trim((string) $linkTag->getAttribute('rel')));
             $relTokens = array_fill_keys(array_filter(preg_split('/\s+/', $rel) ?: []), true);
@@ -369,7 +366,7 @@ class HeadAssetExtractor
         $parts = [];
         $current = $node;
 
-        while ($current instanceof DOMElement) {
+        while (true) {
             $parts[] = strtolower($current->tagName);
             if (!($current->parentNode instanceof DOMElement)) {
                 break;

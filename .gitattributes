@@ -3,6 +3,7 @@
 *.cjs text eol=lf
 *.html text eol=lf
 *.json text eol=lf
+composer.lock text eol=lf
 *.md text eol=lf
 *.txt text eol=lf
 *.neon.dist text eol=lf

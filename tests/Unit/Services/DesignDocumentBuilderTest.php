@@ -9,6 +9,63 @@ use PHPUnit\Framework\TestCase;
 
 class DesignDocumentBuilderTest extends TestCase
 {
+    public function testDistinctClassGroupsWithSameShapeReceiveUniqueComponentNames(): void
+    {
+        $html = '<main>' . str_repeat('<div class="alpha"><p>Alpha</p></div>', 3)
+            . str_repeat('<div class="beta"><p>Beta</p></div>', 3) . '</main>';
+        $result = (new \OxyHtmlConverter\TreeBuilder())->convert($html);
+        $candidates = (new DesignDocumentBuilder())->build($html, $result)['componentCandidates'];
+
+        $this->assertCount(2, $candidates);
+        $this->assertSame($candidates[0]['shapeHash'], $candidates[1]['shapeHash']);
+        $this->assertNotSame($candidates[0]['classes'], $candidates[1]['classes']);
+        $this->assertNotSame($candidates[0]['suggestedName'], $candidates[1]['suggestedName']);
+    }
+
+    public function testComponentCandidatesSeparateEqualShallowShapesWithDifferentDescendants(): void
+    {
+        $html = (string) file_get_contents(dirname(__DIR__, 3) . '/fixtures/html/regressions/component-deep-shape-collision.html');
+        $result = (new \OxyHtmlConverter\TreeBuilder())->convert($html);
+        $document = (new DesignDocumentBuilder())->build($html, $result);
+        $cards = array_values(array_filter($document['componentCandidates'], static fn(array $candidate): bool => in_array('feature-card', $candidate['classes'], true)));
+
+        $this->assertCount(2, $cards);
+        $this->assertSame([3, 3], array_column($cards, 'count'));
+        $this->assertSame(['div[div]', 'div[div]'], array_column($cards, 'signature'));
+        $this->assertCount(2, array_unique(array_column($cards, 'suggestedName')));
+        $this->assertCount(2, array_unique(array_column($cards, 'shapeHash')));
+    }
+
+    public function testTokensUseActualDeclarationPropertiesInsteadOfCssTextFragments(): void
+    {
+        $html = <<<'HTML'
+<style>
+/* width: 900px; opacity: .2; font-family: FakeComment; color: #BADBAD; */
+@media (max-width: 767px) {
+  .card { padding-left: 24px; margin-top: 16px; content: "font-family: FakeString; width: 555px; opacity: .3; color: #ABCDEF;"; }
+}
+</style>
+<div class="card" style="width: 120px; font-family: Inter; opacity: .7">Card</div>
+HTML;
+        $tokens = (new DesignDocumentBuilder())->build($html, $this->resultFixture([]))['tokens'];
+
+        self::assertSame(['120px'], array_column($tokens['measurements'], 'value'));
+        self::assertSame(['0.7'], array_column($tokens['numbers'], 'value'));
+        self::assertSame(['Inter'], array_column($tokens['fonts'], 'value'));
+        self::assertSame([], $tokens['colors']);
+        self::assertEqualsCanonicalizing(['24px', '16px'], array_column($tokens['spacing'], 'value'));
+    }
+
+    public function testFunctionalAndAlphaColorTokensHaveDistinctStableNames(): void
+    {
+        $html = '<style>.a { color: rgba(255,255,255,.1); background: rgba(255,255,255,.8); border-color: #12345678; outline-color: #123456AA; }</style><div class="a">Card</div>';
+        $tokens = (new DesignDocumentBuilder())->build($html, $this->resultFixture([]))['tokens']['colors'];
+
+        self::assertCount(4, $tokens);
+        self::assertCount(4, array_unique(array_column($tokens, 'suggestedName')));
+        self::assertSame($tokens, (new DesignDocumentBuilder())->build($html, $this->resultFixture([]))['tokens']['colors']);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

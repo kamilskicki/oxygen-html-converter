@@ -31,7 +31,14 @@ class HtmlParser
         // Wrap in UTF-8 meta and basic structure if needed
         $html = $this->prepareHtml($html);
 
-        $success = $this->dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NOERROR | LIBXML_NOWARNING);
+        // DOMDocument defaults to a legacy encoding when a full document omits
+        // <head> or charset metadata. The converter's input is always UTF-8.
+        $success = $this->dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NOERROR | LIBXML_NOWARNING);
+        foreach (iterator_to_array($this->dom->childNodes) as $child) {
+            if ($child->nodeType === XML_PI_NODE && $child->nodeName === 'xml') {
+                $this->dom->removeChild($child);
+            }
+        }
 
         // Collect errors
         $this->errors = array_map(function ($error) {

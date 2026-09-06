@@ -56,7 +56,7 @@ class OxygenSelectorImporter
     }
 
     /**
-     * @param list<array<string, mixed>> $references
+     * @param list<mixed> $references Untrusted token references are filtered before use.
      */
     public function setTokenReferences(array $references): void
     {
@@ -418,20 +418,7 @@ class OxygenSelectorImporter
      */
     private function expandBoxValue(string $value): array
     {
-        $parts = preg_split('/\s+/', trim($value)) ?: [];
-        $parts = array_values(array_filter($parts, static fn(string $part): bool => $part !== ''));
-
-        return match (count($parts)) {
-            1 => ['top' => $parts[0], 'right' => $parts[0], 'bottom' => $parts[0], 'left' => $parts[0]],
-            2 => ['top' => $parts[0], 'right' => $parts[1], 'bottom' => $parts[0], 'left' => $parts[1]],
-            3 => ['top' => $parts[0], 'right' => $parts[1], 'bottom' => $parts[2], 'left' => $parts[1]],
-            default => [
-                'top' => $parts[0] ?? '0',
-                'right' => $parts[1] ?? ($parts[0] ?? '0'),
-                'bottom' => $parts[2] ?? ($parts[0] ?? '0'),
-                'left' => $parts[3] ?? ($parts[1] ?? ($parts[0] ?? '0')),
-            ],
-        };
+        return StyleExtractor::expandBoxValue($value);
     }
 
     /**
@@ -475,7 +462,7 @@ class OxygenSelectorImporter
         $normalized = [];
 
         foreach ($declarations as $property => $value) {
-            if (!is_scalar($property) || !is_scalar($value)) {
+            if (!is_scalar($value)) {
                 continue;
             }
 

@@ -114,4 +114,61 @@ CSS;
         $this->assertSame('.card:hover', $rules[2]['selector']);
         $this->assertSame('(max-width: 767px)', $rules[2]['media']);
     }
+
+    public function testStatementAtRulesDoNotSwallowTheFollowingRule(): void
+    {
+        $rules = $this->parser->parse('@charset "UTF-8"; @import url("theme;v2.css"); @layer reset, base; .card { color: red; }');
+
+        $this->assertCount(1, $rules);
+        $this->assertSame('.card', $rules[0]['selector']);
+        $this->assertSame('red', $rules[0]['declarations']['color']);
+    }
+
+    public function testSelectorListsSplitOnlyAtTopLevelCommas(): void
+    {
+        $rules = $this->parser->parse(':is(.card, .panel), [data-label="a,b"], .escaped\\,comma { color: red; }');
+
+        $this->assertSame([':is(.card, .panel)', '[data-label="a,b"]', '.escaped\\,comma'], array_column($rules, 'selector'));
+    }
+
+    public function testSelectorQuotedCommentAndBraceCharactersArePreserved(): void
+    {
+        $rules = $this->parser->parse('/* ignore */ [data-label="/*literal*/{x}"] { color: red; }');
+
+        $this->assertSame('[data-label="/*literal*/{x}"]', $rules[0]['selector']);
+        $this->assertSame('red', $rules[0]['declarations']['color']);
+    }
+
+    public function testCustomPropertyNamesRemainCaseSensitive(): void
+    {
+        $declarations = $this->parser->parseDeclarations('--Brand: red !important; --brand: blue; COLOR: var(--Brand);');
+
+        $this->assertSame(['--Brand' => 'red', '--brand' => 'blue', 'color' => 'var(--Brand)'], $declarations);
+        $this->assertSame(['--Brand' => true], $this->parser->parseImportantDeclarations('--Brand: red !important; --brand: blue;'));
+    }
+
+    public function testNestedPseudoRulesCannotContaminateParentDeclarations(): void
+    {
+        $declarations = $this->parser->parseDeclarations('color: red; &:hover { color: blue; } a:focus { color: green; } background: white; --Theme: { color: pink; };');
+
+        $this->assertSame(['color' => 'red', 'background' => 'white', '--Theme' => '{ color: pink; }'], $declarations);
+    }
+
+    public function testNestedMediaListsCombineEveryAlternative(): void
+    {
+        $rules = $this->parser->parse('@media (min-width: 600px), (orientation: landscape) { @media (hover: hover), (pointer: fine) { .card { color: red; } } }');
+
+        $this->assertSame('(min-width: 600px) and (hover: hover), (min-width: 600px) and (pointer: fine), (orientation: landscape) and (hover: hover), (orientation: landscape) and (pointer: fine)', $rules[0]['media']);
+    }
+
+    public function testNestedMediaExpansionIsBoundedAndLaterRulesStillParse(): void
+    {
+        $css = str_repeat('@media (hover: hover), (pointer: fine) { ', 20)
+            . '.card { color: red; }' . str_repeat('}', 20) . '.after { color: blue; }';
+
+        $rules = $this->parser->parse($css);
+
+        $this->assertCount(1, $rules);
+        $this->assertSame('.after', $rules[0]['selector']);
+    }
 }

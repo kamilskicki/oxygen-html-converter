@@ -1295,7 +1295,7 @@ class ImportPlanBuilder
                 continue;
             }
 
-            if ($value !== null && $value !== false && $value !== []) {
+            if ($value !== null && $value !== false) {
                 $this->addSiteOperationDetection($detected, $key, '$.' . $field);
             }
         }

@@ -152,7 +152,7 @@ class StyleExtractor
         $properties = [];
 
         foreach ($styles as $cssProp => $value) {
-            if (!is_scalar($cssProp) || strpos((string) $cssProp, '_') === 0) {
+            if (strpos((string) $cssProp, '_') === 0) {
                 continue;
             }
 
@@ -675,10 +675,10 @@ class StyleExtractor
      */
     public static function controlPathsForDeclaration(string $cssProp): array
     {
-        return array_values(array_map(
+        return array_map(
             static fn (array $assignment): array => $assignment['path'],
             self::controlAssignmentsForDeclaration($cssProp, '')
-        ));
+        );
     }
 
     /**
@@ -745,10 +745,46 @@ class StyleExtractor
     /**
      * @return array{top:string,right:string,bottom:string,left:string}
      */
-    private static function expandBoxValue(string $value): array
+    public static function expandBoxValue(string $value): array
     {
-        $parts = preg_split('/\s+/', trim($value)) ?: [];
-        $parts = array_values(array_filter($parts, static fn(string $part): bool => $part !== ''));
+        // Whitespace inside functions belongs to one component, e.g. clamp(2rem, 3vw, 3rem).
+        $parts = [];
+        $current = '';
+        $depth = 0;
+        $quote = null;
+        $length = strlen($value);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $value[$i];
+            if ($char === '\\' && $i + 1 < $length) {
+                $current .= $char . $value[++$i];
+                continue;
+            }
+            if ($quote !== null) {
+                $current .= $char;
+                if ($char === $quote) {
+                    $quote = null;
+                }
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+            } elseif ($char === '(' || $char === '[') {
+                $depth++;
+            } elseif ($char === ')' || $char === ']') {
+                $depth--;
+            }
+            if ($depth === 0 && ctype_space($char)) {
+                if ($current !== '') {
+                    $parts[] = $current;
+                    $current = '';
+                }
+                continue;
+            }
+            $current .= $char;
+        }
+        if ($current !== '') {
+            $parts[] = $current;
+        }
 
         return match (count($parts)) {
             1 => ['top' => $parts[0], 'right' => $parts[0], 'bottom' => $parts[0], 'left' => $parts[0]],

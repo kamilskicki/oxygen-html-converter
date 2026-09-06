@@ -178,6 +178,31 @@ class PluginTest extends TestCase
         $this->assertArrayNotHasKey(OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION, $GLOBALS['__wp_options']);
     }
 
+    public function testInlineStylesNeutralizeMixedCaseHtmlTerminators(): void
+    {
+        $css = '/* </StYlE><img src=x onerror=alert(1)> */ .safe { color: red; }';
+        $_GET['post'] = '42';
+        update_post_meta(42, '_oxy_html_converter_page_styles', wp_slash(wp_json_encode([
+            'version' => 1,
+            'css' => $css,
+        ])));
+        $GLOBALS['__wp_options']['oxy_html_converter_global_styles'] = wp_json_encode([
+            'version' => 1,
+            'styles' => [['id' => 'style-1', 'css' => $css]],
+        ]);
+        $plugin = Plugin::getInstance();
+        $plugin->enqueueGlobalStyles();
+        $globalCss = implode("\n", $GLOBALS['__wp_inline_styles']['oxy-html-converter-global-styles']);
+        $this->assertStringNotContainsString('</style', strtolower($globalCss));
+        $this->assertStringContainsString('.safe { color: red; }', $globalCss);
+
+        ob_start();
+        $plugin->printPageScopedStyles();
+        $output = (string) ob_get_clean();
+        $this->assertSame(1, substr_count(strtolower($output), '</style'));
+        $this->assertStringContainsString('.safe { color: red; }', $output);
+    }
+
     public function testPrintCacheRefreshNoticeHidesDetailsAndPreservesNoticeForNonAdministrators(): void
     {
         update_option(OxygenPageImporter::CACHE_REFRESH_NOTICE_OPTION, [

@@ -49,4 +49,18 @@ class OxygenDocumentTreeTest extends TestCase
         $this->assertSame([], $tree['exportedLookupTable']);
         $this->assertSame([], $tree['root']['data']['properties']);
     }
+
+    public function testBuildRepairsStaleNodeCounterBeforeFurtherBuilderEdits(): void
+    {
+        $tree = (new OxygenDocumentTree())->build([
+            'root' => [
+                'id' => 1,
+                'data' => ['type' => 'OxygenElements\\Container'],
+                'children' => [['id' => 42, 'data' => ['type' => 'OxygenElements\\Text']]],
+            ],
+            '_nextNodeId' => 2,
+        ]);
+
+        $this->assertSame(43, $tree['_nextNodeId']);
+    }
 }

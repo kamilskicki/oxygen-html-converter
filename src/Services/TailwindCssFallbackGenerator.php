@@ -293,7 +293,7 @@ class TailwindCssFallbackGenerator
     {
         $parts = explode(':', $classToken);
         $utility = array_pop($parts);
-        if (!is_string($utility) || $utility === '') {
+        if ($utility === '') {
             return ['base', 'base', $classToken];
         }
 

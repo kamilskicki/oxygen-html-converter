@@ -28,8 +28,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
     public function supports(string $oxygenVersion): bool
     {
-        return $oxygenVersion === OxygenStorageContract::SUPPORTED_OXYGEN_VERSION
-            || $oxygenVersion === '6.1.0';
+        return in_array($oxygenVersion, OxygenStorageAdapterFactory::SUPPORTED_RUNTIME_OXYGEN_VERSIONS, true);
     }
 
     public function getAdapterId(): string
@@ -55,6 +54,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
     public function validateDocumentTree(array $tree): array
     {
         $errors = [];
+        $nodeIds = [];
         $allowedTopLevelFields = [
             'root' => true,
             '_nextNodeId' => true,
@@ -71,11 +71,13 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
         if (!isset($tree['root']) || !is_array($tree['root'])) {
             $errors[] = 'root must be an array.';
         } else {
-            $this->validateTreeNode($tree['root'], 'root', $errors);
+            $this->validateTreeNode($tree['root'], 'root', $errors, $nodeIds);
         }
 
         if (!isset($tree['_nextNodeId']) || !is_int($tree['_nextNodeId']) || $tree['_nextNodeId'] < 1) {
             $errors[] = '_nextNodeId must be a positive integer.';
+        } elseif ($nodeIds !== [] && $tree['_nextNodeId'] <= max(array_keys($nodeIds))) {
+            $errors[] = '_nextNodeId must be greater than every existing node ID.';
         }
 
         if (isset($tree['exportedLookupTable']) && !is_array($tree['exportedLookupTable'])) {
@@ -232,13 +234,24 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
         $rollbackAvailable = $previousMeta !== null && $previousMeta !== '';
 
         if ($rollbackAvailable && function_exists('update_post_meta')) {
-            update_post_meta($postId, $rollbackMetaKey, $previousMeta);
+            update_post_meta($postId, $rollbackMetaKey, wp_slash($previousMeta));
         }
 
         if (function_exists('\Breakdance\Data\set_meta')) {
             \Breakdance\Data\set_meta($postId, $metaKey, $metaPayload);
         } else {
             update_post_meta($postId, $metaKey, wp_slash(wp_json_encode($metaPayload)));
+        }
+
+        $storedDocument = $this->readPageDocument($postId);
+        if (empty($storedDocument['success']) || ($storedDocument['payload']['tree_json_string'] ?? null) !== $encodedTree) {
+            return [
+                'success' => false,
+                'status' => 500,
+                'metaKey' => $metaKey,
+                'message' => 'Failed to persist Oxygen document tree.',
+                'errors' => ['Stored Oxygen document does not match the requested tree.'],
+            ];
         }
 
         return [
@@ -498,6 +511,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
         if (function_exists('\Breakdance\Variables\saveVariables')) {
             \Breakdance\Variables\saveVariables($payload);
+            $this->refreshNativeSelectorCssCache();
 
             return $this->successfulGlobalWrite('variables', [
                 'saved' => count($variables),
@@ -565,6 +579,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
         if (function_exists('\Breakdance\Data\save_global_settings')) {
             \Breakdance\Data\save_global_settings($encoded);
+            $this->refreshNativeSelectorCssCache();
 
             return $this->successfulGlobalWrite('global_settings', [
                 'cacheRegenerated' => true,
@@ -866,6 +881,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
         return $this->notMigrated(__FUNCTION__);
     }
 
+    /** @param array<int, mixed> $stores Unvalidated rollback store names. */
     public function captureRollbackSnapshot(array $stores): array
     {
         $entries = [];
@@ -937,10 +953,14 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
     /**
      * @param array<int, string> $errors
      */
-    private function validateTreeNode(array $node, string $path, array &$errors): void
+    private function validateTreeNode(array $node, string $path, array &$errors, array &$nodeIds): void
     {
         if (!isset($node['id']) || !is_int($node['id'])) {
             $errors[] = $path . '.id must be an integer.';
+        } elseif (isset($nodeIds[$node['id']])) {
+            $errors[] = $path . '.id duplicates node ID ' . $node['id'] . '.';
+        } else {
+            $nodeIds[$node['id']] = true;
         }
 
         if (!isset($node['data']) || !is_array($node['data'])) {
@@ -966,7 +986,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
                 continue;
             }
 
-            $this->validateTreeNode($child, $path . '.children.' . (int) $index, $errors);
+            $this->validateTreeNode($child, $path . '.children.' . (int) $index, $errors, $nodeIds);
         }
     }
 
@@ -1423,7 +1443,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
     /**
      * @param array<int, array<string, mixed>> $selectors
-     * @param array<int, string> $collections
+     * @param array<int, mixed> $collections
      * @return array{valid: bool, errors: array<int, string>}
      */
     private function validateSelectors(array $selectors, array $collections): array
@@ -1473,7 +1493,7 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
 
     /**
      * @param array<int, array<string, mixed>> $variables
-     * @param array<int, string> $collections
+     * @param array<int, mixed> $collections
      * @return array{valid: bool, errors: array<int, string>}
      */
     private function validateVariables(array $variables, array $collections): array
@@ -1639,11 +1659,13 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
      */
     private function validateBlockSettings(array $blockSettings): array
     {
-        $errors = [];
-
-        if (isset($blockSettings['preview']) && !is_array($blockSettings['preview'])) {
-            $errors[] = '_breakdance_block_settings.preview must be an object when present.';
-        }
+        $validation = (new \OxyHtmlConverter\Validation\OxygenSchemaValidator())->validateBlockSettings($blockSettings);
+        $errors = array_map(
+            static fn (array $error): string => $error['path'] === '$.preview'
+                ? '_breakdance_block_settings.preview must be an object when present.'
+                : str_replace('$.preview', '_breakdance_block_settings.preview', $error['message']),
+            $validation['errors']
+        );
 
         return [
             'valid' => $errors === [],
@@ -1715,10 +1737,36 @@ final class OxygenSixStorageAdapter implements OxygenStorageAdapter
     {
         if (function_exists('\Breakdance\Render\generateCacheForGlobalSettings')) {
             \Breakdance\Render\generateCacheForGlobalSettings();
+            $this->refreshNativeSelectorCssCache();
             return true;
         }
 
         return false;
+    }
+
+    private function refreshNativeSelectorCssCache(): void
+    {
+        // Oxygen's getOxySelectors() has an immutable request-local static cache. Its global
+        // generator can overwrite CSS with the previous selector set after another import write.
+        if (!function_exists('\Breakdance\BreakdanceOxygen\Selectors\cssForSelectors')
+            || !function_exists('\Breakdance\Render\writeCssFile')
+            || !function_exists('\Breakdance\Render\loadGlobalCssCacheFromWpDb')
+            || !function_exists('\Breakdance\Render\saveGlobalCssCacheToWpDb')
+            || !function_exists('\Breakdance\Render\appendHashToFilePathAsUrlQueryForCacheBusting')
+        ) {
+            return;
+        }
+
+        $selectors = $this->readSelectors()['selectors'];
+        $css = \Breakdance\BreakdanceOxygen\Selectors\cssForSelectors($selectors);
+        $filename = \Breakdance\Render\writeCssFile($css, 'oxy-selectors', false);
+        $cache = \Breakdance\Render\loadGlobalCssCacheFromWpDb();
+        $cache = is_array($cache) ? $cache : [];
+        unset($cache['globalOxySelectorsCssFilePath']);
+        if ($css !== '') {
+            $cache['globalOxySelectorsCssFilePath'] = \Breakdance\Render\appendHashToFilePathAsUrlQueryForCacheBusting($filename, $css);
+        }
+        \Breakdance\Render\saveGlobalCssCacheToWpDb($cache);
     }
 
     /**

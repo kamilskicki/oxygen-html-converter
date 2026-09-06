@@ -176,9 +176,6 @@ class OxygenVariableRepository
         $existingByName = [];
 
         foreach ($this->getExistingVariables() as $existing) {
-            if (!is_array($existing)) {
-                continue;
-            }
 
             $name = $this->normalizeExistingCssVariableName($existing['cssVariableName'] ?? null);
             if ($name !== '') {
@@ -241,9 +238,9 @@ class OxygenVariableRepository
     }
 
     /**
-     * @param array<int, array<string, mixed>> $existing
-     * @param array<int, array<string, mixed>> $incoming
-     * @return array{variables: array<int, array<string, mixed>>, created: int, updated: int, linkedExisting: int}
+     * @param array<int, mixed> $existing
+     * @param array<int, mixed> $incoming
+     * @return array{variables: list<mixed>, created: int, updated: int, linkedExisting: int}
      */
     public function mergeVariables(array $existing, array $incoming): array
     {
@@ -313,7 +310,7 @@ class OxygenVariableRepository
         }
 
         return [
-            'variables' => array_values($merged),
+            'variables' => $merged,
             'created' => $created,
             'updated' => $updated,
             'linkedExisting' => $linkedExisting,
@@ -336,7 +333,7 @@ class OxygenVariableRepository
     }
 
     /**
-     * @param array<int, array<string, mixed>> $variables
+     * @param array<int, mixed> $variables
      * @return array<int, string>
      */
     private function mergeCollections(array $variables): array

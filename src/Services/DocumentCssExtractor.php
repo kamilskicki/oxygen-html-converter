@@ -88,9 +88,6 @@ CSS;
         $elements = $doc->getElementsByTagName('*');
 
         foreach ($elements as $element) {
-            if (!($element instanceof DOMElement)) {
-                continue;
-            }
 
             $classAttr = trim((string) $element->getAttribute('class'));
             if ($classAttr === '') {

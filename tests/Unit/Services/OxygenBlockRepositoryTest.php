@@ -145,6 +145,7 @@ class OxygenBlockRepositoryTest extends TestCase
         $this->assertSame('Feature Card', $spec['post_title']);
         $this->assertSame('feature-card', $spec['post_name']);
         $this->assertIsArray($spec['_breakdance_block_settings']);
+        $this->assertNull($spec['_breakdance_block_settings']['preview']['acfFlexibleFieldRow']);
 
         $validation = $repository->validateBlockSpec($spec);
         $this->assertTrue($validation['valid'], implode(' ', $validation['errors']));
@@ -396,7 +397,7 @@ HTML;
             '_breakdance_block_settings' => [
                 'preview' => [
                     'acfFlexibleField' => '',
-                    'acfFlexibleFieldRow' => '',
+                    'acfFlexibleFieldRow' => null,
                 ],
             ],
         ];

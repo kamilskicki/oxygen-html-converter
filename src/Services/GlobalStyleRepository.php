@@ -129,7 +129,7 @@ class GlobalStyleRepository
     }
 
     /**
-     * @param list<array<string, mixed>> $items
+     * @param list<mixed> $items
      */
     private function findById(array $items, string $id): ?int
     {

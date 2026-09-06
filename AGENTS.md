@@ -22,8 +22,8 @@ Legacy tests under `tests/Legacy` are intentionally outside the default gate.
 
 ## HomeLab WordPress staging
 
-- URL: `https://oxyconvo6.mylab`
-- SSH alias: `oxyconvo6.mylab`
+- URL: `https://oxyconvo.lab`
+- SSH alias: `oxyconvo.lab`
 - WordPress root: `/var/www/wordpress`
 - Never commit SSH identities, WordPress credentials, cookies, database dumps, or staging backups.
 - Do not reset or destroy the staging VM without explicit approval.

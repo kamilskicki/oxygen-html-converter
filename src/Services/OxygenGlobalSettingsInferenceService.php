@@ -938,7 +938,7 @@ class OxygenGlobalSettingsInferenceService
 
         $stopCount = max(1, count($colors) - 1);
         $stops = [];
-        foreach (array_values($colors) as $index => $color) {
+        foreach ($colors as $index => $color) {
             $offset = (string) round(($index / $stopCount) * 100, 2);
             $stops[] = '<stop offset="' . $offset . '%" stop-color="' . htmlspecialchars($color, ENT_QUOTES, 'UTF-8') . '"/>';
         }

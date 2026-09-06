@@ -158,7 +158,7 @@ class DesignDocumentBuilder
         }
 
         foreach ($document->getElementsByTagName('*') as $element) {
-            if (!$element instanceof DOMElement || !$element->hasAttribute('style')) {
+            if (!$element->hasAttribute('style')) {
                 continue;
             }
 
@@ -176,7 +176,7 @@ class DesignDocumentBuilder
         $tokens = [];
 
         foreach ($document->getElementsByTagName('*') as $element) {
-            if (!$element instanceof DOMElement || !$element->hasAttribute('class')) {
+            if (!$element->hasAttribute('class')) {
                 continue;
             }
 
@@ -211,9 +211,7 @@ class DesignDocumentBuilder
         if ($candidates === []) {
             foreach (['header', 'nav', 'main', 'section', 'article', 'footer'] as $tagName) {
                 foreach ($document->getElementsByTagName($tagName) as $element) {
-                    if ($element instanceof DOMElement) {
-                        $candidates[] = $element;
-                    }
+                    $candidates[] = $element;
                 }
             }
         }
@@ -341,8 +339,18 @@ class DesignDocumentBuilder
             return ($right['count'] <=> $left['count']) ?: strcmp($left['signature'], $right['signature']);
         });
 
-        return array_map(function (array $candidate): array {
+        $nameCounts = [];
+        foreach ($candidates as $candidate) {
+            $name = $this->suggestComponentName($candidate['tag'], $candidate['classes']);
+            $nameCounts[$name] = ($nameCounts[$name] ?? 0) + 1;
+        }
+
+        return array_map(function (array $candidate) use ($nameCounts): array {
             $count = (int) $candidate['count'];
+            $name = $this->suggestComponentName($candidate['tag'], $candidate['classes']);
+            if ($nameCounts[$name] > 1) {
+                $name .= '-' . substr((string) $candidate['groupHash'], 0, 8);
+            }
 
             $record = [
                 'signature' => $candidate['signature'],
@@ -356,7 +364,8 @@ class DesignDocumentBuilder
                     'minConfidence' => self::COMPONENT_MIN_CONFIDENCE,
                     'minEditableProperties' => self::COMPONENT_MIN_EDITABLE_PROPERTIES,
                 ],
-                'suggestedName' => $this->suggestComponentName($candidate['tag'], $candidate['classes']),
+                'suggestedName' => $name,
+                'shapeHash' => (string) $candidate['shapeHash'],
                 'classes' => array_slice($candidate['classes'], 0, 8),
                 'instances' => array_values(is_array($candidate['instances'] ?? null) ? $candidate['instances'] : []),
             ];
@@ -387,11 +396,14 @@ class DesignDocumentBuilder
             if ($signature !== '') {
                 $classes = array_slice($this->classesForTreeNode($node), 0, 5);
                 $role = $this->componentRoleForClasses($classes);
-                $structureKey = $this->componentStructureKey($signature, $role, $classes);
+                $shapeHash = (new OxygenDocumentTree())->structureFingerprint($node);
+                $structureKey = $this->componentStructureKey($signature, $role, $classes) . '|shape:' . $shapeHash;
                 $tag = explode('[', $signature)[0];
                 if (!isset($structures[$structureKey])) {
                     $structures[$structureKey] = [
                         'signature' => $signature,
+                        'shapeHash' => $shapeHash,
+                        'groupHash' => hash('sha256', $structureKey),
                         'tag' => $tag,
                         'role' => $role,
                         'count' => 0,
@@ -626,17 +638,21 @@ class DesignDocumentBuilder
      */
     private function buildTokens(string $cssText, array $classTokens, ?DOMDocument $document): array
     {
+        $declarations = $this->extractTokenDeclarations($document);
+
         return [
             'colors' => $this->buildTokenList(
-                $this->extractColorValues($cssText, $classTokens),
-                fn (string $value): string => 'color-' . strtolower(ltrim(substr($value, 0, 7), '#'))
+                $this->extractColorValues($declarations, $classTokens),
+                static fn (string $value): string => 'color-' . (str_starts_with($value, '#')
+                    ? strtolower(ltrim($value, '#'))
+                    : substr(hash('sha256', $value), 0, 12))
             ),
             'fonts' => $this->buildTokenList(
-                $this->extractFontValues($cssText, $document),
+                $this->extractFontValues($declarations, $document),
                 static fn (string $value): string => 'font-' . strtolower(preg_replace('/[^a-z0-9]+/i', '-', $value) ?? 'family')
             ),
             'spacing' => $this->buildTokenList(
-                $this->extractSpacingValues($cssText),
+                $this->extractSpacingValues($declarations),
                 static fn (string $value): string => 'space-' . strtolower(str_replace(['.', '%'], ['-', 'pct'], $value))
             ),
             'images' => $this->buildTokenList(
@@ -644,11 +660,11 @@ class DesignDocumentBuilder
                 fn (string $value): string => 'image-' . $this->slugForImageUrl($value)
             ),
             'measurements' => $this->buildTokenList(
-                $this->extractMeasurementValues($cssText),
+                $this->extractMeasurementValues($declarations),
                 static fn (string $value): string => 'measure-' . strtolower(str_replace(['.', '%'], ['-', 'pct'], $value))
             ),
             'numbers' => $this->buildTokenList(
-                $this->extractNumberValues($cssText),
+                $this->extractNumberValues($declarations),
                 static fn (string $value): string => 'number-' . strtolower(str_replace(['.', '+'], ['-', 'plus'], ltrim($value, '+')))
             ),
         ];
@@ -659,9 +675,11 @@ class DesignDocumentBuilder
      *
      * @return list<string>
      */
-    private function extractColorValues(string $cssText, array $classTokens): array
+    private function extractColorValues(array $declarations, array $classTokens): array
     {
         $values = [];
+
+        $cssText = implode("\n", array_map(fn (array $declaration): string => $this->stripQuotedTokenContent($declaration['value']), $declarations));
 
         if (preg_match_all('/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]+\)|hsla?\([^)]+\)/', $cssText, $matches)) {
             foreach ($matches[0] as $match) {
@@ -682,6 +700,68 @@ class DesignDocumentBuilder
         return array_values(array_filter($values));
     }
 
+    /**
+     * Read declaration records from style rules and inline styles separately;
+     * selector preludes, media conditions and comments are never token sources.
+     *
+     * @return list<array{property: string, value: string}>
+     */
+    private function extractTokenDeclarations(?DOMDocument $document): array
+    {
+        if (!$document instanceof DOMDocument) {
+            return [];
+        }
+
+        $parser = new CssParser();
+        $declarations = [];
+        foreach ($document->getElementsByTagName('style') as $style) {
+            foreach ($parser->parse($style->textContent) as $rule) {
+                foreach ($rule['declarations'] as $property => $value) {
+                    $declarations[] = ['property' => $property, 'value' => $value];
+                }
+            }
+        }
+        foreach ($document->getElementsByTagName('*') as $element) {
+            if (!$element->hasAttribute('style')) {
+                continue;
+            }
+            foreach ($parser->parseDeclarations($element->getAttribute('style')) as $property => $value) {
+                $declarations[] = ['property' => $property, 'value' => $value];
+            }
+        }
+
+        return $declarations;
+    }
+
+    private function stripQuotedTokenContent(string $value): string
+    {
+        // URLs and CSS strings contain source text, not reusable scalar tokens.
+        $value = (string) preg_replace('/url\([^)]*\)/i', '', $value);
+        $result = '';
+        $quote = '';
+        $length = strlen($value);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $value[$i];
+            if ($char === '\\') {
+                $i++;
+                continue;
+            }
+            if ($quote !== '') {
+                if ($char === $quote) {
+                    $quote = '';
+                }
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+                continue;
+            }
+            $result .= $char;
+        }
+
+        return $result;
+    }
+
     private function normalizeColorValue(string $value): string
     {
         $value = trim($value);
@@ -696,12 +776,13 @@ class DesignDocumentBuilder
     /**
      * @return list<string>
      */
-    private function extractFontValues(string $cssText, ?DOMDocument $document): array
+    private function extractFontValues(array $declarations, ?DOMDocument $document): array
     {
         $values = [];
 
-        if (preg_match_all('/font-family\s*:\s*([^;}{]+)/i', $cssText, $matches)) {
-            foreach ($matches[1] as $familyGroup) {
+        foreach ($declarations as $declaration) {
+            if ($declaration['property'] === 'font-family') {
+                $familyGroup = $declaration['value'];
                 foreach (explode(',', $familyGroup) as $family) {
                     $family = trim($family, " \t\n\r\0\x0B\"'");
 
@@ -714,9 +795,6 @@ class DesignDocumentBuilder
 
         if ($document instanceof DOMDocument) {
             foreach ($document->getElementsByTagName('link') as $link) {
-                if (!$link instanceof DOMElement) {
-                    continue;
-                }
 
                 foreach ($this->extractGoogleFontFamilies($link->getAttribute('href')) as $family) {
                     $values[] = $family;
@@ -762,15 +840,15 @@ class DesignDocumentBuilder
     /**
      * @return list<string>
      */
-    private function extractSpacingValues(string $cssText): array
+    private function extractSpacingValues(array $declarations): array
     {
         $values = [];
 
-        if (!preg_match_all('/(?:margin|padding|gap|column-gap|row-gap)(?:-[a-z]+)?\s*:\s*([^;}{]+)/i', $cssText, $matches)) {
-            return [];
-        }
-
-        foreach ($matches[1] as $declarationValue) {
+        foreach ($declarations as $declaration) {
+            if (preg_match('/^(?:(?:margin|padding)(?:-(?:top|right|bottom|left|block|inline)(?:-start|-end)?)?|gap|column-gap|row-gap)$/D', $declaration['property']) !== 1) {
+                continue;
+            }
+            $declarationValue = $this->stripQuotedTokenContent($declaration['value']);
             if (!preg_match_all('/-?\d*\.?\d+(?:px|rem|em|vw|vh|%|ch)/i', $declarationValue, $valueMatches)) {
                 continue;
             }
@@ -805,15 +883,12 @@ class DesignDocumentBuilder
 
         if ($document instanceof DOMDocument) {
             foreach ($document->getElementsByTagName('img') as $image) {
-                if ($image instanceof DOMElement && $this->isSupportedImageTokenUrl($image->getAttribute('src'))) {
+                if ($this->isSupportedImageTokenUrl($image->getAttribute('src'))) {
                     $values[] = trim($image->getAttribute('src'));
                 }
             }
 
             foreach ($document->getElementsByTagName('source') as $source) {
-                if (!$source instanceof DOMElement) {
-                    continue;
-                }
 
                 foreach ($this->extractSrcsetUrls($source->getAttribute('srcset')) as $url) {
                     if ($this->isSupportedImageTokenUrl($url)) {
@@ -829,7 +904,7 @@ class DesignDocumentBuilder
     /**
      * @return list<string>
      */
-    private function extractMeasurementValues(string $cssText): array
+    private function extractMeasurementValues(array $declarations): array
     {
         $values = [];
         $properties = [
@@ -854,12 +929,11 @@ class DesignDocumentBuilder
             'left',
         ];
 
-        $pattern = '/(?:' . implode('|', array_map('preg_quote', $properties)) . ')\s*:\s*([^;}{]+)/i';
-        if (!preg_match_all($pattern, $cssText, $matches)) {
-            return [];
-        }
-
-        foreach ($matches[1] as $declarationValue) {
+        foreach ($declarations as $declaration) {
+            if (!in_array($declaration['property'], $properties, true)) {
+                continue;
+            }
+            $declarationValue = $this->stripQuotedTokenContent($declaration['value']);
             if (!preg_match_all('/-?\d*\.?\d+(?:px|rem|em|vw|vh|%|ch|fr)/i', $declarationValue, $valueMatches)) {
                 continue;
             }
@@ -878,7 +952,7 @@ class DesignDocumentBuilder
     /**
      * @return list<string>
      */
-    private function extractNumberValues(string $cssText): array
+    private function extractNumberValues(array $declarations): array
     {
         $values = [];
         $properties = [
@@ -892,12 +966,11 @@ class DesignDocumentBuilder
             'widows',
         ];
 
-        $pattern = '/(?:' . implode('|', array_map('preg_quote', $properties)) . ')\s*:\s*([+-]?\d*\.?\d+)\s*(?:!important)?\s*(?:;|$)/i';
-        if (!preg_match_all($pattern, $cssText, $matches)) {
-            return [];
-        }
-
-        foreach ($matches[1] as $number) {
+        foreach ($declarations as $declaration) {
+            if (!in_array($declaration['property'], $properties, true)) {
+                continue;
+            }
+            $number = $declaration['value'];
             $normalized = $this->normalizeNumberTokenValue($number);
             if ($normalized !== null) {
                 $values[] = $normalized;
@@ -1086,7 +1159,7 @@ class DesignDocumentBuilder
         $index = 0;
 
         foreach ($document->getElementsByTagName('*') as $element) {
-            if (!$element instanceof DOMElement || !$element->hasAttribute('class')) {
+            if (!$element->hasAttribute('class')) {
                 continue;
             }
 
@@ -1128,9 +1201,6 @@ class DesignDocumentBuilder
 
         foreach (['a', 'button'] as $tagName) {
             foreach ($document->getElementsByTagName($tagName) as $element) {
-                if (!$element instanceof DOMElement) {
-                    continue;
-                }
 
                 $classes = $this->classesForElement($element);
 
@@ -1282,9 +1352,7 @@ class DesignDocumentBuilder
     private function firstElementByTagName(DOMDocument $document, string $tagName): ?DOMElement
     {
         foreach ($document->getElementsByTagName($tagName) as $element) {
-            if ($element instanceof DOMElement) {
-                return $element;
-            }
+            return $element;
         }
 
         return null;

@@ -961,13 +961,34 @@ final class OxygenSchemaValidator
     {
         $errors = [];
 
-        if (isset($blockSettings['preview'])) {
-            if (!is_array($blockSettings['preview'])) {
-                $errors[] = $this->error('$.preview', 'object', $blockSettings['preview'], 'Store block preview settings as an object.');
+        if (array_key_exists('preview', $blockSettings)) {
+            $preview = $blockSettings['preview'];
+            if (!is_array($preview)) {
+                $errors[] = $this->error('$.preview', 'object', $preview, 'Store block preview settings as an object.');
             } else {
-                foreach (['acfFlexibleField', 'acfFlexibleFieldRow'] as $field) {
-                    if (isset($blockSettings['preview'][$field]) && !is_string($blockSettings['preview'][$field])) {
-                        $errors[] = $this->error('$.preview.' . $field, 'string', $blockSettings['preview'][$field], 'Store block preview ACF references as strings.');
+                // Match the Builder runtime decoder; Oxygen's PHPDoc incorrectly types the ACF row as string.
+                $types = [
+                    'width' => 'number',
+                    'height' => 'number',
+                    'backgroundColor' => 'string or null',
+                    'isCentered' => 'boolean',
+                    'acfFlexibleField' => 'string',
+                    'acfFlexibleFieldRow' => 'number or null',
+                ];
+                foreach ($types as $field => $type) {
+                    if (!array_key_exists($field, $preview)) {
+                        continue;
+                    }
+                    $value = $preview[$field];
+                    $valid = match ($type) {
+                        'number' => is_int($value) || is_float($value),
+                        'number or null' => $value === null || is_int($value) || is_float($value),
+                        'string' => is_string($value),
+                        'string or null' => $value === null || is_string($value),
+                        'boolean' => is_bool($value),
+                    };
+                    if (!$valid) {
+                        $errors[] = $this->error('$.preview.' . $field, $type, $value, 'Use the native Builder preview field type.');
                     }
                 }
             }

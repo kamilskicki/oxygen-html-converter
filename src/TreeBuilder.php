@@ -311,12 +311,14 @@ class TreeBuilder
         }
         $assetNormalization = $this->assetNormalizationService->buildReport(
             $document,
-            $this->extractedCss,
+            $conversionIr->extractedCss() . "\n" . $this->extractedCss,
             $this->headAssetExtractor->extractAssetReferences($document),
             $detectedIconLibraries
         );
         $this->extractedCss = $this->assetNormalizationService->sanitizeCss($this->extractedCss, $assetNormalization);
         $this->assetNormalizationService->applyRejectedPolicyToElement($rootElement, $assetNormalization);
+        $selectorPayload = $this->selectorImporter->buildPayload();
+        $this->assetNormalizationService->applyRejectedPolicyToElement($selectorPayload, $assetNormalization);
         $this->fallbackReporter->reportAssetNormalization($assetNormalization);
         $this->styleRouting = $this->styleRoutingService->route(
             $this->extractedCss,
@@ -376,7 +378,7 @@ class TreeBuilder
             'extractedCss' => $this->extractedCss,
             'customClasses' => array_unique($this->nativeNodeMapper->customClasses()),
             'classStrategy' => $this->semanticClassProfile,
-            'selectorPayload' => $this->selectorImporter->buildPayload(),
+            'selectorPayload' => $selectorPayload,
             'stats' => array_merge($this->report->toArray(), [
                 'assetNormalization' => $assetNormalization['summary'],
                 'normalization' => $normalized->normalizationReport()['summary'],

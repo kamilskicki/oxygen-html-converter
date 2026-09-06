@@ -7,6 +7,9 @@ namespace OxyHtmlConverter\Services;
  */
 class CssParser
 {
+    private const MAX_COMBINED_MEDIA_ALTERNATIVES = 64;
+    private const MAX_COMBINED_MEDIA_BYTES = 8192;
+
     /**
      * Parse CSS content into an array of rules
      *
@@ -29,6 +32,8 @@ class CssParser
         $inString = false;
         $stringChar = '';
         $inComment = false;
+        $parenDepth = 0;
+        $bracketDepth = 0;
 
         for ($i = 0; $i < $len; $i++) {
             $char = $css[$i];
@@ -62,6 +67,31 @@ class CssParser
                 continue;
             }
 
+            if ($char === '\\') {
+                $i++;
+                continue;
+            }
+
+            if ($char === '(') {
+                $parenDepth++;
+            } elseif ($char === ')') {
+                $parenDepth = max(0, $parenDepth - 1);
+            } elseif ($char === '[') {
+                $bracketDepth++;
+            } elseif ($char === ']') {
+                $bracketDepth = max(0, $bracketDepth - 1);
+            }
+
+            if ($parenDepth !== 0 || $bracketDepth !== 0) {
+                continue;
+            }
+
+            // Statement at-rules (@charset, @import, @layer) end without a block.
+            if ($char === ';') {
+                $ruleStart = $i + 1;
+                continue;
+            }
+
             if ($char !== '{') {
                 continue;
             }
@@ -81,7 +111,14 @@ class CssParser
             }
 
             if (preg_match('/^@media\s+(.+)$/i', $selector, $matches) === 1) {
-                $rules = array_merge($rules, $this->parseRuleBlocks($block, $this->combineMediaConditions($media, trim($matches[1]))));
+                $combinedMedia = $this->combineMediaConditions($media, trim($matches[1]));
+                if ($combinedMedia === null) {
+                    // Keep complex media groups in the original CSS owner.
+                    continue;
+                }
+                foreach ($this->parseRuleBlocks($block, $combinedMedia) as $rule) {
+                    $rules[] = $rule;
+                }
                 continue;
             }
 
@@ -91,7 +128,7 @@ class CssParser
 
             $declarationMetadata = $this->parseDeclarationsWithImportance($block);
             $declarations = $declarationMetadata['declarations'];
-            foreach (explode(',', $selector) as $sel) {
+            foreach ($this->splitTopLevelList($selector) as $sel) {
                 $sel = trim($sel);
                 if ($sel === '') {
                     continue;
@@ -119,18 +156,104 @@ class CssParser
 
     private function normalizeSelectorPrelude(string $selector): string
     {
-        $withoutComments = preg_replace('!/\*.*?\*/!s', '', $selector);
+        $normalized = '';
+        $quote = '';
+        $length = strlen($selector);
 
-        return trim(is_string($withoutComments) ? $withoutComments : $selector);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $selector[$i];
+            if ($char === '\\') {
+                $normalized .= $char . ($selector[++$i] ?? '');
+                continue;
+            }
+            if ($quote !== '') {
+                $normalized .= $char;
+                if ($char === $quote) {
+                    $quote = '';
+                }
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+            } elseif ($char === '/' && ($selector[$i + 1] ?? '') === '*') {
+                $end = strpos($selector, '*/', $i + 2);
+                if ($end === false) {
+                    break;
+                }
+                $i = $end + 1;
+                continue;
+            }
+            $normalized .= $char;
+        }
+
+        return trim($normalized);
     }
 
-    private function combineMediaConditions(?string $parent, string $child): string
+    /**
+     * Split selector/media lists without splitting functional arguments or strings.
+     *
+     * @return list<string>
+     */
+    private function splitTopLevelList(string $input): array
+    {
+        $parts = [];
+        $start = 0;
+        $quote = '';
+        $depth = 0;
+        $length = strlen($input);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $input[$i];
+            if ($char === '\\') {
+                $i++;
+                continue;
+            }
+            if ($quote !== '') {
+                if ($char === $quote) {
+                    $quote = '';
+                }
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+            } elseif ($char === '(' || $char === '[') {
+                $depth++;
+            } elseif ($char === ')' || $char === ']') {
+                $depth = max(0, $depth - 1);
+            } elseif ($char === ',' && $depth === 0) {
+                $parts[] = trim(substr($input, $start, $i - $start));
+                $start = $i + 1;
+            }
+        }
+        $parts[] = trim(substr($input, $start));
+
+        return $parts;
+    }
+
+    private function combineMediaConditions(?string $parent, string $child): ?string
     {
         if ($parent === null || trim($parent) === '') {
             return $child;
         }
 
-        return trim($parent) . ' and ' . $child;
+        $conditions = [];
+        $parents = $this->splitTopLevelList($parent);
+        $children = $this->splitTopLevelList($child);
+        if (count($parents) * count($children) > self::MAX_COMBINED_MEDIA_ALTERNATIVES) {
+            return null;
+        }
+        $bytes = 0;
+        foreach ($parents as $parentCondition) {
+            foreach ($children as $childCondition) {
+                $condition = $parentCondition . ' and ' . $childCondition;
+                $bytes += strlen($condition) + 2;
+                if ($bytes > self::MAX_COMBINED_MEDIA_BYTES) {
+                    return null;
+                }
+                $conditions[] = $condition;
+            }
+        }
+
+        return implode(', ', $conditions);
     }
 
     /**
@@ -154,7 +277,7 @@ class CssParser
     /**
      * Parse declaration block into ordered property/value records.
      *
-     * @return array<int, array{property: string, value: string}>
+     * @return array<int, array{property: string, value: string, important: bool}>
      */
     public function parseDeclarationList(string $declarationsRaw): array
     {
@@ -167,12 +290,14 @@ class CssParser
             }
 
             [$property, $value] = $parsed;
+            $important = preg_match('/\s*!\s*important\s*$/i', $value) === 1;
             $value = $this->stripImportant($value);
 
             if ($property !== '' && $value !== '') {
                 $declarations[] = [
                     'property' => $property,
                     'value' => $value,
+                    'important' => $important,
                 ];
             }
         }
@@ -197,7 +322,8 @@ class CssParser
             }
 
             [$property, $rawValue] = $parsed;
-            $property = strtolower(trim($property));
+            // Custom property names are case-sensitive; ordinary properties are not.
+            $property = str_starts_with($property, '--') ? $property : strtolower($property);
             $isImportant = preg_match('/\s*!\s*important\s*$/i', $rawValue) === 1;
             $value = $this->stripImportant($rawValue);
 
@@ -300,7 +426,7 @@ class CssParser
                 && $parenDepth === 0
                 && $bracketDepth === 0
                 && $braceDepth === 0
-                && $this->splitPropertyValue($current) === null
+                && preg_match('/^\s*--[^\s:]+\s*:/', $current) !== 1
             ) {
                 $current = '';
                 $this->skipNestedBlock($declarationsRaw, $i);

@@ -183,6 +183,21 @@ class StyleExtractorTest extends TestCase
         $this->assertArrayNotHasKey('background-color', $properties['background']);
     }
 
+    public function testShorthandSpacingPreservesFunctionsAndNestedFallbacks(): void
+    {
+        $fluid = 'clamp(2rem, 3vw, 3rem)';
+        $this->assertSame(array_fill_keys(['top', 'right', 'bottom', 'left'], $fluid), $this->extractor->parseShorthandSpacing($fluid));
+        $horizontal = 'calc(var(--gutter, 2rem) + 1vw)';
+        $this->assertSame(
+            ['top' => $fluid, 'right' => $horizontal, 'bottom' => $fluid, 'left' => $horizontal],
+            $this->extractor->parseShorthandSpacing($fluid . "\t" . $horizontal)
+        );
+        $this->assertSame(
+            ['top' => $fluid, 'right' => 'auto', 'bottom' => 'min(3rem, 5vw)', 'left' => $horizontal],
+            $this->extractor->parseShorthandSpacing($fluid . ' auto min(3rem, 5vw) ' . $horizontal)
+        );
+    }
+
     public function testToOxygenPropertiesNormalizesMeasurementValues(): void
     {
         $properties = $this->extractor->toOxygenProperties([

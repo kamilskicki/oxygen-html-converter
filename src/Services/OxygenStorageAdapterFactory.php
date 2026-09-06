@@ -11,9 +11,10 @@ final class OxygenStorageAdapterFactory
      *
      * @var array<int, string>
      */
-    private const SUPPORTED_RUNTIME_OXYGEN_VERSIONS = [
+    public const SUPPORTED_RUNTIME_OXYGEN_VERSIONS = [
         OxygenStorageContract::SUPPORTED_OXYGEN_VERSION,
-        '6.1.0',
+        '6.1.3',
+        '6.2.0-beta.8', // Experimental: source contracts verified; live QA required before production use.
     ];
 
     private BuilderContractService $contractService;

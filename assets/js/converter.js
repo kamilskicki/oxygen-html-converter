@@ -306,9 +306,12 @@
   }
 
   async function handlePaste(event) {
+    // Listeners run in both the preview frame and the parent builder UI.
+    // Check focus in the document receiving this paste, including the modal.
+    const pasteDocument = event.currentTarget || event.target?.ownerDocument || document;
     if (
       window.__oxyHtmlConverterProcessing ||
-      !builderPaste.canInterceptPasteTarget(document)
+      !builderPaste.canInterceptPasteTarget(pasteDocument)
     ) {
       return;
     }

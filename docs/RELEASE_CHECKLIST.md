@@ -1,4 +1,4 @@
-﻿# Release Checklist (Core)
+# Release Checklist (Core)
 
 Use this checklist before merging or tagging the Core remediation line.
 
@@ -15,9 +15,9 @@ cd "D:\WordPress\Html to Oxygen\oxygen-html-converter-dev\plugins\core"
    - `README.md`
    - `CHANGELOG.md`
    - `docs/SUPPORTED_SCOPE.md`
-   - `docs/RELEASE_NOTES_0.9.0_BETA.md`
-   - `docs/DOD-0.9.0-BETA.md`
-   - `..\..\knowledge\KBAI\m8-remediation-summary.md`
+   - `docs/RELEASE_NOTES_0.9.1_BETA.md`
+   - `docs/DOD-0.9.1-BETA.md`
+   - `..\..\knowledge\KBAI\2026-09-06-upgrade-quality-gate.md`
 2. Confirm every open GAP has a Core, Pro, future, or unsupported disposition in KBAI or fixture metadata.
 3. Confirm release docs describe Safe Mode/no-code behavior, unsupported form and dynamic-data boundaries, component/template/site-kit scope, and live smoke requirements.
 4. Validate the WordPress.org readme before publication:
@@ -44,25 +44,18 @@ repository. A release gate must not depend on a sibling workspace directory.
 
 Expected:
 
-- Composer exits 0; existing Legacy/test-bootstrap PSR-4 warnings are allowed only while non-growing and documented.
+- Composer exits 0 without PSR-4 discovery warnings; Legacy/bootstrap files are excluded from class discovery.
 - Stable PHPUnit, PHPStan, PHPCS, JS tests, fixture audit, and aggregate check pass.
 - Legacy tests under `tests/Legacy` remain outside the default gate unless explicitly requested.
 
 ## Live Smoke Gate
 
-Run against the maintained local WordPress/Oxygen stack:
-
-```powershell
-npm run sync:docker
-npm run test:live
-npm run test:visual
-```
-
-Current maintained target:
+Run the SSH fixture gate and Chrome Builder round-trip against the maintained
+WordPress/Oxygen staging environment. Current target:
 
 ```text
-https://oxyconvo6.mylab
-SSH alias: oxyconvo6.mylab
+https://oxyconvo.lab
+SSH alias: oxyconvo.lab
 WordPress root: /var/www/wordpress
 ```
 
@@ -78,14 +71,43 @@ Confirm the run covers:
 - selectors/classes/variables/templates/components/site-kit checks where relevant
 - failure artifacts under `artifacts/live-gate`, `artifacts/visual-review`, or `artifacts/visual-review/capture-failures`
 
-For the maintained staging target, run the focused P0 fixture baseline and then
-the browser round-trip against the same installed ZIP:
+For the maintained staging target, first run `tests/live/run-import-service-audit.php`
+inside WordPress against a copy of the canonical `fixtures/html` directory. This
+gate uses the production payload/import services, checks the stored document and
+rendered HTML, and rolls back each disposable draft. Pass
+`--keep-page=regressions/css-cascade-component-semantics.html` to retain a final
+published QA page for the Chrome Builder save/reload check. The JSON report
+contains its plugin import manifest and post ID. No credentials belong in this
+report or the repository.
+
+```sh
+sudo -u www-data env OXY_HTML_CONVERTER_WP_ROOT=/var/www/wordpress php /tmp/run-import-service-audit.php --fixtures=/tmp/ohc-fixtures/html --output=/tmp/ohc-service-audit.json
+```
+
+Also run `tests/live/run-site-kit-service-audit.php` with the same `--fixtures`
+argument. It imports two draft pages, a component, a template, a header and a
+footer, checks native rendering and readback, then rolls back from the secondary
+page and checks exact option/post restoration. Oxygen forces its template types
+to `publish`; isolation therefore uses native `disabled=true` and verifies
+`doesTemplateApply() === false`. `--keep` may retain the isolated kit for Chrome
+QA, after which use the reported rollback target through `OxygenPageImporter`.
+
+The Chrome gate must include a page containing a reusable component and its
+editable instance properties. Nonempty server rendering alone does not prove
+that the Builder's JavaScript decoder accepts every global component setting.
+Also exercise Ctrl+Shift+H, paste into the modal, explicit import, Save and reload.
+Check representative compound CSS values such as `clamp()` spacing in computed
+desktop/mobile styles; successful native persistence alone cannot prove fidelity.
+
+The older parity runner below is supplemental: it directly builds render probes
+and cannot substitute for the production import-service gate. Run the focused P0
+fixture baseline and browser round-trip against the same installed ZIP:
 
 ```powershell
-$env:OXY_HTML_CONVERTER_SSH_HOST = 'oxyconvo6.mylab'
+$env:OXY_HTML_CONVERTER_SSH_HOST = 'oxyconvo.lab'
 $env:OXY_HTML_CONVERTER_WORDPRESS_ROOT = '/var/www/wordpress'
 node tests/live/run-fixture-baseline.cjs --fixture=regressions/css-cascade-component-semantics.html --slug-prefix=codex-e2e-
-npm run test:staging:browser -- --base-url=https://oxyconvo6.mylab --page-id=9
+npm run test:staging:browser -- --base-url=https://oxyconvo.lab --page-id=<reported-fixture-page-id>
 ```
 
 ## Release Verify Gate
@@ -111,12 +133,12 @@ Run before publishing a ZIP:
 npm run build:zip
 $zip = Resolve-Path artifacts/release/oxygen-html-converter-0.9.0-beta.zip
 $sha = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
-scp $zip oxyconvo6.mylab:/tmp/oxygen-html-converter-$sha.zip
-ssh oxyconvo6.mylab "cd /var/www/wordpress && wp plugin install /tmp/oxygen-html-converter-$sha.zip --force --activate --allow-root"
-$env:OXY_HTML_CONVERTER_SSH_HOST = 'oxyconvo6.mylab'
+scp $zip oxyconvo.lab:/tmp/oxygen-html-converter-$sha.zip
+ssh oxyconvo.lab "cd /var/www/wordpress && wp plugin install /tmp/oxygen-html-converter-$sha.zip --force --activate --allow-root"
+$env:OXY_HTML_CONVERTER_SSH_HOST = 'oxyconvo.lab'
 $env:OXY_HTML_CONVERTER_WORDPRESS_ROOT = '/var/www/wordpress'
 node tests/live/run-fixture-baseline.cjs --fixture=regressions/css-cascade-component-semantics.html --slug-prefix=codex-e2e-
-npm run test:staging:browser -- --base-url=https://oxyconvo6.mylab --page-id=<fixture-page-id> --artifact-sha256=$sha --commit=(git rev-parse HEAD)
+npm run test:staging:browser -- --base-url=https://oxyconvo.lab --page-id=<fixture-page-id> --artifact-sha256=$sha --commit=(git rev-parse HEAD)
 ```
 
 Always pass the explicit, SHA-named ZIP to staging. An unqualified "latest ZIP"

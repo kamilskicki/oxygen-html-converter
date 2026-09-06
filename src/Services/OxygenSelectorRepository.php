@@ -168,8 +168,8 @@ class OxygenSelectorRepository
     }
 
     /**
-     * @param array<int, array<string, mixed>> $existing
-     * @param array<int, array<string, mixed>> $incoming
+     * @param array<int, mixed> $existing
+     * @param array<int, mixed> $incoming
      * @return array<int, array<string, mixed>>
      */
     public function mergeSelectorsById(array $existing, array $incoming): array

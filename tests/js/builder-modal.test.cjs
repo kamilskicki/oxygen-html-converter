@@ -130,6 +130,7 @@ module.exports = async function runBuilderModalTests() {
   await testFocusTrapCyclesInBothDirections();
   await testEscapeUsesCaptureAndRestoresInvokerFocus();
   await testAsyncSuccessUsesPersistentStatusRegion();
+  await testRepeatedSubmitDoesNotDuplicateImport();
 };
 
 async function testFocusTrapCyclesInBothDirections() {
@@ -172,4 +173,22 @@ async function testAsyncSuccessUsesPersistentStatusRegion() {
 
   assert.equal(runtime.elements.status.textContent, "HTML import completed.");
   assert.equal(runtime.elements.overlay.style.display, "none");
+}
+
+async function testRepeatedSubmitDoesNotDuplicateImport() {
+  let resolveImport;
+  let imports = 0;
+  const pending = new Promise((resolve) => { resolveImport = resolve; });
+  const runtime = createRuntime(async () => { imports += 1; await pending; });
+  runtime.controller.open();
+  runtime.elements.input.value = "<section>Imported once</section>";
+  const firstClick = runtime.elements.submit.dispatch("click");
+  const duplicateClick = runtime.elements.submit.dispatch("click");
+  resolveImport();
+  await Promise.all([firstClick, duplicateClick]);
+  assert.equal(imports, 1);
+  assert.equal(runtime.elements.overlay.style.display, "none");
+  assert.equal(runtime.elements.error.textContent, "");
+  await runtime.elements.submit.dispatch("click");
+  assert.equal(runtime.elements.error.textContent, "", "late clicks on hidden modal must be ignored");
 }

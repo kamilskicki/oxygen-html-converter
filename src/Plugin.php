@@ -88,6 +88,9 @@ class Plugin
             return;
         }
 
+        // CSS is embedded in a raw-text HTML element by WordPress.
+        $css = str_ireplace('</style', '<\/style', $css);
+
         if (function_exists('wp_register_style')) {
             wp_register_style(
                 'oxy-html-converter-global-styles',
@@ -122,7 +125,7 @@ class Plugin
             return;
         }
 
-        $css = str_replace('</style', '<\/style', $css);
+        $css = str_ireplace('</style', '<\/style', $css);
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Generated CSS is not HTML; closing style tags are neutralized above.
         echo "\n<style id=\"oxy-html-converter-page-styles-inline-css\">\n" . $css . "\n</style>\n";
     }

@@ -700,9 +700,6 @@ class ElementMapper
 
         $sources = $node->getElementsByTagName('source');
         foreach ($sources as $source) {
-            if (!($source instanceof DOMElement)) {
-                continue;
-            }
 
             $sourceSrc = trim($source->getAttribute('src'));
             if ($sourceSrc !== '') {
@@ -751,9 +748,6 @@ class ElementMapper
         }
 
         foreach ($node->attributes as $attribute) {
-            if (!($attribute instanceof \DOMAttr)) {
-                continue;
-            }
 
             $name = strtolower($attribute->name);
             if (strpos($name, 'data-') === 0 || strpos($name, 'aria-') === 0) {

@@ -99,7 +99,7 @@ class OxygenValueNormalizer
             return $this->normalizeRawPercentageNumber($value);
         }
 
-        if (($path[0] ?? '') === 'typography' && ($path[1] ?? '') === 'line_height') {
+        if ($path[0] === 'typography' && ($path[1] ?? '') === 'line_height') {
             return $this->normalizeLineHeight((string) $value);
         }
 
@@ -111,31 +111,31 @@ class OxygenValueNormalizer
             return $this->normalizeColor((string) $value);
         }
 
-        if (($path[0] ?? '') === 'typography' && ($path[1] ?? '') === 'font_weight') {
+        if ($path[0] === 'typography' && ($path[1] ?? '') === 'font_weight') {
             return $this->normalizeFontWeight((string) $value);
         }
 
-        if (($path[0] ?? '') === 'position' && ($path[1] ?? '') === 'z_index') {
+        if ($path[0] === 'position' && ($path[1] ?? '') === 'z_index') {
             return $this->normalizeIntegerOrCssVariable((string) $value);
         }
 
-        if (($path[0] ?? '') === 'size' && ($path[1] ?? '') === 'aspect_ratio') {
+        if ($path[0] === 'size' && ($path[1] ?? '') === 'aspect_ratio') {
             return $this->normalizeAspectRatio((string) $value);
         }
 
-        if (($path[0] ?? '') === 'effects' && ($path[1] ?? '') === 'opacity') {
+        if ($path[0] === 'effects' && ($path[1] ?? '') === 'opacity') {
             return $this->normalizeOpacity((string) $value);
         }
 
-        if (($path[0] ?? '') === 'flex_child' && in_array(($path[1] ?? ''), ['flex_grow', 'flex_shrink'], true)) {
+        if ($path[0] === 'flex_child' && in_array(($path[1] ?? ''), ['flex_grow', 'flex_shrink'], true)) {
             return $this->normalizeNonNegativeNumberOrCssVariable((string) $value);
         }
 
-        if (in_array(($path[0] ?? ''), ['flex_child', 'grid_child'], true) && ($path[1] ?? '') === 'order_custom') {
+        if (in_array($path[0], ['flex_child', 'grid_child'], true) && ($path[1] ?? '') === 'order_custom') {
             return $this->normalizeIntegerOrCssVariable((string) $value);
         }
 
-        if (($path[0] ?? '') === 'grid_child' && in_array(($path[1] ?? ''), ['column_start', 'column_end', 'row_start', 'row_end'], true)) {
+        if ($path[0] === 'grid_child' && in_array(($path[1] ?? ''), ['column_start', 'column_end', 'row_start', 'row_end'], true)) {
             return $this->normalizeGridLineValue((string) $value);
         }
 

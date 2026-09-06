@@ -811,7 +811,7 @@ final class OxygenBlockRepository
         return $this->blockSettingsWithComponentCss([
             'preview' => [
                 'acfFlexibleField' => '',
-                'acfFlexibleFieldRow' => '',
+                'acfFlexibleFieldRow' => null,
             ],
         ], $componentCss);
     }
@@ -1019,7 +1019,7 @@ final class OxygenBlockRepository
     }
 
     /**
-     * @param array<int, array<string, mixed>> $schemaErrors
+     * @param array<int, mixed> $schemaErrors
      * @return array<int, string>
      */
     private function flattenSchemaErrors(array $schemaErrors): array
